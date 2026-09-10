@@ -11,7 +11,7 @@ describe('movie.util', () => {
     expect(looksLikeFilesystemPath('/var/media/film.mkv')).toBe(true);
     expect(isSafeHttpUrl('file:///etc/passwd')).toBe(false);
     expect(isSafeHttpUrl('https://cdn.example.com/poster.jpg')).toBe(true);
-    expect(isSafeHttpUrl('http://localhost:4000/art.jpg')).toBe(false);
+    expect(isSafeHttpUrl('http://localhost:4001/art.jpg')).toBe(false);
     expect(isSafeHttpUrl('http://192.168.1.10/art.jpg')).toBe(false);
   });
 

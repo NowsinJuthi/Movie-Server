@@ -11,7 +11,7 @@ const booleanish = z
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(4000),
+  PORT: z.coerce.number().int().positive().default(4001),
   APP_NAME: z.string().min(1).default('CineVault'),
   APP_URL: z.string().url(),
   API_URL: z.string().url(),

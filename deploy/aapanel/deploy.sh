@@ -38,8 +38,8 @@ docker compose -f "$COMPOSE_FILE" ps
 
 echo
 echo "Local checks (from this VPS):"
-echo "  curl -sS http://127.0.0.1:4000/api/v1/health"
-echo "  curl -I  http://127.0.0.1:3000"
+echo "  curl -sS http://127.0.0.1:4001/api/v1/health"
+echo "  curl -I  http://127.0.0.1:3001"
 echo
 echo "Next: aaPanel → Website → SSL + paste deploy/aapanel/nginx-site.conf locations"
 echo "Done."

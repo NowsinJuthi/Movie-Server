@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const API = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
+const API = process.env.API_INTERNAL_URL || "http://127.0.0.1:4001";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 

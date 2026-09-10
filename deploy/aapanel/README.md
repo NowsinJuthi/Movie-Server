@@ -15,7 +15,7 @@ This stack is configured so **aaPanel Nginx** handles `80/443` + SSL, while Dock
 
 1. Install aaPanel on Ubuntu 24.
 2. Install **Nginx** + **Docker Manager** (or Docker CE via CLI).
-3. Open firewall: `22`, `80`, `443`, aaPanel port. Do **not** expose `3000`/`4000` publicly.
+3. Open firewall: `22`, `80`, `443`, aaPanel port. Do **not** expose `3001`/`4001` publicly.
 
 ## 2. Upload project
 
@@ -62,8 +62,8 @@ docker compose -f docker-compose.aapanel.yml up -d --build
 Verify:
 
 ```bash
-curl -sS http://127.0.0.1:4000/api/v1/health
-curl -I http://127.0.0.1:3000
+curl -sS http://127.0.0.1:4001/api/v1/health
+curl -I http://127.0.0.1:3001
 ```
 
 ## 5. aaPanel website
@@ -71,9 +71,9 @@ curl -I http://127.0.0.1:3000
 1. **Website → Add site** → `yourdomain.com`
 2. Enable **SSL → Let’s Encrypt** (Force HTTPS)
 3. Open site **Config** and merge proxy rules from `deploy/aapanel/nginx-site.conf`:
-   - `/api/` → `http://127.0.0.1:4000`
-   - `/socket.io/` → `http://127.0.0.1:4000` (WebSocket upgrade)
-   - `/` → `http://127.0.0.1:3000`
+   - `/api/` → `http://127.0.0.1:4001`
+   - `/socket.io/` → `http://127.0.0.1:4001` (WebSocket upgrade)
+   - `/` → `http://127.0.0.1:3001`
 4. Reload Nginx
 
 ## 6. Media libraries

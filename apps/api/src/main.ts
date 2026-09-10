@@ -41,7 +41,7 @@ async function bootstrap() {
   const httpAdapter = app.getHttpAdapter().getInstance();
   httpAdapter.set('trust proxy', 1);
 
-  const port = config.get<number>('PORT') ?? 4000;
+  const port = config.get<number>('PORT') ?? 4001;
   await app.listen(port);
   logger.log(`${config.get('APP_NAME')} API listening on ${port} (${prefix})`);
 }

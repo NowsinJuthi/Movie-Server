@@ -141,7 +141,7 @@ export class BillingService {
 
     const provider = this.providers.get();
     const customer = await this.customers.findOne({ userId, provider: provider.id });
-    const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+    const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3001';
 
     const created = await runInTransaction(this.connection, async (session) => {
       const invoiceNumber = await this.nextInvoiceNumber(session);

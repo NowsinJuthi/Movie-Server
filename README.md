@@ -4,8 +4,8 @@ Emby-style private media platform with Netflix-style profiles, subscriptions, an
 
 | | |
 |---|---|
-| **Web** | http://localhost:3000 (dev) |
-| **API** | http://localhost:4000/api/v1 |
+| **Web** | http://localhost:3001 (dev) |
+| **API** | http://localhost:4001/api/v1 |
 | **Health** | `GET /api/v1/health` |
 | **Admin** | `/admin` (admin / super_admin) |
 | **License** | `/license` · Admin → System → License |
@@ -99,8 +99,8 @@ docker compose -f docker-compose.dev.yml up -d
 
 npm install
 npm run build -w @movie-server/shared
-npm run dev:api    # :4000
-npm run dev:web    # :3000
+npm run dev:api    # :4001
+npm run dev:web    # :3001
 ```
 
 Optional: `REDIS_HOST=memory` for API without Redis (dev only).
@@ -125,7 +125,7 @@ npm run license:generate -- --days 365 --edition pro
 
 ## Production on aaPanel (Ubuntu VPS)
 
-aaPanel Nginx owns **80/443** (SSL). Docker runs Mongo, Redis, API, and Web bound to **localhost only** (`127.0.0.1:3000` / `4000`). Do **not** expose 3000/4000 publicly.
+aaPanel Nginx owns **80/443** (SSL). Docker runs Mongo, Redis, API, and Web bound to **localhost only** (`127.0.0.1:3001` / `4001`). Do **not** expose 3001/4001 publicly.
 
 ### Files
 
@@ -141,7 +141,7 @@ aaPanel Nginx owns **80/443** (SSL). Docker runs Mongo, Redis, API, and Web boun
 
 1. Install **aaPanel** on Ubuntu 24.
 2. Install **Nginx** and **Docker** (Docker Manager or Docker CE).
-3. Firewall: `22`, `80`, `443`, aaPanel port. Block public access to `3000`/`4000`.
+3. Firewall: `22`, `80`, `443`, aaPanel port. Block public access to `3001`/`4001`.
 
 ### 2) Upload the project
 
@@ -191,8 +191,8 @@ docker compose -f docker-compose.aapanel.yml up -d --build
 Verify on the server:
 
 ```bash
-curl -sS http://127.0.0.1:4000/api/v1/health
-curl -I http://127.0.0.1:3000
+curl -sS http://127.0.0.1:4001/api/v1/health
+curl -I http://127.0.0.1:3001
 docker compose -f docker-compose.aapanel.yml ps
 ```
 
@@ -201,9 +201,9 @@ docker compose -f docker-compose.aapanel.yml ps
 1. **Website → Add site** → `yourdomain.com`
 2. **SSL → Let’s Encrypt** → Force HTTPS
 3. Open site **Config** and apply proxy rules from `deploy/aapanel/nginx-site.conf`:
-   - `/api/` → `http://127.0.0.1:4000`
-   - `/socket.io/` → `http://127.0.0.1:4000` (WebSocket upgrade)
-   - `/` → `http://127.0.0.1:3000`
+   - `/api/` → `http://127.0.0.1:4001`
+   - `/socket.io/` → `http://127.0.0.1:4001` (WebSocket upgrade)
+   - `/` → `http://127.0.0.1:3001`
 4. Reload Nginx
 
 ### 6) After go-live
@@ -235,7 +235,7 @@ docker compose -f docker-compose.aapanel.yml restart api web
 1. aaPanel-এ Nginx + Docker ইনস্টল করুন; পাবলিক পোর্ট শুধু `80/443`।
 2. প্রজেক্ট `/www/wwwroot/cinevault`-এ ক্লোন করুন, `.env` সেট করুন।
 3. `./deploy/aapanel/deploy.sh` চালান।
-4. ডোমেইন সাইট বানিয়ে SSL চালু করুন; Nginx-এ `nginx-site.conf` প্রক্সি বসান।
+4. ডোমেইন সাইট বানিয়ে SSL চালু করুন; Nginx-এ `nginx-site.conf` প্রক্সি বসান (`3001`/`4001`)।
 5. অ্যাডমিন থেকে Settings (SMTP/লোগো) ও License কী অ্যাক্টিভেট করুন।
 
 ---

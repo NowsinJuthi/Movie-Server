@@ -38,7 +38,7 @@ services:
       REDIS_PORT: 6379
       APP_URL: http://localhost
       API_URL: http://localhost
-      CORS_ORIGINS: http://localhost,http://localhost:3000
+      CORS_ORIGINS: http://localhost,http://localhost:3001
       COOKIE_SECURE: "false"
     depends_on:
       mongo:

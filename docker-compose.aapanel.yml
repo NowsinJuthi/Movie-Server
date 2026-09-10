@@ -1,5 +1,7 @@
 # CineVault — aaPanel / Ubuntu VPS production stack
-# aaPanel owns ports 80/443 (Nginx + SSL). This compose binds app ports to localhost only.
+# aaPanel owns ports 80/443 (Nginx + SSL). App ports are published on localhost only:
+#   host 4001 → container API 4000
+#   host 3001 → container Web 3000
 #
 # Usage:
 #   cp deploy/aapanel/.env.aapanel.example .env
@@ -63,7 +65,7 @@ services:
       - ${CINEVAULT_MEDIA_HOST:-/data/cinevault/media}:/data/media
       - ${CINEVAULT_SMB_HOST:-/data/cinevault/smb-mounts}:/data/smb-mounts
     ports:
-      - "127.0.0.1:4000:4000"
+      - "127.0.0.1:4001:4000"
     depends_on:
       mongo:
         condition: service_healthy
@@ -97,7 +99,7 @@ services:
       NEXT_PUBLIC_API_URL: /api/v1
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3000"
     depends_on:
       api:
         condition: service_healthy
