@@ -1,0 +1,479 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+} from "react";
+import {
+  Activity,
+  ChevronDown,
+  Clapperboard,
+  ClipboardList,
+  CreditCard,
+  Film,
+  FolderKanban,
+  HardDrive,
+  Heart,
+  KeyRound,
+  LayoutDashboard,
+  Library,
+  ListMusic,
+  MonitorPlay,
+  Settings2,
+  Tags,
+  Tv,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { hasMinimumRole, UserRole } from "@movie-server/shared";
+import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
+import { useBranding } from "@/components/branding/site-brand";
+import { brandingAssetSrc } from "@/lib/settings-api";
+import styles from "./admin-shell.module.css";
+
+type NavIcon = ComponentType<{ className?: string }>;
+
+type NavChild = {
+  href: string;
+  label: string;
+  icon: NavIcon;
+};
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: NavIcon;
+  children?: NavChild[];
+};
+
+type NavSection = {
+  id: "overview" | "accounts" | "catalog" | "operations";
+  label: string;
+  icon: NavIcon;
+  items: NavItem[];
+};
+
+const NAV: NavSection[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    icon: LayoutDashboard,
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      {
+        href: "/admin/health",
+        label: "System",
+        icon: Activity,
+        children: [
+          { href: "/admin/health", label: "Health", icon: Activity },
+          { href: "/admin/settings", label: "Settings", icon: Settings2 },
+          { href: "/admin/license", label: "License", icon: KeyRound },
+          { href: "/admin/jobs", label: "Jobs", icon: Settings2 },
+          { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
+        ],
+      },
+    ],
+  },
+  {
+    id: "accounts",
+    label: "Accounts",
+    icon: Users,
+    items: [
+      {
+        href: "/admin/users",
+        label: "People",
+        icon: Users,
+        children: [
+          { href: "/admin/users", label: "Users", icon: Users },
+          { href: "/admin/profiles", label: "Profiles", icon: Heart },
+        ],
+      },
+      {
+        href: "/admin/plans",
+        label: "Billing",
+        icon: CreditCard,
+        children: [
+          { href: "/admin/plans", label: "Plans", icon: CreditCard },
+          { href: "/admin/subscriptions", label: "Subscriptions", icon: Wallet },
+          { href: "/admin/billing", label: "Payments", icon: Wallet },
+        ],
+      },
+    ],
+  },
+  {
+    id: "catalog",
+    label: "Catalog",
+    icon: Clapperboard,
+    items: [
+      {
+        href: "/admin/movies",
+        label: "Titles",
+        icon: Film,
+        children: [
+          { href: "/admin/movies", label: "Movies", icon: Film },
+          { href: "/admin/series", label: "TV series", icon: Tv },
+        ],
+      },
+      {
+        href: "/admin/collections",
+        label: "Collections",
+        icon: FolderKanban,
+        children: [
+          { href: "/admin/collections", label: "Movie collections", icon: FolderKanban },
+          { href: "/admin/series-collections", label: "Series collections", icon: Library },
+        ],
+      },
+      {
+        href: "/admin/genres",
+        label: "Metadata",
+        icon: Tags,
+        children: [
+          { href: "/admin/tracks", label: "Audio & subtitles", icon: ListMusic },
+          { href: "/admin/genres", label: "Genres", icon: Tags },
+          { href: "/admin/tags", label: "Tags", icon: Tags },
+        ],
+      },
+      {
+        href: "/admin/featured",
+        label: "Discovery",
+        icon: MonitorPlay,
+        children: [
+          { href: "/admin/featured", label: "Featured / trending", icon: Heart },
+          { href: "/admin/home", label: "Homepage", icon: MonitorPlay },
+        ],
+      },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: HardDrive,
+    items: [
+      {
+        href: "/admin/libraries",
+        label: "Runtime",
+        icon: HardDrive,
+        children: [
+          { href: "/admin/libraries", label: "Media library", icon: HardDrive },
+          { href: "/admin/file-manager", label: "Samba file manager", icon: FolderKanban },
+          { href: "/admin/sessions", label: "Sessions & streams", icon: MonitorPlay },
+        ],
+      },
+    ],
+  },
+];
+
+const SECTION_CLASS: Record<NavSection["id"], string> = {
+  overview: styles["section--overview"]!,
+  accounts: styles["section--accounts"]!,
+  catalog: styles["section--catalog"]!,
+  operations: styles["section--operations"]!,
+};
+
+const EXPANDED_KEY = "cinevault-admin-nav-expanded";
+
+function isLinkActive(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function hasActiveChild(pathname: string | null, item: NavItem) {
+  return Boolean(item.children?.some((child) => isLinkActive(pathname, child.href)));
+}
+
+function isGroupRouteOpen(pathname: string | null, item: NavItem) {
+  return isLinkActive(pathname, item.href) || hasActiveChild(pathname, item);
+}
+
+function readExpandedGroup(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(EXPANDED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeExpandedGroup(href: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (href) sessionStorage.setItem(EXPANDED_KEY, href);
+    else sessionStorage.removeItem(EXPANDED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function useGroupOpenState(pathname: string | null) {
+  const [manualExpanded, setManualExpanded] = useState<string | null>(readExpandedGroup);
+  const [manualCollapsed, setManualCollapsed] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setManualCollapsed(new Set());
+    setManualExpanded(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    writeExpandedGroup(manualExpanded);
+  }, [manualExpanded]);
+
+  const isGroupOpen = useCallback(
+    (item: NavItem) => {
+      if (!item.children?.length) return false;
+      if (manualCollapsed.has(item.href)) return false;
+      if (manualExpanded) return manualExpanded === item.href;
+      return isGroupRouteOpen(pathname, item);
+    },
+    [manualCollapsed, manualExpanded, pathname],
+  );
+
+  const expandGroup = useCallback((item: NavItem) => {
+    setManualCollapsed((prev) => {
+      const next = new Set(prev);
+      next.delete(item.href);
+      return next;
+    });
+    setManualExpanded(item.href);
+  }, []);
+
+  const toggleGroup = useCallback(
+    (item: NavItem) => {
+      const routeOpen = isGroupRouteOpen(pathname, item);
+      const open =
+        !manualCollapsed.has(item.href) &&
+        (manualExpanded === item.href || (!manualExpanded && routeOpen));
+
+      if (open) {
+        if (routeOpen && !manualExpanded) {
+          setManualCollapsed((prev) => {
+            const next = new Set(prev);
+            next.add(item.href);
+            return next;
+          });
+          return;
+        }
+        setManualExpanded(null);
+        return;
+      }
+
+      setManualCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(item.href);
+        return next;
+      });
+      setManualExpanded(item.href);
+    },
+    [manualCollapsed, manualExpanded, pathname],
+  );
+
+  return { isGroupOpen, toggleGroup, expandGroup };
+}
+
+export function AdminShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, status } = useAuthStore();
+  const { isGroupOpen, toggleGroup, expandGroup } = useGroupOpenState(pathname);
+  const { siteName, logoUrl } = useBranding();
+  const logoSrc = brandingAssetSrc(logoUrl);
+
+  useEffect(() => {
+    if (status === "anonymous") {
+      router.replace(`/login?next=${pathname || "/admin"}`);
+    } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
+      router.replace("/unauthorized");
+    }
+  }, [status, user, router, pathname]);
+
+  if (status === "loading" || status === "idle") {
+    return (
+      <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Checking access...
+      </main>
+    );
+  }
+  if (!user || !hasMinimumRole(user.role, UserRole.Admin)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Checking access...
+      </main>
+    );
+  }
+
+  return (
+    <div className={cn(styles.adminPanel, "admin-panel")}>
+      <div className={styles.shell}>
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarHead}>
+            <Link href="/admin" className={styles.brand}>
+              {logoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoSrc} alt={siteName} className="h-7 w-auto max-w-[140px] object-contain" />
+              ) : (
+                <>
+                  {siteName} <span className={styles.brandAccent}>Admin</span>
+                </>
+              )}
+            </Link>
+            <Link href="/app" className={styles.appLink}>
+              App
+            </Link>
+          </div>
+
+          <nav className={styles.sidebarNav} aria-label="Admin">
+            <div className={styles.menuPanel}>
+              <div className={styles.menuScroll}>
+                <div className={styles.menuScrollInner}>
+                  {NAV.map((section) => {
+                    const SectionIcon = section.icon;
+                    return (
+                      <div
+                        key={section.id}
+                        className={cn(styles.section, SECTION_CLASS[section.id])}
+                      >
+                        <div className={styles.sectionHead}>
+                          <span className={styles.sectionIcon} aria-hidden>
+                            <SectionIcon className="h-3.5 w-3.5" />
+                          </span>
+                          <p className={styles.sectionLabel}>{section.label}</p>
+                        </div>
+                        <ul className={styles.itemList}>
+                          {section.items.map((item) => {
+                            const Icon = item.icon;
+
+                            if (!item.children?.length) {
+                              const active = isLinkActive(pathname, item.href);
+                              return (
+                                <li key={item.href}>
+                                  <Link
+                                    href={item.href}
+                                    className={cn(styles.navLink, active && styles.navLinkActive)}
+                                  >
+                                    {active ? <span className={styles.indicator} aria-hidden /> : null}
+                                    <span className={styles.iconBox}>
+                                      <Icon className="h-4 w-4" />
+                                    </span>
+                                    <span className={styles.label}>{item.label}</span>
+                                  </Link>
+                                </li>
+                              );
+                            }
+
+                            const open = isGroupOpen(item);
+                            const childActive = hasActiveChild(pathname, item);
+                            const parentActive =
+                              isLinkActive(pathname, item.href) && !childActive;
+
+                            return (
+                              <li
+                                key={item.href}
+                                className={cn(styles.navGroup, open && styles.navGroupOpen)}
+                              >
+                                <div
+                                  className={cn(
+                                    styles.navLink,
+                                    styles.navLinkGroup,
+                                    (parentActive || (open && childActive)) && styles.navLinkActive,
+                                  )}
+                                >
+                                  {parentActive ? (
+                                    <span className={styles.indicator} aria-hidden />
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className={styles.navLinkMain}
+                                    onClick={() => {
+                                      if (open) {
+                                        router.push(item.href);
+                                      } else {
+                                        expandGroup(item);
+                                      }
+                                    }}
+                                  >
+                                    <span className={styles.iconBox}>
+                                      <Icon className="h-4 w-4" />
+                                    </span>
+                                    <span className={styles.label}>{item.label}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.chevron}
+                                    aria-expanded={open}
+                                    aria-label={`${open ? "Collapse" : "Expand"} ${item.label}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleGroup(item);
+                                    }}
+                                  >
+                                    <ChevronDown
+                                      className={cn(
+                                        styles.chevronIcon,
+                                        open && styles.chevronIconOpen,
+                                      )}
+                                    />
+                                  </button>
+                                </div>
+
+                                {open ? (
+                                  <div className={styles.subnavBox}>
+                                    <ul className={styles.subnavInner}>
+                                      {item.children.map((child) => {
+                                        const ChildIcon = child.icon;
+                                        const active = isLinkActive(pathname, child.href);
+                                        return (
+                                          <li key={child.href}>
+                                            <Link
+                                              href={child.href}
+                                              className={cn(
+                                                styles.subnavLink,
+                                                active && styles.subnavLinkActive,
+                                              )}
+                                            >
+                                              {active ? (
+                                                <span className={styles.subnavIndicator} aria-hidden />
+                                              ) : null}
+                                              <span
+                                                className={cn(
+                                                  styles.subnavIconBox,
+                                                  active && styles.subnavIconBoxActive,
+                                                )}
+                                              >
+                                                <ChildIcon className="h-3.5 w-3.5" />
+                                              </span>
+                                              <span className={styles.label}>{child.label}</span>
+                                            </Link>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </nav>
+
+          <p className={styles.sidebarFoot}>
+            Signed in as {user.email}
+            {user.role === UserRole.SuperAdmin ? " · Super Admin" : " · Admin"}
+          </p>
+        </aside>
+
+        <div className={styles.content}>{children}</div>
+      </div>
+    </div>
+  );
+}

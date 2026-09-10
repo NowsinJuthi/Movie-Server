@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+.next/
+out/
+tmp/
+*.tsbuildinfo
+
+# Env and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+*.pem
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Docker volumes
+data/
+docker/data/
+
+# Media (future transcode output)
+storage/media/
+storage/hls/
+storage/uploads/
+storage/license/
+**/storage/uploads/
+**/storage/license/
+**/storage/media/
+**/storage/hls/
+
+# Misc
+.turbo
+.cache

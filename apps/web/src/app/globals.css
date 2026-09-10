@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/* UniQbd-matched palette: brand teal + deep teal dark surfaces */
+:root {
+  --background: #01131a;
+  --foreground: #f8fafc;
+  --card: #031a22;
+  --card-foreground: #f8fafc;
+  --primary: #26bfb0;
+  --primary-foreground: #ffffff;
+  --secondary: #06212a;
+  --secondary-foreground: #f8fafc;
+  --muted: #06212a;
+  --muted-foreground: #94a3b8;
+  --accent: #06212a;
+  --accent-foreground: #f8fafc;
+  --destructive: #f43f5e;
+  --border: #0e2832;
+  --input: #0e2832;
+  --ring: #26bfb0;
+  --radius: 0.75rem;
+  --brand-deep: #0a6258;
+  --brand-soft: #5eead4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.auth-backdrop {
+  background:
+    radial-gradient(circle at top, rgb(38 191 176 / 0.28), transparent 45%),
+    linear-gradient(180deg, #01131a, #000f15);
+}
+
+/* Emby-style player volume slider: filled track + large white thumb */
+.volume-slider {
+  --volume-pct: 100%;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #d0d0d0 0%,
+    #d0d0d0 var(--volume-pct),
+    #444444 var(--volume-pct),
+    #444444 100%
+  );
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #444444;
+}
+
+.volume-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #d0d0d0;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+}

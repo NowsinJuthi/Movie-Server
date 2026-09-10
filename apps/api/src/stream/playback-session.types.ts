@@ -1,0 +1,52 @@
+import { SubtitleFormat, VideoQuality, VideoResolution } from '@movie-server/shared';
+
+export type StoredPlaybackVariant = {
+  assetId: string;
+  resolution: VideoResolution;
+  quality: VideoQuality;
+  bandwidth: number;
+};
+
+export type StoredPlaybackTrack = {
+  assetId: string;
+  kind: 'audio' | 'subtitle';
+  language: string | null;
+  label: string | null;
+  codec: string | null;
+  channels: number | null;
+  format: SubtitleFormat | null;
+  forced: boolean;
+  hearingImpaired: boolean;
+  isDefault: boolean;
+  playable: boolean;
+  embedded: boolean;
+  streamIndex: number | null;
+};
+
+export type StoredPlaybackSession = {
+  id: string;
+  userId: string;
+  profileId: string;
+  deviceId: string;
+  mediaType: 'movie' | 'episode';
+  mediaId: string;
+  movieId?: string;
+  episodeId?: string;
+  seriesId?: string;
+  assetId: string;
+  quality: VideoQuality;
+  resolution: VideoResolution | null;
+  variants: StoredPlaybackVariant[];
+  audioTracks: StoredPlaybackTrack[];
+  subtitleTracks: StoredPlaybackTrack[];
+  selectedAudioId: string | null;
+  selectedSubtitleId: string | null;
+  durationSeconds: number;
+  createdAt: number;
+  lastHeartbeat: number;
+  deviceLabel?: string;
+};
+
+export const STREAM_PREFIX = 'stream:session:';
+export const STREAM_USER_PREFIX = 'stream:user:';
+export const STREAM_DEVICE_PREFIX = 'stream:devices:';

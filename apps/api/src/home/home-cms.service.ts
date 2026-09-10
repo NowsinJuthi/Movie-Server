@@ -1,0 +1,139 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import type { AdminHomeHero, AdminHomeRow, HomeRowKind } from '@movie-server/shared';
+import { RedisService } from '../redis/redis.service';
+import { HOME_LAYOUT_KEY } from '../common/cache-keys';
+import { HomeHero, HomeHeroDocument } from './schemas/home-hero.schema';
+import { HomeRowConfig, HomeRowConfigDocument } from './schemas/home-row-config.schema';
+
+@Injectable()
+export class HomeCmsService {
+  constructor(
+    @InjectModel(HomeHero.name) private readonly heroes: Model<HomeHeroDocument>,
+    @InjectModel(HomeRowConfig.name) private readonly rows: Model<HomeRowConfigDocument>,
+    private readonly redis: RedisService,
+  ) {}
+
+  async layoutVersion(): Promise<string> {
+    return (await this.redis.client.get(HOME_LAYOUT_KEY)) ?? '0';
+  }
+
+  async findHero(): Promise<HomeHeroDocument | null> {
+    return this.heroes.findOne({ key: 'default' });
+  }
+
+  async getHero(): Promise<HomeHeroDocument> {
+    const existing = await this.heroes.findOne({ key: 'default' });
+    if (existing) return existing;
+    return this.heroes.create({ key: 'default', enabled: false, mediaKind: null, mediaId: null });
+  }
+
+  async updateHero(input: {
+    enabled?: boolean;
+    mediaKind?: 'movie' | 'series' | null;
+    mediaId?: string | null;
+    titleOverride?: string | null;
+  }): Promise<HomeHeroDocument> {
+    const hero = await this.getHero();
+    if (input.enabled !== undefined) hero.enabled = input.enabled;
+    if (input.mediaKind !== undefined) hero.mediaKind = input.mediaKind;
+    if (input.mediaId !== undefined) hero.mediaId = input.mediaId;
+    if (input.titleOverride !== undefined) hero.titleOverride = input.titleOverride;
+    await hero.save();
+    await this.bump();
+    return hero;
+  }
+
+  async listRows(): Promise<HomeRowConfigDocument[]> {
+    return this.rows.find().sort({ sortOrder: 1, createdAt: 1 }).exec();
+  }
+
+  async listEnabledRows(): Promise<HomeRowConfigDocument[]> {
+    return this.rows.find({ enabled: true }).sort({ sortOrder: 1, createdAt: 1 }).exec();
+  }
+
+  async createRow(input: {
+    title: string;
+    kind: HomeRowKind;
+    enabled?: boolean;
+    sortOrder?: number;
+    genre?: string | null;
+    collectionId?: string | null;
+    itemIds?: string[];
+  }): Promise<HomeRowConfigDocument> {
+    const created = await this.rows.create({
+      title: input.title.trim().slice(0, 80),
+      kind: input.kind,
+      enabled: input.enabled ?? true,
+      sortOrder: input.sortOrder ?? 0,
+      genre: input.genre ?? null,
+      collectionId: input.collectionId ?? null,
+      itemIds: (input.itemIds ?? []).slice(0, 40),
+    });
+    await this.bump();
+    return created;
+  }
+
+  async updateRow(
+    id: string,
+    input: Partial<{
+      title: string;
+      kind: HomeRowKind;
+      enabled: boolean;
+      sortOrder: number;
+      genre: string | null;
+      collectionId: string | null;
+      itemIds: string[];
+    }>,
+  ): Promise<HomeRowConfigDocument | null> {
+    const row = await this.rows.findById(id);
+    if (!row) return null;
+    if (input.title !== undefined) row.title = input.title.trim().slice(0, 80);
+    if (input.kind !== undefined) row.kind = input.kind;
+    if (input.enabled !== undefined) row.enabled = input.enabled;
+    if (input.sortOrder !== undefined) row.sortOrder = input.sortOrder;
+    if (input.genre !== undefined) row.genre = input.genre;
+    if (input.collectionId !== undefined) row.collectionId = input.collectionId;
+    if (input.itemIds !== undefined) row.itemIds = input.itemIds.slice(0, 40);
+    await row.save();
+    await this.bump();
+    return row;
+  }
+
+  async removeRow(id: string): Promise<boolean> {
+    const result = await this.rows.findByIdAndDelete(id);
+    if (result) await this.bump();
+    return Boolean(result);
+  }
+
+  toPublicHero(hero: HomeHeroDocument): AdminHomeHero {
+    return {
+      id: String(hero._id),
+      enabled: hero.enabled,
+      mediaKind: hero.mediaKind ?? null,
+      mediaId: hero.mediaId ?? null,
+      titleOverride: hero.titleOverride ?? null,
+      updatedAt: hero.updatedAt.toISOString(),
+    };
+  }
+
+  toPublicRow(row: HomeRowConfigDocument): AdminHomeRow {
+    return {
+      id: String(row._id),
+      title: row.title,
+      kind: row.kind,
+      enabled: row.enabled,
+      sortOrder: row.sortOrder,
+      genre: row.genre ?? null,
+      collectionId: row.collectionId ?? null,
+      itemIds: row.itemIds ?? [],
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private async bump(): Promise<void> {
+    await this.redis.client.incr(HOME_LAYOUT_KEY);
+  }
+}

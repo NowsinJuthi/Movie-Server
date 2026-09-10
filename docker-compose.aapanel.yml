@@ -1,0 +1,126 @@
+# CineVault — aaPanel / Ubuntu VPS production stack
+# aaPanel owns ports 80/443 (Nginx + SSL). This compose binds app ports to localhost only.
+#
+# Usage:
+#   cp deploy/aapanel/.env.aapanel.example .env
+#   # edit .env with your domain + secrets
+#   docker compose -f docker-compose.aapanel.yml up -d --build
+
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - cinevault_mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    networks:
+      - cinevault
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - cinevault_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+      start_period: 5s
+    networks:
+      - cinevault
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      MONGODB_URI: mongodb://mongo:27017/cinevault
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      API_PREFIX: api/v1
+      FFPROBE_PATH: ffprobe
+      FFMPEG_PATH: ffmpeg
+      MEDIA_PROBE: auto
+      ARTWORK_UPLOAD_DIR: /app/storage/uploads/artwork
+      SMB_MOUNT_ROOT: /data/smb-mounts
+      # Media dirs are inside the container; host paths are bind-mounted below.
+      MEDIA_MOVIES_DIR: /data/media/movies
+      MEDIA_TV_DIR: /data/media/tv
+    volumes:
+      - cinevault_uploads:/app/storage
+      - ${CINEVAULT_MEDIA_HOST:-/data/cinevault/media}:/data/media
+      - ${CINEVAULT_SMB_HOST:-/data/cinevault/smb-mounts}:/data/smb-mounts
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    networks:
+      - cinevault
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      API_INTERNAL_URL: http://api:4000
+      NEXT_PUBLIC_API_URL: /api/v1
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+    networks:
+      - cinevault
+
+volumes:
+  cinevault_mongo:
+  cinevault_redis:
+  cinevault_uploads:
+
+networks:
+  cinevault:
+    driver: bridge
