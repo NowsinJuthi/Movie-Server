@@ -48,7 +48,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: "4000"
-      MONGODB_URI: mongodb://mongo:27017/cinevault
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       API_PREFIX: api/v1
@@ -66,9 +65,9 @@ services:
       - ${CINEVAULT_SMB_HOST:-/data/movies.amarpin.com/smb-mounts}:/data/smb-mounts
     ports:
       - "127.0.0.1:4001:4000"
+    cap_add:
+      - SYS_ADMIN
     depends_on:
-      mongo:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -90,13 +89,16 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://movies.api.amarpin.com/api/v1}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
+        API_INTERNAL_URL: http://api:4000
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
       API_INTERNAL_URL: http://api:4000
-      NEXT_PUBLIC_API_URL: /api/v1
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
     ports:
       - "127.0.0.1:3001:3000"

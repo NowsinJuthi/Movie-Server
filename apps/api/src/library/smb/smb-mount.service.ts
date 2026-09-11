@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
 import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -317,38 +318,58 @@ export class SmbMountService {
     return (useful || combined[0] || err.message || 'Windows SMB authentication failed').slice(0, 400);
   }
 
+  private async writeLinuxCredentialsFile(auth: SmbAuth): Promise<string> {
+    const credDir = path.join(this.mountRoot(), '.credentials');
+    await fs.mkdir(credDir, { recursive: true, mode: 0o700 });
+    const credFile = path.join(credDir, `${randomBytes(12).toString('hex')}.cred`);
+    const domain = (auth.domain ?? '').trim() || 'WORKGROUP';
+    await fs.writeFile(
+      credFile,
+      `username=${auth.username}\npassword=${auth.password}\ndomain=${domain}\n`,
+      { mode: 0o600 },
+    );
+    return credFile;
+  }
+
   private async ensureLinux(serverId: string, auth: SmbAuth, remotePath: string): Promise<string> {
     const mountPoint = this.linuxMountPoint(serverId);
     await fs.mkdir(mountPoint, { recursive: true });
     const source = `//${auth.host}/${auth.share}`;
-    const options = [
-      `username=${auth.username}`,
-      `password=${auth.password}`,
-      `domain=${auth.domain || 'WORKGROUP'}`,
-      'uid=0',
-      'gid=0',
-      'iocharset=utf8',
-      'file_mode=0644',
-      'dir_mode=0755',
-      'vers=3.0',
-    ].join(',');
+    const cleaned = remotePath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+    const full = cleaned ? path.join(mountPoint, ...cleaned.split('/')) : mountPoint;
 
     const alreadyMounted = await this.isMounted(mountPoint);
     if (!alreadyMounted) {
+      const credFile = await this.writeLinuxCredentialsFile(auth);
+      const options = [
+        `credentials=${credFile}`,
+        'uid=0',
+        'gid=0',
+        'iocharset=utf8',
+        'file_mode=0644',
+        'dir_mode=0755',
+        'vers=3.0',
+        'noserverino',
+      ].join(',');
       try {
         await execFileAsync('mount', ['-t', 'cifs', source, mountPoint, '-o', options], {
           timeout: 45_000,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(
-          `Could not mount ${source}. On Ubuntu the API process needs permission to mount CIFS (or pre-mount the share). ${message}`,
-        );
+        try {
+          await fs.access(full);
+          this.logger.warn(`Using pre-mounted Samba path for ${source} at ${mountPoint}`);
+        } catch {
+          const message = this.formatExecError(error);
+          throw new Error(
+            `Could not mount ${source}. The API container needs CIFS mount permission (cap SYS_ADMIN), or pre-mount the share on the host under ${mountPoint}. ${message}`,
+          );
+        }
+      } finally {
+        await fs.unlink(credFile).catch(() => undefined);
       }
     }
 
-    const cleaned = remotePath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
-    const full = cleaned ? path.join(mountPoint, ...cleaned.split('/')) : mountPoint;
     await fs.access(full);
     return full;
   }

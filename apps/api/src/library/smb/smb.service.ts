@@ -198,17 +198,36 @@ export class SmbService implements OnModuleInit {
       }
     }
 
-    const rootPath = await this.mounts.ensureAccessible(String(server._id), auth, remotePath);
-    const library = await this.libraryService.createFromExternalRoot({
-      name: dto.name,
-      kind: dto.kind as LibraryKind,
-      rootPath,
-      provider: StorageProviderKind.Smb,
-      smbServerId: String(server._id),
-      smbShare: server.share,
-      smbRemotePath: remotePath || '',
-    });
-    return library;
+    let rootPath: string;
+    try {
+      rootPath = await this.mounts.ensureAccessible(String(server._id), auth, remotePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException({
+        error: ErrorCode.SmbConnectionFailed,
+        message: `Could not mount Samba folder for library scan: ${message}`,
+      });
+    }
+    try {
+      return await this.libraryService.createFromExternalRoot({
+        name: dto.name,
+        kind: dto.kind as LibraryKind,
+        rootPath,
+        provider: StorageProviderKind.Smb,
+        smbServerId: String(server._id),
+        smbShare: server.share,
+        smbRemotePath: remotePath || '',
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException({
+        error: ErrorCode.Conflict,
+        message: `Could not create Samba library: ${message}`,
+      });
+    }
   }
 
   private sanitizeRemotePath(input?: string | null): string {
