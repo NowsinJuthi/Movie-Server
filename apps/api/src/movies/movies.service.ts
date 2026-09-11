@@ -799,18 +799,18 @@ export class MoviesService {
     if (!movie) {
       this.notFound();
     }
+    const oldKey = slot === 'poster' ? movie.posterKey : movie.backdropKey;
     const key = await this.artwork.save({ mimetype: mime, buffer: file.buffer });
-    if (slot === 'poster') {
-      await this.artwork.remove(movie.posterKey);
-      movie.posterKey = key;
-      movie.posterUrl = null;
-    } else {
-      await this.artwork.remove(movie.backdropKey);
-      movie.backdropKey = key;
-      movie.backdropUrl = null;
+    await this.artwork.remove(oldKey);
+    const $set =
+      slot === 'poster'
+        ? { posterKey: key, posterUrl: null }
+        : { backdropKey: key, backdropUrl: null };
+    const updated = await this.movieModel.findByIdAndUpdate(movieId, { $set }, { returnDocument: 'after' });
+    if (!updated) {
+      this.notFound();
     }
-    await movie.save();
-    return movie;
+    return updated;
   }
 
   async findArtworkOwner(key: string): Promise<MovieDocument | null> {

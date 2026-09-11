@@ -458,7 +458,9 @@ export class LibraryImportService {
         await this.series.attachArtwork({ seriesId: id }, slot, payload);
       }
     } catch (error) {
-      this.logger.debug(`Artwork attach skipped: ${error instanceof Error ? error.message : 'error'}`);
+      this.logger.warn(
+        `Artwork attach failed for ${kind} ${id} (${slot}): ${error instanceof Error ? error.message : 'error'}`,
+      );
     }
   }
 

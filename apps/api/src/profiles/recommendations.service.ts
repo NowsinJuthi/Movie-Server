@@ -77,11 +77,18 @@ export class RecommendationsService {
     await this.redis.client.del(recommendationsCacheKey(profileId));
     await invalidateHomeProfileCache(this.redis.client, profileId);
     if (this.queue) {
-      await this.queue.add(
-        'refresh',
-        { userId, profileId },
-        { jobId: `rec:${profileId}`, delay: 250, removeOnComplete: 20, removeOnFail: 50 },
-      );
+      try {
+        await this.queue.add(
+          'refresh',
+          { userId, profileId },
+          { jobId: `rec-${profileId}`, delay: 250, removeOnComplete: 20, removeOnFail: 50 },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Recommendation queue add failed, refreshing inline: ${error instanceof Error ? error.message : 'error'}`,
+        );
+        await this.refresh(userId, profileId);
+      }
       return;
     }
     await this.refresh(userId, profileId);

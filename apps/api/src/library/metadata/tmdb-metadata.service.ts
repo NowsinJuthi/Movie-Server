@@ -111,16 +111,28 @@ export class TmdbMetadataService {
     if (!this.enabled() || !title.trim()) {
       return null;
     }
-    const query = new URLSearchParams({ query: title.trim(), include_adult: 'false' });
+    const cleaned = title.trim();
+    const withYear = await this.searchMovieHit(cleaned, year);
+    if (withYear) {
+      return this.getMovieById(withYear);
+    }
+    if (year) {
+      const withoutYear = await this.searchMovieHit(cleaned);
+      if (withoutYear) {
+        return this.getMovieById(withoutYear);
+      }
+    }
+    return null;
+  }
+
+  private async searchMovieHit(title: string, year?: number): Promise<number | null> {
+    const query = new URLSearchParams({ query: title, include_adult: 'false' });
     if (year) {
       query.set('year', String(year));
     }
     const search = await this.getJson<TmdbSearchMovie>(`/3/search/movie?${query.toString()}`);
     const hit = search?.results?.[0];
-    if (!hit?.id) {
-      return null;
-    }
-    return this.getMovieById(hit.id);
+    return hit?.id ?? null;
   }
 
   async getMovieById(tmdbId: number): Promise<CatalogMetadata | null> {
@@ -256,7 +268,7 @@ function mapCredits(credits?: TmdbCredits | null): {
     .slice(0, 24)
     .map((member, index) => ({
       name: member.name!.trim(),
-      character: member.character?.trim() || null,
+      character: truncateCharacter(member.character),
       order: member.order ?? index,
       imageUrl: tmdbProfileUrl(member.profile_path),
     }));
@@ -278,6 +290,14 @@ function mapCredits(credits?: TmdbCredits | null): {
     directors: directors.slice(0, 8),
     writers: writers.slice(0, 8),
   };
+}
+
+function truncateCharacter(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.length > 80 ? trimmed.slice(0, 80) : trimmed;
 }
 
 function tmdbProfileUrl(profilePath?: string | null): string | null {

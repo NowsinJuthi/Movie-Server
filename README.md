@@ -125,118 +125,39 @@ npm run license:generate -- --days 365 --edition pro
 
 ## Production on aaPanel (Ubuntu VPS)
 
-aaPanel Nginx owns **80/443** (SSL). Docker runs Mongo, Redis, API, and Web bound to **localhost only** (`127.0.0.1:3001` / `4001`). Do **not** expose 3001/4001 publicly.
+**Full deploy guide (Nginx, SSL, MongoDB Atlas, Samba, troubleshooting):**
 
-### Files
+→ **[deploy/aapanel/README.md](deploy/aapanel/README.md)**
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.aapanel.yml` | Production compose (no container Nginx on :80) |
-| `deploy/aapanel/.env.aapanel.example` | Env template → copy to `.env` |
-| `deploy/aapanel/nginx-site.conf` | Reverse proxy snippets for aaPanel |
-| `deploy/aapanel/deploy.sh` | Build & up helper |
-| `deploy/aapanel/README.md` | Short deploy checklist |
-
-### 1) Prepare the VPS
-
-1. Install **aaPanel** on Ubuntu 24.
-2. Install **Nginx** and **Docker** (Docker Manager or Docker CE).
-3. Firewall: `22`, `80`, `443`, aaPanel port. Block public access to `3001`/`4001`.
-
-### 2) Upload the project
+Quick start on the VPS:
 
 ```bash
-mkdir -p /www/wwwroot/cinevault
-# git clone <this-repo-url> /www/wwwroot/cinevault
-cd /www/wwwroot/cinevault
-```
-
-### 3) Environment
-
-```bash
+mkdir -p /www/wwwroot/movies.amarpin.com
+cd /www/wwwroot/movies.amarpin.com
+git clone https://github.com/NowsinJuthi/Movie-Server.git .
 cp deploy/aapanel/.env.aapanel.example .env
-nano .env
-```
-
-Set at least:
-
-| Variable | Notes |
-|----------|--------|
-| `APP_URL` / `API_URL` / `CORS_ORIGINS` | `https://yourdomain.com` |
-| `JWT_ACCESS_SECRET` | `openssl rand -hex 32` |
-| `LICENSE_MASTER_SECRET` | Separate HMAC secret for license keys (recommended) |
-| `BOOTSTRAP_SUPERADMIN_EMAIL` / `PASSWORD` | First admin |
-| `PAYMENT_WEBHOOK_SECRET` | Strong unique value |
-| `PAYMENT_PROVIDER` | Real Stripe on public HTTPS (not `fake`) |
-| `CINEVAULT_MEDIA_HOST` | Host media root (default `/data/cinevault/media`) |
-
-```bash
-openssl rand -hex 32
-```
-
-### 4) Start containers
-
-```bash
+nano .env   # JWT secret, admin password, MONGODB_URI, domains
 chmod +x deploy/aapanel/deploy.sh
 ./deploy/aapanel/deploy.sh
 ```
 
-Or:
+Then aaPanel: two sites + SSL → `nginx-web.conf` + `nginx-api.conf`.
 
-```bash
-mkdir -p /data/cinevault/media/movies /data/cinevault/media/tv /data/cinevault/smb-mounts
-docker compose -f docker-compose.aapanel.yml up -d --build
-```
-
-Verify on the server:
-
-```bash
-curl -sS http://127.0.0.1:4001/api/v1/health
-curl -I http://127.0.0.1:3001
-docker compose -f docker-compose.aapanel.yml ps
-```
-
-### 5) aaPanel website + SSL
-
-1. **Website → Add site** → `yourdomain.com`
-2. **SSL → Let’s Encrypt** → Force HTTPS
-3. Open site **Config** and apply proxy rules from `deploy/aapanel/nginx-site.conf`:
-   - `/api/` → `http://127.0.0.1:4001`
-   - `/socket.io/` → `http://127.0.0.1:4001` (WebSocket upgrade)
-   - `/` → `http://127.0.0.1:3001`
-4. Reload Nginx
-
-### 6) After go-live
-
-1. Log in with the bootstrap Super Admin.
-2. **Admin → System → Settings** — site name, logo, favicon, SMTP.
-3. **Admin → System → License** — activate product key (or rely on 30-day trial).
-4. **Admin → Libraries / Samba** — attach media paths.
-5. **Admin → Plans / Billing** — configure subscription plans and Stripe if needed.
-
-### 7) Updates
-
-```bash
-cd /www/wwwroot/cinevault
-git pull
-./deploy/aapanel/deploy.sh
-```
-
-### 8) Logs & restart
-
-```bash
-docker compose -f docker-compose.aapanel.yml logs -f api
-docker compose -f docker-compose.aapanel.yml logs -f web
-docker compose -f docker-compose.aapanel.yml restart api web
-```
+| Check | Command |
+|-------|---------|
+| API health | `curl -sS http://127.0.0.1:4001/api/v1/health` |
+| Web | `curl -I http://127.0.0.1:3001` |
+| Public | `https://movies.amarpin.com` |
 
 ### aaPanel tips (বাংলা সংক্ষেপ)
 
-1. aaPanel-এ Nginx + Docker ইনস্টল করুন; পাবলিক পোর্ট শুধু `80/443`।
-2. প্রজেক্ট `/www/wwwroot/cinevault`-এ ক্লোন করুন, `.env` সেট করুন।
+1. aaPanel-এ Nginx + Docker; firewall-এ শুধু `80/443` পাবলিক রাখুন (`3001`/`4001` নয়)।
+2. প্রজেক্ট `/www/wwwroot/movies.amarpin.com`-এ clone, `.env` সেট করুন (Atlas MongoDB URI, JWT, admin password)।
 3. `./deploy/aapanel/deploy.sh` চালান।
-4. ডোমেইন সাইট বানিয়ে SSL চালু করুন; Nginx-এ `nginx-site.conf` প্রক্সি বসান (`3001`/`4001`)।
-5. অ্যাডমিন থেকে Settings (SMTP/লোগো) ও License কী অ্যাক্টিভেট করুন।
+4. দুইটা site + SSL: `movies.amarpin.com` (web) ও `movies.api.amarpin.com` (API) — config `deploy/aapanel/` থেকে।
+5. Nginx-এ `location ^~ /api/v1/` অবশ্যই `127.0.0.1:4001`-এ proxy করবে।
+6. Samba library add-এ CIFS mount লাগে — API `privileged: true` অথবা `deploy/aapanel/mount-smb-share.sh` host-এ চালান।
+7. বিস্তারিত: [deploy/aapanel/README.md](deploy/aapanel/README.md)
 
 ---
 
@@ -267,6 +188,3 @@ Need a product license key?
 ## License
 
 Proprietary product software. Unauthorized redistribution or license bypass is prohibited. Trial and key enforcement run on the API server.
-#   M o v i e - S e r v e r 
- 
- 

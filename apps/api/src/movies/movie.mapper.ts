@@ -97,6 +97,7 @@ export function toPublicMovie(
     backdropUrl: publicImageUrl(movie.backdropUrl, movie.backdropKey),
     trailerUrl: movie.trailerUrl ?? null,
     releaseYear: movie.releaseYear,
+    year: movie.releaseYear,
     runtimeMinutes: movie.runtimeMinutes,
     genres: movie.genres ?? [],
     tags: movie.tags ?? [],

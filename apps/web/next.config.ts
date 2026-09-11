@@ -1,5 +1,23 @@
 import type { NextConfig } from "next";
 
+function apiConnectOrigins(): string {
+  const apiPublic = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+  const origins = new Set<string>(["'self'", "ws:", "wss:"]);
+  if (apiPublic.startsWith("http")) {
+    try {
+      const origin = new URL(apiPublic).origin;
+      origins.add(origin);
+      origins.add(origin.replace(/^http/i, "ws"));
+    } catch {
+      /* ignore */
+    }
+  }
+  // Production split-domain fallback when NEXT_PUBLIC is not baked at build time.
+  origins.add("https://movies.api.amarpin.com");
+  origins.add("wss://movies.api.amarpin.com");
+  return [...origins].join(" ");
+}
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -8,8 +26,7 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   {
     key: "Content-Security-Policy",
-    value:
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src ${apiConnectOrigins()}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
   },
 ];
 

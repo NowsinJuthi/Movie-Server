@@ -1,6 +1,7 @@
 import { AUTH_ROUTES, ErrorCode, type ApiErrorBody, type PublicUser } from "@movie-server/shared";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+/** Same-origin proxy (aaPanel Nginx /api/v1/ → API :4001). */
+const API_BASE = "/api/v1";
 
 const LICENSE_ERROR_CODES = new Set<string>([
   ErrorCode.LicenseRequired,
