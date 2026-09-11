@@ -68,10 +68,11 @@ export class StreamService {
     seriesId?: string;
     durationSeconds: number;
   }): Promise<PlaybackSessionInfo | null> {
-    if (!input.user.activeProfileId) {
+    await this.profiles.ensureSessionProfile(input.user);
+    const profileId = input.user.activeProfileId;
+    if (!profileId) {
       return null;
     }
-    const profileId = input.user.activeProfileId;
     const mediaId = input.episodeId ?? input.movieId;
     if (!mediaId) {
       return null;

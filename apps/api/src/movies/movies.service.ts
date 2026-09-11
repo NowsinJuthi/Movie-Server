@@ -851,6 +851,7 @@ export class MoviesService {
     quality: VideoQuality,
     extras?: { currentStreamCount?: number; deviceId?: string; deviceLabel?: string },
   ): Promise<MoviePlaybackResponse> {
+    await this.profiles.ensureSessionProfile(user);
     const viewer = await this.resolveViewer(user);
     const entitlement = await this.access.assertPlayback(user.id, {
       quality,
@@ -866,15 +867,7 @@ export class MoviesService {
         message: 'This title is not available for playback.',
       });
     }
-    if (!user.activeProfileId) {
-      throw new BadRequestException({
-        error: ErrorCode.ValidationFailed,
-        message: 'Select a profile before watching.',
-      });
-    }
-    const progress = user.activeProfileId
-      ? await this.history.get(user.id, user.activeProfileId, String(movie._id))
-      : null;
+    const progress = await this.history.get(user.id, user.activeProfileId!, String(movie._id));
     const session = await this.streams.open({
       user,
       quality,
@@ -883,6 +876,13 @@ export class MoviesService {
       movieId: String(movie._id),
       durationSeconds: Math.max(progress?.durationSeconds ?? movie.runtimeMinutes * 60, 1),
     });
+    if (!session) {
+      throw new BadRequestException({
+        error: ErrorCode.PlaybackUnavailable,
+        message:
+          'No streamable video file is linked to this title. Re-scan the library or convert the file to MP4 (H.264 + AAC).',
+      });
+    }
     return {
       allowed: true,
       quality,

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -18,6 +19,7 @@ import {
   type PublicProfile,
   type SubtitleLanguage,
 } from '@movie-server/shared';
+import { RequestUser } from '../auth/auth.types';
 import { PasswordService } from '../auth/password.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { UsersService } from '../users/users.service';
@@ -270,6 +272,34 @@ export class ProfilesService {
     await profile.save();
     await this.sessions.setActiveProfile(sessionId, profileId);
     return toPublicProfile(profile);
+  }
+
+  async ensureSessionProfile(user: RequestUser): Promise<string> {
+    if (user.activeProfileId) {
+      return user.activeProfileId;
+    }
+    const restored = await this.getActive(user.id, user.sessionId);
+    if (restored?.id) {
+      user.activeProfileId = restored.id;
+      return restored.id;
+    }
+    const profiles = await this.list(user.id);
+    const pick = profiles.find((profile) => profile.isDefault) ?? profiles[0];
+    if (!pick) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Create a profile before watching.',
+      });
+    }
+    if (pick.hasPin) {
+      throw new BadRequestException({
+        error: ErrorCode.ProfilePinRequired,
+        message: 'Select a profile before watching.',
+      });
+    }
+    await this.select(user.id, pick.id, user.sessionId);
+    user.activeProfileId = pick.id;
+    return pick.id;
   }
 
   async getActive(userId: string, sessionId: string): Promise<PublicProfile | null> {
