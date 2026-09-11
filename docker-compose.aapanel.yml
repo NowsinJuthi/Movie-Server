@@ -67,6 +67,9 @@ services:
       - "127.0.0.1:4001:4000"
     cap_add:
       - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    privileged: true
     depends_on:
       redis:
         condition: service_healthy

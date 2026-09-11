@@ -341,20 +341,8 @@ export class SmbMountService {
     const alreadyMounted = await this.isMounted(mountPoint);
     if (!alreadyMounted) {
       const credFile = await this.writeLinuxCredentialsFile(auth);
-      const options = [
-        `credentials=${credFile}`,
-        'uid=0',
-        'gid=0',
-        'iocharset=utf8',
-        'file_mode=0644',
-        'dir_mode=0755',
-        'vers=3.0',
-        'noserverino',
-      ].join(',');
       try {
-        await execFileAsync('mount', ['-t', 'cifs', source, mountPoint, '-o', options], {
-          timeout: 45_000,
-        });
+        await this.mountLinuxCifs(source, mountPoint, credFile, auth.port);
       } catch (error) {
         try {
           await fs.access(full);
@@ -362,7 +350,7 @@ export class SmbMountService {
         } catch {
           const message = this.formatExecError(error);
           throw new Error(
-            `Could not mount ${source}. The API container needs CIFS mount permission (cap SYS_ADMIN), or pre-mount the share on the host under ${mountPoint}. ${message}`,
+            `Could not mount ${source} at ${mountPoint}. Run deploy/aapanel/mount-smb-share.sh on the VPS host, or recreate the API container with privileged: true. ${message}`,
           );
         }
       } finally {
@@ -372,6 +360,45 @@ export class SmbMountService {
 
     await fs.access(full);
     return full;
+  }
+
+  private async mountLinuxCifs(
+    source: string,
+    mountPoint: string,
+    credFile: string,
+    port?: number,
+  ): Promise<void> {
+    const shareSource = port && port !== 445 ? `${source}:${port}` : source;
+    const baseOpts = [
+      `credentials=${credFile}`,
+      'uid=0',
+      'gid=0',
+      'iocharset=utf8',
+      'file_mode=0644',
+      'dir_mode=0755',
+      'noserverino',
+      'sec=ntlmssp',
+    ];
+    const versAttempts = ['3.0', '3.1.1', '2.1'];
+    let lastError: unknown;
+    for (const vers of versAttempts) {
+      const options = [...baseOpts, `vers=${vers}`].join(',');
+      try {
+        await execFileAsync('mount', ['-t', 'cifs', shareSource, mountPoint, '-o', options], {
+          timeout: 45_000,
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    try {
+      await execFileAsync('mount', ['-t', 'cifs', shareSource, mountPoint, '-o', baseOpts.join(',')], {
+        timeout: 45_000,
+      });
+    } catch (error) {
+      throw lastError ?? error;
+    }
   }
 
   private async isMounted(mountPoint: string): Promise<boolean> {
