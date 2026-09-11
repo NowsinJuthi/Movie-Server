@@ -66,6 +66,37 @@ body {
   display: none;
 }
 
+/* Brand-matched scrollbars (Edit movie popup, admin panels, etc.) */
+.brand-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+}
+
+.brand-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.brand-scrollbar::-webkit-scrollbar-track {
+  margin: 4px 0;
+  border-radius: 999px;
+  background: rgb(6 33 42 / 0.95);
+}
+
+.brand-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid rgb(6 33 42 / 0.95);
+  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+}
+
+.brand-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+}
+
+.brand-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .auth-backdrop {
   background:
     radial-gradient(circle at top, rgb(38 191 176 / 0.28), transparent 45%),

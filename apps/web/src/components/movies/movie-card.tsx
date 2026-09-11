@@ -6,7 +6,7 @@ import type { PublicMovie } from "@movie-server/shared";
 export function MovieCard({ movie }: { movie: PublicMovie }) {
   return (
     <Link
-      href={`/app/movies/${movie.id}`}
+      href={`/home/movies/${movie.id}`}
       className="group block overflow-hidden rounded-md bg-secondary"
     >
       <div

@@ -74,6 +74,11 @@ export const movieApi = {
       method: "PATCH",
       body: JSON.stringify(input),
     }),
+  applyFromTmdb: (id: string, tmdbId: number, updateArtwork = true) =>
+    apiFetch<{ movie: PublicMovie }>(`/admin/movies/${id}/from-tmdb`, {
+      method: "POST",
+      body: JSON.stringify({ tmdbId, updateArtwork }),
+    }),
   remove: (id: string) => apiFetch<{ deleted: boolean }>(`/admin/movies/${id}`, { method: "DELETE" }),
   bulk: (ids: string[], action: BulkMovieAction) =>
     apiFetch<{ matched: number; action: BulkMovieAction }>("/admin/movies/bulk", {

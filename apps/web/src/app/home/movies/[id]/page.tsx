@@ -45,7 +45,7 @@ export default function MovieDetailPage() {
 
   useEffect(() => {
     if (status === "anonymous") {
-      router.replace("/login?next=/app");
+      router.replace("/login?next=/home");
     }
   }, [status, router]);
 
@@ -61,7 +61,7 @@ export default function MovieDetailPage() {
     return (
       <main className="mx-auto max-w-3xl px-6 py-16">
         <Alert>{message}</Alert>
-        <Button className="mt-6" variant="outline" onClick={() => router.push("/app")}>
+        <Button className="mt-6" variant="outline" onClick={() => router.push("/home")}>
           Back to catalog
         </Button>
       </main>
@@ -90,7 +90,7 @@ export default function MovieDetailPage() {
             style={movie.posterUrl ? { backgroundImage: `url(${movie.posterUrl})` } : undefined}
           />
           <div className="space-y-4">
-            <Button variant="ghost" onClick={() => router.push("/app")}>
+            <Button variant="ghost" onClick={() => router.push("/home")}>
               ← Catalog
             </Button>
             <p className="text-sm uppercase tracking-widest text-muted-foreground">
@@ -111,7 +111,7 @@ export default function MovieDetailPage() {
               <Button
                 onClick={() => {
                   rememberPlayerReturn();
-                  router.push(`/app/movies/${movie.id}/watch`);
+                  router.push(`/home/movies/${movie.id}/watch`);
                 }}
               >
                 {movie.progressSeconds && movie.progressSeconds > 0 && !movie.watched

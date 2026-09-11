@@ -219,7 +219,7 @@ export function SearchPageClient() {
       else current.set(key, String(value));
     }
     const encoded = current.toString();
-    router.replace(encoded ? `/app/search?${encoded}` : "/app/search");
+    router.replace(encoded ? `/home/search?${encoded}` : "/home/search");
   };
 
   if (status === "loading" || status === "idle" || !user || !profile) {

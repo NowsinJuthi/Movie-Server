@@ -82,7 +82,7 @@ export default function ManageSubscriptionPage() {
             <Link href="/account/billing">Billing</Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href="/app">Back</Link>
+            <Link href="/home">Back</Link>
           </Button>
         </div>
       }

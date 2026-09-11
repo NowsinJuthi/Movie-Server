@@ -91,7 +91,7 @@ export default function SubscribePage() {
                 <Link href="/account/subscription">Manage</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/app">Back to app</Link>
+                <Link href="/home">Back to home</Link>
               </Button>
             </>
           ) : (

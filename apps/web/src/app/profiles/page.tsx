@@ -43,7 +43,7 @@ export default function ProfilesPage() {
     mutationFn: ({ id, pin }: { id: string; pin?: string }) => profileApi.select(id, pin),
     onSuccess: (data) => {
       setActiveProfile(data.profile);
-      router.push("/app");
+      router.push("/home");
     },
     onError: (error: unknown) => {
       if (error instanceof ApiError && error.error === ErrorCode.ProfilePinRequired && pinProfile) {

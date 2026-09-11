@@ -17,7 +17,7 @@ export function SearchBox({ className }: { className?: string }) {
   const [value, setValue] = useState(urlQuery);
   const [urlValue, setUrlValue] = useState(urlQuery);
   const [debouncedSuggest, setDebouncedSuggest] = useState("");
-  const [open, setOpen] = useState(Boolean(urlQuery) || pathname.startsWith("/app/search"));
+  const [open, setOpen] = useState(Boolean(urlQuery) || pathname.startsWith("/home/search"));
   const [active, setActive] = useState(0);
   const box = useRef<HTMLDivElement>(null);
 
@@ -35,18 +35,18 @@ export function SearchBox({ className }: { className?: string }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const next = value.trim();
-      if (pathname.startsWith("/app/search")) {
+      if (pathname.startsWith("/home/search")) {
         const currentQ = params.get("q") ?? "";
         if (next === currentQ) return;
         const current = new URLSearchParams(params.toString());
         if (next) current.set("q", next);
         else current.delete("q");
         const query = current.toString();
-        router.replace(query ? `/app/search?${query}` : "/app/search");
+        router.replace(query ? `/home/search?${query}` : "/home/search");
         return;
       }
       if (next.length >= 2) {
-        router.push(`/app/search?q=${encodeURIComponent(next)}`);
+        router.push(`/home/search?q=${encodeURIComponent(next)}`);
       }
     }, 300);
     return () => window.clearTimeout(timer);
@@ -69,7 +69,7 @@ export function SearchBox({ className }: { className?: string }) {
   useEffect(() => {
     const onPointer = (event: MouseEvent) => {
       if (!box.current?.contains(event.target as Node)) {
-        if (!value && !pathname.startsWith("/app/search")) setOpen(false);
+        if (!value && !pathname.startsWith("/home/search")) setOpen(false);
       }
     };
     window.addEventListener("mousedown", onPointer);
@@ -81,7 +81,7 @@ export function SearchBox({ className }: { className?: string }) {
       router.push(href);
       return;
     }
-    router.push(`/app/search?q=${encodeURIComponent(query)}`);
+    router.push(`/home/search?q=${encodeURIComponent(query)}`);
   };
 
   return (

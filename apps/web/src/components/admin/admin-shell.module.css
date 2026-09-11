@@ -312,7 +312,7 @@
   color: var(--nav-accent);
 }
 
-.navGroupOpen .subnavBox {
+.navGroupOpen .subnavBox:not([hidden]) {
   border-color: color-mix(in srgb, var(--nav-accent, var(--section-accent)) 22%, transparent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.04),
@@ -410,7 +410,11 @@
   border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   background: color-mix(in srgb, #000f15 55%, transparent);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
-  animation: subnavReveal 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: none;
+}
+
+.subnavBox[hidden] {
+  display: none;
 }
 
 .subnavInner {
@@ -448,20 +452,6 @@
     border-color 0.2s ease,
     color 0.2s ease,
     background 0.2s ease;
-  animation: subnavItemIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.subnavInner > li:nth-child(1) .subnavLink {
-  animation-delay: 0.03s;
-}
-.subnavInner > li:nth-child(2) .subnavLink {
-  animation-delay: 0.06s;
-}
-.subnavInner > li:nth-child(3) .subnavLink {
-  animation-delay: 0.09s;
-}
-.subnavInner > li:nth-child(4) .subnavLink {
-  animation-delay: 0.12s;
 }
 
 .subnavLink:hover {
@@ -521,28 +511,6 @@
 .subnavLinkActive:hover .subnavIconBoxActive {
   color: #0f172a;
   background: var(--nav-accent);
-}
-
-@keyframes subnavReveal {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes subnavItemIn {
-  from {
-    opacity: 0;
-    transform: translateX(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .sidebarFoot {

@@ -71,7 +71,7 @@ export class LibraryMediaService {
           mediaId,
           title: movie.title,
           kind: 'movie' as const,
-          href: `/app/movies/${mediaId}`,
+          href: `/home/movies/${mediaId}`,
           posterUrl: movie.posterKey ? artworkPublicPath(movie.posterKey) : (movie.posterUrl ?? null),
           year: movie.releaseYear,
         };
@@ -82,7 +82,7 @@ export class LibraryMediaService {
           mediaId,
           title: show.title,
           kind: 'series' as const,
-          href: `/app/series/${mediaId}`,
+          href: `/home/series/${mediaId}`,
           posterUrl: show.posterKey ? seriesArtworkPath(show.posterKey) : (show.posterUrl ?? null),
           year: show.firstAirYear,
         };
@@ -94,7 +94,7 @@ export class LibraryMediaService {
           mediaId,
           title: `${parent.title} · S${episode.seasonNumber}:E${episode.episodeNumber} ${episode.title}`,
           kind: 'episode' as const,
-          href: `/app/series/${String(parent._id)}/watch/${mediaId}`,
+          href: `/home/series/${String(parent._id)}/watch/${mediaId}`,
           posterUrl: parent.posterKey ? seriesArtworkPath(parent.posterKey) : (parent.posterUrl ?? null),
           year: parent.firstAirYear,
         };

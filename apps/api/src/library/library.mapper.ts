@@ -9,6 +9,7 @@ import {
   LibraryKind,
   LibraryMatchType,
   LibraryProbe,
+  PublicLibrary,
   StorageProviderKind,
 } from '@movie-server/shared';
 import { looksLikeFilesystemPath } from '../movies/movie.util';
@@ -54,6 +55,7 @@ export function toAdminLibrary(
     kind: library.kind as LibraryKind,
     provider: library.provider as StorageProviderKind,
     enabled: library.enabled,
+    rootPath: hiddenRoot,
     rootLabel: rootLabel(hiddenRoot),
     imageUrl: libraryImageUrl(library),
     smbServerId: library.smbServerId ? String(library.smbServerId) : null,
@@ -65,6 +67,15 @@ export function toAdminLibrary(
     unmatchedCount: counts?.unmatchedCount ?? 0,
     createdAt: library.createdAt.toISOString(),
     updatedAt: library.updatedAt.toISOString(),
+  };
+}
+
+export function toPublicLibrary(library: MediaLibraryDocument): PublicLibrary {
+  return {
+    id: String(library._id),
+    name: library.name,
+    kind: library.kind as LibraryKind,
+    imageUrl: libraryImageUrl(library),
   };
 }
 

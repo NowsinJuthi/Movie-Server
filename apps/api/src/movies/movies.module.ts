@@ -16,6 +16,7 @@ import { AdminTracksController } from './admin-tracks.controller';
 import { ArtworkController } from './artwork.controller';
 import { StreamModule } from '../stream/stream.module';
 import { LibraryExclusionModule } from '../library/library-exclusion.module';
+import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
 
 @Module({
   imports: [
@@ -37,7 +38,7 @@ import { LibraryExclusionModule } from '../library/library-exclusion.module';
     AdminTracksController,
     ArtworkController,
   ],
-  providers: [MoviesService, CollectionsService, ArtworkStorageService],
+  providers: [MoviesService, CollectionsService, ArtworkStorageService, TmdbMetadataService],
   exports: [MoviesService, CollectionsService, ArtworkStorageService],
 })
 export class MoviesModule {}

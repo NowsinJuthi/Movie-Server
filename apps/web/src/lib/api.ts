@@ -45,10 +45,13 @@ async function parseError(res: Response): Promise<ApiError> {
       details: body.details,
     });
   } catch {
+    const unreachable = res.status === 502 || res.status === 503 || res.status === 504;
     return new ApiError({
       statusCode: res.status,
       error: ErrorCode.Internal,
-      message: "Request failed",
+      message: unreachable
+        ? "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4001 (npm run dev:api), then retry."
+        : `Request failed (HTTP ${res.status}).`,
     });
   }
 }
@@ -92,11 +95,20 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
   if (init.body && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  return fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+  try {
+    return await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  } catch {
+    throw new ApiError({
+      statusCode: 503,
+      error: ErrorCode.Internal,
+      message:
+        "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4001 (npm run dev:api), then retry.",
+    });
+  }
 }
 
 async function parseOk<T>(res: Response): Promise<T> {

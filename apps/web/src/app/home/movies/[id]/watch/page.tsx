@@ -30,7 +30,7 @@ export default function MovieWatchPage() {
   });
 
   useEffect(() => {
-    if (status === "anonymous") router.replace("/login?next=/app");
+    if (status === "anonymous") router.replace("/login?next=/home");
   }, [status, router]);
 
   if (query.isError) {
@@ -63,7 +63,7 @@ export default function MovieWatchPage() {
         ratings: movie.ratings,
         posterUrl: movie.posterUrl,
       }}
-      backHref={`/app/movies/${movie.id}`}
+      backHref={`/home/movies/${movie.id}`}
       preferredQuality={quality}
       startPlayback={(requested) =>
         movieApi.playback(params.id, requested).then((body) => ({

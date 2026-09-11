@@ -52,8 +52,8 @@ export function episodeToHit(
     year: series.firstAirYear,
     description: episode.description,
     posterUrl: poster,
-    href: `/app/series/${String(series._id)}`,
-    watchHref: playable ? `/app/series/${String(series._id)}/watch/${String(episode._id)}` : `/app/series/${String(series._id)}`,
+    href: `/home/series/${String(series._id)}`,
+    watchHref: playable ? `/home/series/${String(series._id)}/watch/${String(episode._id)}` : `/home/series/${String(series._id)}`,
     score,
   };
 }
@@ -91,7 +91,7 @@ export function collectPeople(
       id: String(movie._id),
       kind: 'movie' as const,
       title: movie.title,
-      href: `/app/movies/${String(movie._id)}`,
+      href: `/home/movies/${String(movie._id)}`,
     };
     for (const member of movie.cast ?? []) add(member.name, 'actor', title);
     for (const name of movie.directors ?? []) add(name, 'director', title);
@@ -102,7 +102,7 @@ export function collectPeople(
       id: String(show._id),
       kind: 'series' as const,
       title: show.title,
-      href: `/app/series/${String(show._id)}`,
+      href: `/home/series/${String(show._id)}`,
     };
     for (const member of show.cast ?? []) add(member.name, 'actor', title);
     for (const name of show.directors ?? []) add(name, 'director', title);
@@ -125,7 +125,7 @@ export function titleSuggestItems(
       query: movie.title,
       id: String(movie._id),
       mediaKind: 'movie' as const,
-      href: `/app/movies/${String(movie._id)}`,
+      href: `/home/movies/${String(movie._id)}`,
     })),
     ...series.map((item) => ({
       kind: 'title' as const,
@@ -133,7 +133,7 @@ export function titleSuggestItems(
       query: item.title,
       id: String(item._id),
       mediaKind: 'series' as const,
-      href: `/app/series/${String(item._id)}`,
+      href: `/home/series/${String(item._id)}`,
     })),
   ];
 }

@@ -7,7 +7,7 @@ export default function UnauthorizedPage() {
       <h1 className="text-3xl font-semibold">Access denied</h1>
       <p className="text-muted-foreground">Your account does not have permission for that area.</p>
       <Button asChild>
-        <Link href="/app">Return to library</Link>
+        <Link href="/home">Return to library</Link>
       </Button>
     </main>
   );

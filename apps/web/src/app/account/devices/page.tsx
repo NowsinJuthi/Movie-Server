@@ -115,7 +115,7 @@ export default function DevicesPage() {
             <Link href="/account/subscription">Subscription</Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href="/app">Back</Link>
+            <Link href="/home">Back</Link>
           </Button>
         </div>
       }

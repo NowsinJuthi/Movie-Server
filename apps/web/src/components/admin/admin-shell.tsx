@@ -5,9 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type ComponentType,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ChevronDown,
@@ -22,6 +24,7 @@ import {
   LayoutDashboard,
   Library,
   ListMusic,
+  Menu,
   MonitorPlay,
   Settings2,
   Tags,
@@ -34,6 +37,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/components/branding/site-brand";
 import { brandingAssetSrc } from "@/lib/settings-api";
+import { libraryApi } from "@/lib/library-api";
 import styles from "./admin-shell.module.css";
 
 type NavIcon = ComponentType<{ className?: string }>;
@@ -48,6 +52,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: NavIcon;
+  /** When set (even `[]`), item always renders as an expandable group. */
   children?: NavChild[];
 };
 
@@ -65,6 +70,7 @@ const NAV: NavSection[] = [
     icon: LayoutDashboard,
     items: [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/menu", label: "Menu", icon: Menu, children: [] },
       {
         href: "/admin/health",
         label: "System",
@@ -115,7 +121,7 @@ const NAV: NavSection[] = [
         label: "Titles",
         icon: Film,
         children: [
-          { href: "/admin/movies", label: "Movies", icon: Film },
+          { href: "/admin/movies", label: "Add Manually Movies", icon: Film },
           { href: "/admin/series", label: "TV series", icon: Tv },
         ],
       },
@@ -156,7 +162,7 @@ const NAV: NavSection[] = [
     items: [
       {
         href: "/admin/libraries",
-        label: "Runtime",
+        label: "Add Media library",
         icon: HardDrive,
         children: [
           { href: "/admin/libraries", label: "Media library", icon: HardDrive },
@@ -225,10 +231,11 @@ function useGroupOpenState(pathname: string | null) {
 
   const isGroupOpen = useCallback(
     (item: NavItem) => {
-      if (!item.children?.length) return false;
+      if (item.children === undefined) return false;
       if (manualCollapsed.has(item.href)) return false;
+      if (isGroupRouteOpen(pathname, item)) return true;
       if (manualExpanded) return manualExpanded === item.href;
-      return isGroupRouteOpen(pathname, item);
+      return false;
     },
     [manualCollapsed, manualExpanded, pathname],
   );
@@ -247,15 +254,16 @@ function useGroupOpenState(pathname: string | null) {
       const routeOpen = isGroupRouteOpen(pathname, item);
       const open =
         !manualCollapsed.has(item.href) &&
-        (manualExpanded === item.href || (!manualExpanded && routeOpen));
+        (routeOpen || manualExpanded === item.href);
 
       if (open) {
-        if (routeOpen && !manualExpanded) {
+        if (routeOpen) {
           setManualCollapsed((prev) => {
             const next = new Set(prev);
             next.add(item.href);
             return next;
           });
+          setManualExpanded(null);
           return;
         }
         setManualExpanded(null);
@@ -282,6 +290,35 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { isGroupOpen, toggleGroup, expandGroup } = useGroupOpenState(pathname);
   const { siteName, logoUrl } = useBranding();
   const logoSrc = brandingAssetSrc(logoUrl);
+  const librariesQuery = useQuery({
+    queryKey: ["admin-libraries"],
+    queryFn: libraryApi.list,
+    enabled: status === "authenticated" && Boolean(user && hasMinimumRole(user.role, UserRole.Admin)),
+  });
+
+  const nav = useMemo(() => {
+    const libraries = (librariesQuery.data?.libraries ?? []).filter((library) => library.enabled);
+    const menuChildren: NavChild[] = libraries.map((library) => ({
+      href: `/admin/menu/${library.id}`,
+      label: library.name,
+      icon: library.kind === "tv" ? Tv : Film,
+    }));
+
+    return NAV.map((section) => {
+      if (section.id !== "overview") return section;
+      return {
+        ...section,
+        items: section.items.map((item) => {
+          if (item.href !== "/admin/menu") return item;
+          return {
+            ...item,
+            // Always keep an array so this never flips between link ↔ group (causes removeChild).
+            children: menuChildren,
+          };
+        }),
+      };
+    });
+  }, [librariesQuery.data?.libraries]);
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -312,25 +349,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <aside className={styles.sidebar}>
           <div className={styles.sidebarHead}>
             <Link href="/admin" className={styles.brand}>
-              {logoSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoSrc} alt={siteName} className="h-7 w-auto max-w-[140px] object-contain" />
-              ) : (
-                <>
+              <span className="inline-flex min-h-7 items-center">
+                {/* Keep a stable child slot so logo load does not thrash the brand node. */}
+                {logoSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoSrc}
+                    alt={siteName}
+                    className="h-7 w-auto max-w-[140px] object-contain"
+                  />
+                ) : null}
+                <span className={cn(!logoSrc ? "inline" : "hidden")}>
                   {siteName} <span className={styles.brandAccent}>Admin</span>
-                </>
-              )}
+                </span>
+              </span>
             </Link>
-            <Link href="/app" className={styles.appLink}>
-              App
+            <Link href="/home" className={styles.appLink}>
+              Home
             </Link>
           </div>
 
           <nav className={styles.sidebarNav} aria-label="Admin">
             <div className={styles.menuPanel}>
-              <div className={styles.menuScroll}>
+                  <div className={cn(styles.menuScroll, "brand-scrollbar")}>
                 <div className={styles.menuScrollInner}>
-                  {NAV.map((section) => {
+                  {nav.map((section) => {
                     const SectionIcon = section.icon;
                     return (
                       <div
@@ -346,8 +389,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <ul className={styles.itemList}>
                           {section.items.map((item) => {
                             const Icon = item.icon;
+                            const isGroup = item.children !== undefined;
 
-                            if (!item.children?.length) {
+                            if (!isGroup) {
                               const active = isLinkActive(pathname, item.href);
                               return (
                                 <li key={item.href}>
@@ -355,7 +399,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                     href={item.href}
                                     className={cn(styles.navLink, active && styles.navLinkActive)}
                                   >
-                                    {active ? <span className={styles.indicator} aria-hidden /> : null}
+                                  <span
+                                    className={styles.indicator}
+                                    aria-hidden
+                                    style={{ visibility: active ? "visible" : "hidden" }}
+                                  />
                                     <span className={styles.iconBox}>
                                       <Icon className="h-4 w-4" />
                                     </span>
@@ -365,6 +413,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                               );
                             }
 
+                            const children = item.children ?? [];
                             const open = isGroupOpen(item);
                             const childActive = hasActiveChild(pathname, item);
                             const parentActive =
@@ -382,9 +431,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                     (parentActive || (open && childActive)) && styles.navLinkActive,
                                   )}
                                 >
-                                  {parentActive ? (
-                                    <span className={styles.indicator} aria-hidden />
-                                  ) : null}
+                                  <span
+                                    className={styles.indicator}
+                                    aria-hidden
+                                    style={{
+                                      visibility: parentActive ? "visible" : "hidden",
+                                    }}
+                                  />
                                   <button
                                     type="button"
                                     className={styles.navLinkMain}
@@ -420,40 +473,61 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                   </button>
                                 </div>
 
-                                {open ? (
-                                  <div className={styles.subnavBox}>
+                                <div
+                                  className={styles.subnavBox}
+                                  hidden={!open}
+                                  aria-hidden={!open}
+                                >
                                     <ul className={styles.subnavInner}>
-                                      {item.children.map((child) => {
-                                        const ChildIcon = child.icon;
-                                        const active = isLinkActive(pathname, child.href);
-                                        return (
-                                          <li key={child.href}>
-                                            <Link
-                                              href={child.href}
-                                              className={cn(
-                                                styles.subnavLink,
-                                                active && styles.subnavLinkActive,
-                                              )}
-                                            >
-                                              {active ? (
-                                                <span className={styles.subnavIndicator} aria-hidden />
-                                              ) : null}
-                                              <span
+                                      {children.map((child) => {
+                                          const ChildIcon = child.icon;
+                                          const active = isLinkActive(pathname, child.href);
+                                          return (
+                                            <li key={child.href}>
+                                              <Link
+                                                href={child.href}
+                                                tabIndex={open ? 0 : -1}
                                                 className={cn(
-                                                  styles.subnavIconBox,
-                                                  active && styles.subnavIconBoxActive,
+                                                  styles.subnavLink,
+                                                  active && styles.subnavLinkActive,
                                                 )}
                                               >
-                                                <ChildIcon className="h-3.5 w-3.5" />
-                                              </span>
-                                              <span className={styles.label}>{child.label}</span>
-                                            </Link>
-                                          </li>
-                                        );
-                                      })}
+                                                <span
+                                                  className={styles.subnavIndicator}
+                                                  aria-hidden
+                                                  style={{
+                                                    visibility: active ? "visible" : "hidden",
+                                                  }}
+                                                />
+                                                <span
+                                                  className={cn(
+                                                    styles.subnavIconBox,
+                                                    active && styles.subnavIconBoxActive,
+                                                  )}
+                                                >
+                                                  <ChildIcon className="h-3.5 w-3.5" />
+                                                </span>
+                                                <span className={styles.label}>{child.label}</span>
+                                              </Link>
+                                            </li>
+                                          );
+                                        })}
+                                      {children.length === 0 && item.href === "/admin/menu" ? (
+                                        <li key="__add-library">
+                                          <Link
+                                            href="/admin/libraries"
+                                            className={styles.subnavLink}
+                                            tabIndex={open ? 0 : -1}
+                                          >
+                                            <span className={styles.subnavIconBox}>
+                                              <HardDrive className="h-3.5 w-3.5" />
+                                            </span>
+                                            <span className={styles.label}>Add a library</span>
+                                          </Link>
+                                        </li>
+                                      ) : null}
                                     </ul>
                                   </div>
-                                ) : null}
                               </li>
                             );
                           })}
@@ -472,7 +546,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </p>
         </aside>
 
-        <div className={styles.content}>{children}</div>
+        <div className={cn(styles.content, "brand-scrollbar")}>
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -19,11 +19,11 @@ export function MediaCarousel({
   const isContinue = row.kind === "continue" || row.kind === "recently_watched";
   const rowHref =
     row.id === "mylist"
-      ? "/app/list"
+      ? "/home/list"
       : row.id === "favorites"
-        ? "/app/favorites"
+        ? "/home/favorites"
         : row.id === "recently-watched" || row.id === "continue"
-          ? "/app/history"
+          ? "/home/history"
           : null;
 
   const scroll = (dir: number) => {

@@ -10,19 +10,19 @@ import { invalidatePersonalization } from "@/components/home/use-personalization
 import { toast } from "sonner";
 import { PosterImage } from "@/components/home/poster-image";
 
-export default function MyListPage() {
+export default function FavoritesPage() {
   const profile = useProfileStore((state) => state.activeProfile);
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["mylist", profile?.id],
-    queryFn: () => profileApi.myList(profile!.id),
+    queryKey: ["favorites", profile?.id],
+    queryFn: () => profileApi.favorites(profile!.id),
     enabled: Boolean(profile),
   });
 
   const remove = useMutation({
-    mutationFn: (mediaId: string) => profileApi.removeFromList(profile!.id, mediaId),
+    mutationFn: (mediaId: string) => profileApi.removeFavorite(profile!.id, mediaId),
     onSuccess: async () => {
-      toast.success("Removed from My List");
+      toast.success("Removed from Favorites");
       await invalidatePersonalization(queryClient);
     },
   });
@@ -31,16 +31,16 @@ export default function MyListPage() {
   const titles = query.data?.titles ?? [];
 
   return (
-    <BrowseShell heading="My List">
+    <BrowseShell heading="Favorites">
       {query.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading My List...</p>
+        <p className="text-sm text-muted-foreground">Loading favorites...</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Titles you save will show up here.</p>
+        <p className="text-sm text-muted-foreground">Heart a title to keep it in Favorites.</p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item, index) => {
             const title = titles[index];
-            const href = title?.href ?? "/app";
+            const href = title?.href ?? "/home";
             return (
               <li key={item.id} className="overflow-hidden rounded-md bg-secondary/60">
                 <Link href={href} className="block">

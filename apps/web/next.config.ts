@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      { source: "/app", destination: "/home", permanent: false },
+      { source: "/app/:path*", destination: "/home/:path*", permanent: false },
+    ];
+  },
   async rewrites() {
     const api = process.env.API_INTERNAL_URL || "http://127.0.0.1:4001";
     return [

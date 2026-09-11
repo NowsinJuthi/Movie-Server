@@ -55,21 +55,21 @@ export class SmbService implements OnModuleInit {
 
   async create(dto: UpsertSmbServerDto) {
     const auth = this.authFromDto(dto);
-    await this.tryConnect(auth);
+    const connected = await this.tryConnect(auth);
     const server = await this.servers.create({
       name: dto.name,
-      host: dto.host.trim(),
-      port: dto.port ?? 445,
-      username: dto.username.trim(),
-      passwordEnc: this.crypto.encrypt(dto.password),
-      domain: dto.domain?.trim() || 'WORKGROUP',
-      share: dto.share.trim(),
+      host: connected.host,
+      port: connected.port ?? 445,
+      username: connected.username,
+      passwordEnc: this.crypto.encrypt(connected.password),
+      domain: connected.domain?.trim() || 'WORKGROUP',
+      share: connected.share,
       enabled: dto.enabled ?? true,
       lastOkAt: new Date(),
       lastError: null,
     });
     try {
-      await this.mounts.ensureAccessible(String(server._id), auth, '');
+      await this.mounts.ensureAccessible(String(server._id), connected, '');
     } catch (error) {
       this.logger.warn(
         `SMB browse OK but OS mount pending for ${server.name}: ${
@@ -92,7 +92,9 @@ export class SmbService implements OnModuleInit {
     if (dto.enabled !== undefined) server.enabled = dto.enabled;
 
     const auth = this.toAuth(server);
-    await this.tryConnect(auth);
+    const connected = await this.tryConnect(auth);
+    server.username = connected.username;
+    server.domain = connected.domain?.trim() || 'WORKGROUP';
     server.lastOkAt = new Date();
     server.lastError = null;
     await server.save();
@@ -136,7 +138,10 @@ export class SmbService implements OnModuleInit {
     const auth = this.toAuth(server);
     const safePath = this.sanitizeRemotePath(remotePath);
     try {
-      const listed = await this.client.list(auth, safePath);
+      const listed =
+        process.platform === 'win32'
+          ? await this.mounts.listNative(auth, safePath)
+          : await this.client.list(auth, safePath);
       server.lastOkAt = new Date();
       server.lastError = null;
       await server.save();
@@ -180,7 +185,10 @@ export class SmbService implements OnModuleInit {
       : '';
     const leaf = remotePath.includes('/') ? remotePath.split('/').pop()! : remotePath;
     if (remotePath) {
-      const siblings = await this.client.list(auth, parent);
+      const siblings =
+        process.platform === 'win32'
+          ? await this.mounts.listNative(auth, parent)
+          : await this.client.list(auth, parent);
       const hit = siblings.find((entry) => entry.name === leaf);
       if (!hit?.isDirectory) {
         throw new BadRequestException({
@@ -216,12 +224,13 @@ export class SmbService implements OnModuleInit {
   }
 
   private authFromDto(dto: UpsertSmbServerDto | (UpdateSmbServerDto & { password: string })): SmbAuth {
+    const parsed = this.parseUsernameDomain(dto.username!.trim(), dto.domain?.trim());
     return {
       host: dto.host!.trim(),
       port: dto.port ?? 445,
-      username: dto.username!.trim(),
+      username: parsed.username,
       password: dto.password,
-      domain: dto.domain?.trim() || 'WORKGROUP',
+      domain: parsed.domain || 'WORKGROUP',
       share: dto.share!.trim(),
     };
   }
@@ -237,16 +246,95 @@ export class SmbService implements OnModuleInit {
     };
   }
 
-  private async tryConnect(auth: SmbAuth): Promise<void> {
-    try {
-      await this.client.test(auth);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Connection failed.';
-      throw new BadRequestException({
-        error: ErrorCode.SmbConnectionFailed,
-        message: `Samba connection failed: ${message}`,
-      });
+  /** Accept `DOMAIN\user` or `user@DOMAIN` in the username field. */
+  private parseUsernameDomain(
+    username: string,
+    domain?: string,
+  ): { username: string; domain: string } {
+    const backslash = username.indexOf('\\');
+    if (backslash > 0) {
+      return {
+        domain: (domain && domain.toUpperCase() !== 'WORKGROUP' ? domain : username.slice(0, backslash)).trim(),
+        username: username.slice(backslash + 1).trim(),
+      };
     }
+    const at = username.lastIndexOf('@');
+    if (at > 0) {
+      return {
+        username: username.slice(0, at).trim(),
+        domain: (domain && domain.toUpperCase() !== 'WORKGROUP' ? domain : username.slice(at + 1)).trim(),
+      };
+    }
+    return { username, domain: domain ?? '' };
+  }
+
+  private buildAuthAttempts(auth: SmbAuth): SmbAuth[] {
+    const parsed = this.parseUsernameDomain(auth.username, auth.domain);
+    const base: SmbAuth = { ...auth, username: parsed.username, domain: parsed.domain || auth.domain };
+    const hostLabel = auth.host.includes('.')
+      ? auth.host.split('.')[0]!
+      : auth.host;
+    const candidates = [
+      base.domain || 'WORKGROUP',
+      'WORKGROUP',
+      '',
+      '.',
+      hostLabel,
+      auth.host,
+    ];
+    const seen = new Set<string>();
+    const attempts: SmbAuth[] = [];
+    for (const domain of candidates) {
+      const key = `${domain.toUpperCase()}\\${base.username}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      attempts.push({ ...base, domain });
+    }
+    return attempts;
+  }
+
+  private async tryConnect(auth: SmbAuth): Promise<SmbAuth> {
+    const attempts = this.buildAuthAttempts(auth);
+    let lastError: unknown;
+    for (const attempt of attempts) {
+      try {
+        if (process.platform === 'win32') {
+          await this.mounts.testNative(attempt);
+        } else {
+          await this.client.test(attempt);
+        }
+        return attempt;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    const message = this.formatSmbError(lastError);
+    const logonHint = /LOGON_FAILURE|0xC000006D|logon is invalid|Access is denied|multiple connections|1219|user name or password|Login failure|The specified network password/i.test(
+      message,
+    )
+      ? ' Username/password rejected (or Windows already has this share mapped with different credentials). Confirm the share opens in File Explorer with the same user/password. For Ubuntu Samba use `pdbedit -L` / `smbpasswd`. Leave Domain blank unless the account is domain-joined. If Explorer works but this fails, run `net use * /delete` and retry.'
+      : '';
+    throw new BadRequestException({
+      error: ErrorCode.SmbConnectionFailed,
+      message: `Samba connection failed: ${message}. Check IP, share name (${auth.share}), username/password, and that port ${auth.port ?? 445} is open from this machine.${logonHint}`,
+    });
+  }
+
+  private formatSmbError(error: unknown): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message.trim();
+    }
+    if (typeof error === 'string' && error.trim()) {
+      return error.trim();
+    }
+    if (error && typeof error === 'object') {
+      const record = error as { message?: unknown; code?: unknown; status?: unknown };
+      const parts = [record.message, record.code, record.status]
+        .filter((part) => typeof part === 'string' || typeof part === 'number')
+        .map(String);
+      if (parts.length) return parts.join(' · ');
+    }
+    return 'Connection failed';
   }
 
   private async requireServer(id: string, withSecret = false): Promise<SmbServerDocument> {

@@ -9,12 +9,19 @@ export function proxy(request: NextRequest) {
   // so AuthHydrator can rotate tokens without kicking the user to /login.
   const hasSession = Boolean(accessToken || refreshToken);
 
+  // Legacy /app routes → /home
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/app/, "/home");
+    return NextResponse.redirect(url);
+  }
+
   if ((pathname === "/login" || pathname === "/register") && hasSession) {
     return NextResponse.redirect(new URL("/profiles", request.url));
   }
 
   if (
-    (pathname.startsWith("/app") ||
+    (pathname.startsWith("/home") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/profiles") ||
       pathname.startsWith("/account")) &&
@@ -53,7 +60,10 @@ function roleFromAccessToken(token?: string): UserRole | null {
 
 export const config = {
   matcher: [
+    "/app",
     "/app/:path*",
+    "/home",
+    "/home/:path*",
     "/admin",
     "/admin/:path*",
     "/account/:path*",

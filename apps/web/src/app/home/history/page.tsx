@@ -65,7 +65,7 @@ export default function HistoryPage() {
           {items.map((item) => {
             const ratio =
               item.durationSeconds > 0 ? Math.min(1, item.progressSeconds / item.durationSeconds) : 0;
-            const href = item.href ?? "/app";
+            const href = item.href ?? "/home";
             return (
               <li
                 key={item.id || item.mediaId}

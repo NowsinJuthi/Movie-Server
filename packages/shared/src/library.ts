@@ -1,4 +1,5 @@
 import { VideoResolution } from './movie';
+import type { HomeCard } from './home';
 
 export const LibraryKind = {
   Movies: 'movies',
@@ -144,6 +145,8 @@ export type AdminLibrary = {
   kind: LibraryKind;
   provider: StorageProviderKind;
   enabled: boolean;
+  /** Full media root path (admin only). */
+  rootPath: string;
   rootLabel: string;
   imageUrl: string | null;
   smbServerId: string | null;
@@ -230,4 +233,21 @@ export type AdminLibraryScanResponse = {
 
 export type AdminLibraryScanLogsResponse = {
   logs: AdminLibraryScanLog[];
+};
+
+/** Safe fields for consumer home/nav — no paths or scan internals. */
+export type PublicLibrary = {
+  id: string;
+  name: string;
+  kind: LibraryKind;
+  imageUrl: string | null;
+};
+
+export type PublicLibrariesResponse = {
+  libraries: PublicLibrary[];
+};
+
+export type PublicLibraryBrowseResponse = {
+  library: PublicLibrary;
+  items: HomeCard[];
 };

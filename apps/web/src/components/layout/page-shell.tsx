@@ -53,7 +53,7 @@ export function PageShell({
         ) : null}
         <div
           className={cn(
-            "min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-5",
+            "min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-5 brand-scrollbar",
             bodyClassName,
           )}
         >

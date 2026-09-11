@@ -335,6 +335,10 @@ export class LibraryScanService {
       durationMs: item.probe?.durationMs,
       contentHash: item.contentHash,
       ignored: Boolean(item.ignored),
+      existingMovieId: item.movieId ? String(item.movieId) : null,
+      existingSeriesId: item.seriesId ? String(item.seriesId) : null,
+      existingSeasonId: item.seasonId ? String(item.seasonId) : null,
+      existingEpisodeId: item.episodeId ? String(item.episodeId) : null,
     });
     await this.applyMatch(scan, item, fileName, matched);
   }
@@ -358,6 +362,10 @@ export class LibraryScanService {
         durationMs: item.probe?.durationMs,
         contentHash: item.contentHash,
         ignored: Boolean(item.ignored),
+        existingMovieId: item.movieId ? String(item.movieId) : null,
+        existingSeriesId: item.seriesId ? String(item.seriesId) : null,
+        existingSeasonId: item.seasonId ? String(item.seasonId) : null,
+        existingEpisodeId: item.episodeId ? String(item.episodeId) : null,
       });
       if (matched.match === LibraryMatchType.None) {
         continue;
@@ -583,19 +591,41 @@ export class LibraryScanService {
       lastScanId: { $ne: scan._id },
       status: { $nin: [LibraryItemStatus.Duplicate] },
     });
+    const movieIds = new Set<string>();
+    const episodeIds = new Set<string>();
     for (const item of missing) {
       item.status = LibraryItemStatus.Missing;
       item.missingSince = item.missingSince ?? new Date();
       await item.save();
       await this.assets.updateMany({ libraryItemId: item._id }, { $set: { status: MediaAssetStatus.Missing } });
-      if (item.movieId) await this.libraries.refreshMovieAvailability(item.movieId);
-      if (item.episodeId) await this.libraries.refreshEpisodeAvailability(item.episodeId);
+      if (item.movieId) {
+        const id = String(item.movieId);
+        movieIds.add(id);
+        await this.libraries.refreshMovieAvailability(item.movieId);
+      }
+      if (item.episodeId) {
+        const id = String(item.episodeId);
+        episodeIds.add(id);
+        await this.libraries.refreshEpisodeAvailability(item.episodeId);
+      }
       await this.log(
         scan,
         LibraryLogLevel.Warn,
         `Missing ${path.posix.basename(item.relativePath.replace(/\\/g, '/'))}.`,
         item.storageKey,
       );
+    }
+    for (const movieId of movieIds) {
+      const purged = await this.libraries.purgeMovieIfUnplayable(new Types.ObjectId(movieId));
+      if (purged) {
+        await this.log(scan, LibraryLogLevel.Info, `Removed catalog movie with no remaining media (${movieId}).`);
+      }
+    }
+    for (const episodeId of episodeIds) {
+      const purged = await this.libraries.purgeEpisodeIfUnplayable(new Types.ObjectId(episodeId));
+      if (purged) {
+        await this.log(scan, LibraryLogLevel.Info, `Removed catalog episode with no remaining media (${episodeId}).`);
+      }
     }
     scan.missing += missing.length;
   }

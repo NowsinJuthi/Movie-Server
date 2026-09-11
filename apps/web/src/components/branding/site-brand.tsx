@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { PublicBranding } from "@movie-server/shared";
 import { brandingAssetSrc, settingsApi } from "@/lib/settings-api";
 
@@ -17,25 +17,15 @@ export function useBranding() {
   return useContext(BrandingContext);
 }
 
+/** React-owned head nodes only — never mutate document.head imperatively (breaks React 19 hoistables). */
 function FaviconAndTitle({ branding }: { branding: PublicBranding }) {
-  useEffect(() => {
-    document.title = branding.siteName;
-
-    const href = brandingAssetSrc(branding.faviconUrl, branding.siteName);
-    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-    if (!href) {
-      if (link) link.remove();
-      return;
-    }
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
-    }
-    link.href = href;
-  }, [branding.faviconUrl, branding.siteName]);
-
-  return null;
+  const href = brandingAssetSrc(branding.faviconUrl, branding.siteName);
+  return (
+    <>
+      <title>{branding.siteName}</title>
+      {href ? <link rel="icon" href={href} key={href} /> : null}
+    </>
+  );
 }
 
 export function BrandingProvider({ children }: { children: ReactNode }) {

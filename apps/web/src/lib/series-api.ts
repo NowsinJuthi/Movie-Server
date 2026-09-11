@@ -83,6 +83,12 @@ export const seriesApi = {
       method: "POST",
       body: JSON.stringify({ ids, action }),
     }),
+  uploadArtwork: async (id: string, slot: "poster" | "backdrop", file: File) => {
+    const body = new FormData();
+    body.set("file", file);
+    body.set("slot", slot);
+    return apiFetch<{ series: PublicSeries }>(`/admin/series/${id}/artwork`, { method: "POST", body });
+  },
   createSeason: (seriesId: string, input: Record<string, unknown>) =>
     apiFetch<{ season: PublicSeason }>(`/admin/series/${seriesId}/seasons`, {
       method: "POST",

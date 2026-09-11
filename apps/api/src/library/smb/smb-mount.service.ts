@@ -4,7 +4,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
-import type { SmbAuth } from './smb-client.service';
+import type { SmbAuth, SmbListedEntry } from './smb-client.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -42,33 +42,112 @@ export class SmbMountService {
     return this.ensureLinux(serverId, auth, remotePath);
   }
 
-  private async ensureWindows(auth: SmbAuth, remotePath: string): Promise<string> {
-    const shareUnc = `\\\\${auth.host}\\${auth.share}`;
-    const user = auth.domain && auth.domain !== 'WORKGROUP' ? `${auth.domain}\\${auth.username}` : auth.username;
-    try {
-      await execFileAsync(
-        'net',
-        ['use', shareUnc, auth.password, `/user:${user}`, '/persistent:no'],
-        { windowsHide: true, timeout: 30_000 },
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Already connected is fine
-      if (!/already|1219|85/i.test(message)) {
-        this.logger.warn(`net use warning for ${shareUnc}: ${message}`);
-        // Retry without password if session exists
-        try {
-          await fs.access(shareUnc);
-        } catch {
-          throw new Error(
-            `Could not connect to ${shareUnc}. Check IP, share name, username and password. ${message}`,
-          );
-        }
-      }
+  /** Prefer native OS auth on Windows — JS NTLM often fails where Explorer/`net use` works. */
+  async testNative(auth: SmbAuth): Promise<void> {
+    if (process.platform === 'win32') {
+      await this.connectWindows(auth);
+      await fs.access(`\\\\${auth.host}\\${auth.share}`);
+      return;
     }
+    throw new Error('Native SMB test is only available on Windows.');
+  }
+
+  async listNative(auth: SmbAuth, remotePath = ''): Promise<SmbListedEntry[]> {
+    if (process.platform !== 'win32') {
+      throw new Error('Native SMB browse is only available on Windows.');
+    }
+    await this.connectWindows(auth);
+    const full = this.uncPath(auth, remotePath);
+    const dirents = await fs.readdir(full, { withFileTypes: true });
+    const base = remotePath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const entries: SmbListedEntry[] = [];
+    for (const dirent of dirents) {
+      const name = dirent.name;
+      if (!name || name === '.' || name === '..') continue;
+      const lower = name.toLowerCase();
+      if (lower.startsWith('.') || lower === 'thumbs.db' || lower === 'desktop.ini') continue;
+      const isDirectory = dirent.isDirectory();
+      const rel = base ? `${base}/${name}` : name;
+      entries.push({
+        name,
+        path: rel.replace(/\\/g, '/'),
+        isDirectory,
+        sizeBytes: null,
+      });
+    }
+    entries.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+    return entries;
+  }
+
+  private async ensureWindows(auth: SmbAuth, remotePath: string): Promise<string> {
+    await this.connectWindows(auth);
     const full = this.uncPath(auth, remotePath);
     await fs.access(full);
     return full;
+  }
+
+  private windowsUser(auth: SmbAuth): string {
+    const domain = (auth.domain ?? '').trim();
+    if (!domain || domain === '.' || domain.toUpperCase() === 'WORKGROUP') {
+      return auth.username;
+    }
+    return `${domain}\\${auth.username}`;
+  }
+
+  private async connectWindows(auth: SmbAuth): Promise<void> {
+    const shareUnc = `\\\\${auth.host}\\${auth.share}`;
+    const user = this.windowsUser(auth);
+
+    // Drop stale mappings so Windows does not return System error 1219.
+    await execFileAsync('net', ['use', shareUnc, '/delete', '/y'], {
+      windowsHide: true,
+      timeout: 15_000,
+    }).catch(() => undefined);
+
+    const remote = this.psSingleQuote(shareUnc);
+    const userLit = this.psSingleQuote(user);
+    const passLit = this.psSingleQuote(auth.password);
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      `try { Remove-SmbMapping -RemotePath ${remote} -Force -ErrorAction SilentlyContinue } catch {}`,
+      `New-SmbMapping -RemotePath ${remote} -UserName ${userLit} -Password ${passLit} -Persistent:$false | Out-Null`,
+      `if (-not (Test-Path -LiteralPath ${remote})) { throw 'Share mapped but path is not accessible.' }`,
+    ].join('; ');
+
+    try {
+      await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+        { windowsHide: true, timeout: 45_000, maxBuffer: 2_000_000 },
+      );
+    } catch (error) {
+      const message = this.formatExecError(error);
+      this.logger.warn(`Windows SMB map failed for ${shareUnc} as ${user}: ${message}`);
+      throw new Error(message);
+    }
+  }
+
+  private psSingleQuote(value: string): string {
+    return `'${value.replace(/'/g, "''")}'`;
+  }
+
+  private formatExecError(error: unknown): string {
+    if (!error || typeof error !== 'object') return String(error);
+    const err = error as { message?: string; stderr?: Buffer | string; stdout?: Buffer | string };
+    const stderr = typeof err.stderr === 'string' ? err.stderr : err.stderr?.toString('utf8') ?? '';
+    const stdout = typeof err.stdout === 'string' ? err.stdout : err.stdout?.toString('utf8') ?? '';
+    const combined = [stderr, stdout, err.message ?? '']
+      .join('\n')
+      .replace(/\r/g, '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !/^At |^\+ |^CategoryInfo|^FullyQualifiedErrorId|^~/i.test(line));
+    const useful = combined.find((line) => /denied|logon|password|user|failed|error|access/i.test(line));
+    return (useful || combined[0] || err.message || 'Windows SMB authentication failed').slice(0, 400);
   }
 
   private async ensureLinux(serverId: string, auth: SmbAuth, remotePath: string): Promise<string> {

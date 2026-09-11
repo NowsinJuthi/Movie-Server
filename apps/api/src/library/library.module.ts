@@ -16,9 +16,11 @@ import { LibraryScanProcessor } from './library-scan.processor';
 import { LibraryMatcher } from './matching/library-matcher';
 import { MediaProbeService } from './probe/media-probe.service';
 import { StorageFactory } from './storage/storage.factory';
-import { AdminLibraryController, AdminLibraryScanController } from './admin-library.controller';
+import { AdminLibraryScanController, AdminLibraryController } from './admin-library.controller';
+import { PublicLibraryController } from './public-library.controller';
 import { MoviesModule } from '../movies/movies.module';
 import { SeriesModule } from '../series/series.module';
+import { StreamModule } from '../stream/stream.module';
 import { LibraryImportService } from './library-import.service';
 import { TmdbMetadataService } from './metadata/tmdb-metadata.service';
 import { LibraryExclusionModule } from './library-exclusion.module';
@@ -53,10 +55,11 @@ export class LibraryModule {
         ]),
         MoviesModule,
         SeriesModule,
+        StreamModule,
         LibraryExclusionModule,
         ...(useQueue ? [BullModule.registerQueue({ name: LIBRARY_SCAN_QUEUE })] : []),
       ],
-      controllers: [AdminLibraryScanController, AdminLibraryController, AdminSmbController],
+      controllers: [AdminLibraryScanController, AdminLibraryController, AdminSmbController, PublicLibraryController],
       providers: [
         LibraryService,
         LibraryScanService,

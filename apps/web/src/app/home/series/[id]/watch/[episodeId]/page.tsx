@@ -30,7 +30,7 @@ export default function EpisodeWatchPage() {
   });
 
   useEffect(() => {
-    if (status === "anonymous") router.replace("/login?next=/app");
+    if (status === "anonymous") router.replace("/login?next=/home");
   }, [status, router]);
 
   if (query.isError) {
@@ -62,7 +62,7 @@ export default function EpisodeWatchPage() {
         ratings: series.ratings,
         posterUrl: series.posterUrl,
       }}
-      backHref={`/app/series/${series.id}`}
+      backHref={`/home/series/${series.id}`}
       preferredQuality={quality}
       autoPlayNext={autoPlayNext}
       previous={
@@ -70,7 +70,7 @@ export default function EpisodeWatchPage() {
           ? {
               id: previous.id,
               title: previous.title,
-              href: `/app/series/${series.id}/watch/${previous.id}`,
+              href: `/home/series/${series.id}/watch/${previous.id}`,
             }
           : null
       }
@@ -79,7 +79,7 @@ export default function EpisodeWatchPage() {
           ? {
               id: next.id,
               title: next.title,
-              href: `/app/series/${series.id}/watch/${next.id}`,
+              href: `/home/series/${series.id}/watch/${next.id}`,
             }
           : null
       }

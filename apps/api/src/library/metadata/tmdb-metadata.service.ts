@@ -22,6 +22,7 @@ export type CatalogPerson = {
 };
 
 export type CatalogMetadata = {
+  tmdbId?: number | null;
   title: string;
   originalTitle?: string | null;
   overview?: string | null;
@@ -119,23 +120,33 @@ export class TmdbMetadataService {
     if (!hit?.id) {
       return null;
     }
-    const detail = await this.getJson<TmdbMovieDetail>(`/3/movie/${hit.id}?append_to_response=credits`);
-    const source = detail ?? hit;
-    const release = source.release_date ?? hit.release_date;
-    const parsedYear = release ? Number(release.slice(0, 4)) : year;
-    const people = mapCredits(detail?.credits);
+    return this.getMovieById(hit.id);
+  }
+
+  async getMovieById(tmdbId: number): Promise<CatalogMetadata | null> {
+    if (!this.enabled() || !Number.isFinite(tmdbId) || tmdbId < 1) {
+      return null;
+    }
+    const detail = await this.getJson<TmdbMovieDetail>(
+      `/3/movie/${Math.trunc(tmdbId)}?append_to_response=credits`,
+    );
+    if (!detail?.id || !detail.title?.trim()) {
+      return null;
+    }
+    const release = detail.release_date;
+    const parsedYear = release ? Number(release.slice(0, 4)) : undefined;
+    const people = mapCredits(detail.credits);
     return {
-      title: (detail?.title ?? hit.title ?? title).trim(),
-      originalTitle: (detail?.original_title ?? hit.original_title) ?? null,
-      overview: (detail?.overview ?? hit.overview)?.trim() || null,
-      year: Number.isFinite(parsedYear) ? parsedYear : year,
-      runtimeMinutes: detail?.runtime && detail.runtime > 0 ? detail.runtime : undefined,
-      genres: mapTmdbGenres(
-        detail?.genres ?? (hit.genre_ids ?? []).map((id) => ({ id })),
-      ),
-      tmdbRating: typeof (detail?.vote_average ?? hit.vote_average) === 'number' ? (detail?.vote_average ?? hit.vote_average) : null,
-      posterPath: detail?.poster_path ?? hit.poster_path ?? null,
-      backdropPath: detail?.backdrop_path ?? hit.backdrop_path ?? null,
+      tmdbId: detail.id,
+      title: detail.title.trim(),
+      originalTitle: detail.original_title ?? null,
+      overview: detail.overview?.trim() || null,
+      year: Number.isFinite(parsedYear) ? parsedYear : undefined,
+      runtimeMinutes: detail.runtime && detail.runtime > 0 ? detail.runtime : undefined,
+      genres: mapTmdbGenres(detail.genres ?? []),
+      tmdbRating: typeof detail.vote_average === 'number' ? detail.vote_average : null,
+      posterPath: detail.poster_path ?? null,
+      backdropPath: detail.backdrop_path ?? null,
       cast: people.cast,
       directors: people.directors,
       writers: people.writers,

@@ -52,6 +52,7 @@ import { foldMarkerFields, toPlaybackMarkers } from '../stream/playback-markers.
 import { WatchHistoryService } from '../profiles/watch-history.service';
 import { SubscriptionAccessService } from '../subscriptions/subscription-access.service';
 import { LibraryExclusionService } from '../library/library-exclusion.service';
+import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
 
 const SHELF_LIMIT = 12;
 type MovieFilter = Record<string, unknown>;
@@ -70,6 +71,7 @@ export class MoviesService {
     private readonly history: WatchHistoryService,
     private readonly access: SubscriptionAccessService,
     private readonly libraryExclusions: LibraryExclusionService,
+    private readonly tmdb: TmdbMetadataService,
   ) {}
 
   async resolveViewer(user: RequestUser): Promise<{ maturity: MaturityLevel; isKids: boolean }> {
@@ -544,6 +546,83 @@ export class MoviesService {
     if (movie.published && !updated.published) {
       await this.streams.revokeMedia([id]);
     }
+    return updated;
+  }
+
+  async applyFromTmdb(
+    id: string,
+    tmdbId: number,
+    options: { updateArtwork?: boolean } = {},
+  ): Promise<MovieDocument> {
+    if (!this.tmdb.enabled()) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'TMDB_API_KEY is not configured on the server.',
+      });
+    }
+    const movie = await this.movieModel.findById(id);
+    if (!movie) {
+      this.notFound();
+    }
+    const meta = await this.tmdb.getMovieById(tmdbId);
+    if (!meta) {
+      throw new NotFoundException({
+        error: ErrorCode.NotFound,
+        message: `No TMDB movie found for id ${tmdbId}.`,
+      });
+    }
+
+    const dto: UpdateMovieDto = {
+      title: meta.title,
+      originalTitle: meta.originalTitle ?? null,
+      description: meta.overview?.slice(0, 4000) || movie.description,
+      releaseYear: meta.year ?? movie.releaseYear,
+      runtimeMinutes: meta.runtimeMinutes ?? movie.runtimeMinutes,
+      genres: (meta.genres.length ? meta.genres : movie.genres).slice(0, 12),
+      cast: meta.cast.slice(0, 40).map((member, index) => ({
+        name: member.name,
+        character: member.character ?? null,
+        order: member.order ?? index,
+        imageUrl: member.imageUrl ?? null,
+      })),
+      directors: meta.directors.slice(0, 12),
+      writers: meta.writers.slice(0, 12),
+      ratings: {
+        imdb: movie.ratings?.imdb ?? null,
+        critics: movie.ratings?.critics ?? null,
+        audience: movie.ratings?.audience ?? null,
+        tmdb:
+          meta.tmdbRating != null
+            ? Math.min(10, Math.max(0, meta.tmdbRating))
+            : (movie.ratings?.tmdb ?? null),
+      },
+    };
+
+    const updated = await this.update(id, dto);
+
+    if (options.updateArtwork !== false) {
+      const [poster, backdrop] = await Promise.all([
+        this.tmdb.downloadPoster(meta.posterPath),
+        this.tmdb.downloadBackdrop(meta.backdropPath),
+      ]);
+      if (poster) {
+        await this.attachArtwork(id, 'poster', {
+          mimetype: poster.mimetype,
+          buffer: poster.buffer,
+          size: poster.buffer.length,
+        });
+      }
+      if (backdrop) {
+        await this.attachArtwork(id, 'backdrop', {
+          mimetype: backdrop.mimetype,
+          buffer: backdrop.buffer,
+          size: backdrop.buffer.length,
+        });
+      }
+      const refreshed = await this.movieModel.findById(id);
+      return refreshed ?? updated;
+    }
+
     return updated;
   }
 

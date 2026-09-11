@@ -5,7 +5,7 @@ import type { PublicSeries } from "@movie-server/shared";
 
 export function SeriesCard({ series }: { series: PublicSeries }) {
   return (
-    <Link href={`/app/series/${series.id}`} className="group block overflow-hidden rounded-md bg-secondary">
+    <Link href={`/home/series/${series.id}`} className="group block overflow-hidden rounded-md bg-secondary">
       <div
         className="aspect-[2/3] bg-cover bg-center"
         style={

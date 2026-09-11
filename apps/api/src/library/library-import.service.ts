@@ -27,6 +27,11 @@ export type ImportContext = {
   durationMs?: number | null;
   contentHash?: string | null;
   ignored?: boolean;
+  /** Prefer these when the library item is already linked (stops rescan duplicates). */
+  existingMovieId?: string | null;
+  existingSeriesId?: string | null;
+  existingSeasonId?: string | null;
+  existingEpisodeId?: string | null;
 };
 
 @Injectable()
@@ -52,6 +57,12 @@ export class LibraryImportService {
     kind: LibraryKind,
     context: ImportContext,
   ): Promise<LibraryMatchResult> {
+    const linked = await this.resolveExistingLink(kind, context);
+    if (linked) {
+      await this.enrichMatched(linked, relativePath, context);
+      return linked;
+    }
+
     const existing = await this.matcher.match(relativePath, kind);
     if (existing.match !== LibraryMatchType.None) {
       await this.enrichMatched(existing, relativePath, context);
@@ -101,6 +112,45 @@ export class LibraryImportService {
     }
   }
 
+  private async resolveExistingLink(
+    kind: LibraryKind,
+    context: ImportContext,
+  ): Promise<LibraryMatchResult | null> {
+    if (kind === LibraryKind.Movies && context.existingMovieId) {
+      const movie = await this.movieModel.findById(context.existingMovieId);
+      if (movie) {
+        return {
+          match: LibraryMatchType.Movie,
+          movieId: movie._id,
+          matchTitle: movie.title,
+        };
+      }
+    }
+    if (kind === LibraryKind.Tv && context.existingEpisodeId) {
+      const episode = await this.episodeModel.findById(context.existingEpisodeId);
+      if (!episode) {
+        return null;
+      }
+      const seriesId = context.existingSeriesId
+        ? new Types.ObjectId(context.existingSeriesId)
+        : episode.seriesId;
+      const seasonId = context.existingSeasonId
+        ? new Types.ObjectId(context.existingSeasonId)
+        : episode.seasonId;
+      const series = await this.seriesModel.findById(seriesId);
+      return {
+        match: LibraryMatchType.Episode,
+        seriesId,
+        seasonId,
+        episodeId: episode._id,
+        matchTitle: series
+          ? `${series.title} S${String(episode.seasonNumber).padStart(2, '0')}E${String(episode.episodeNumber).padStart(2, '0')}`
+          : episode.title,
+      };
+    }
+    return null;
+  }
+
   private autoImport(): boolean {
     return this.config.get<boolean>('LIBRARY_AUTO_IMPORT') !== false;
   }
@@ -124,6 +174,20 @@ export class LibraryImportService {
     }
 
     const meta = await this.tmdb.searchMovie(title, year);
+    // Filename slug often differs from TMDB title (e.g. Venom.3 → Venom: The Last Dance).
+    // Reuse catalog row by TMDB title before creating another copy.
+    if (meta?.title) {
+      const byMeta =
+        (await this.matcher.findMovie(meta.title, meta.year ?? year)) ||
+        (meta.originalTitle
+          ? await this.matcher.findMovie(meta.originalTitle, meta.year ?? year)
+          : null);
+      if (byMeta) {
+        await this.enrichMovie(byMeta, relativePath, context);
+        return { match: LibraryMatchType.Movie, movieId: byMeta._id, matchTitle: byMeta.title };
+      }
+    }
+
     const releaseYear = clampReleaseYear(meta?.year ?? year);
     const runtimeMinutes = runtimeMinutesFromMs(context.durationMs, meta?.runtimeMinutes ?? 90);
     const created = await this.movies.create({
@@ -177,6 +241,15 @@ export class LibraryImportService {
       return existing;
     }
     const meta = await this.tmdb.searchSeries(title, year);
+    if (meta?.title) {
+      const byMeta =
+        (await this.matcher.findSeries(meta.title)) ||
+        (meta.originalTitle ? await this.matcher.findSeries(meta.originalTitle) : null);
+      if (byMeta) {
+        await this.enrichSeries(byMeta, relativePath, context);
+        return byMeta;
+      }
+    }
     const created = await this.series.createSeries({
       title: (meta?.title || title).slice(0, 200),
       originalTitle: meta?.originalTitle ?? null,

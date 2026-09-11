@@ -134,6 +134,11 @@ export const HOME_ROUTES = {
   Browse: '/home',
 } as const;
 
+export const LIBRARY_ROUTES = {
+  List: '/libraries',
+  Browse: '/libraries/:id',
+} as const;
+
 export const SEARCH_ROUTES = {
   Query: '/search',
   Suggest: '/search/suggest',

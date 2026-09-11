@@ -30,7 +30,7 @@ export default function SeriesDetailPage() {
   });
 
   useEffect(() => {
-    if (status === "anonymous") router.replace("/login?next=/app");
+    if (status === "anonymous") router.replace("/login?next=/home");
   }, [status, router]);
 
   const resolvedSeasonId = seasonId ?? query.data?.seasons[0]?.id ?? null;
@@ -52,7 +52,7 @@ export default function SeriesDetailPage() {
     return (
       <main className="mx-auto max-w-3xl px-6 py-16">
         <Alert>{message}</Alert>
-        <Button className="mt-6" variant="outline" onClick={() => router.push("/app")}>
+        <Button className="mt-6" variant="outline" onClick={() => router.push("/home")}>
           Back to catalog
         </Button>
       </main>
@@ -75,7 +75,7 @@ export default function SeriesDetailPage() {
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/30" />
         <div className="relative mx-auto max-w-none space-y-4 px-3 pb-12 pt-10 sm:px-4 md:px-5 lg:px-6">
-          <Button variant="ghost" onClick={() => router.push("/app")}>
+          <Button variant="ghost" onClick={() => router.push("/home")}>
             ← Catalog
           </Button>
           <p className="text-sm uppercase tracking-widest text-muted-foreground">
@@ -89,7 +89,7 @@ export default function SeriesDetailPage() {
             <Button
               onClick={() => {
                 rememberPlayerReturn();
-                router.push(`/app/series/${series.id}/watch/${playId}`);
+                router.push(`/home/series/${series.id}/watch/${playId}`);
               }}
             >
               {continueEpisode ? "Continue watching" : "Play"}
@@ -121,7 +121,7 @@ export default function SeriesDetailPage() {
                 className="flex min-w-0 flex-1 items-center justify-between rounded-md bg-secondary px-4 py-3 text-left"
                 onClick={() => {
                   rememberPlayerReturn();
-                  router.push(`/app/series/${series.id}/watch/${episode.id}`);
+                  router.push(`/home/series/${series.id}/watch/${episode.id}`);
                 }}
               >
                 <span>

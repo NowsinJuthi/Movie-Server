@@ -22,6 +22,7 @@ import { UpdateMovieDto, UpsertMovieDto } from './dto/upsert-movie.dto';
 import { BulkMoviesDto } from './dto/bulk-movies.dto';
 import { CreateMediaAssetDto, UpdateMediaAssetDto } from './dto/media-asset.dto';
 import { ArtworkSlotDto } from './dto/artwork.dto';
+import { FromTmdbDto } from './dto/from-tmdb.dto';
 import { toAdminMediaAsset, toPublicMovie } from './movie.mapper';
 
 @Controller('admin/movies')
@@ -54,6 +55,14 @@ export class AdminMoviesController {
   @Patch(':id')
   async update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateMovieDto) {
     const movie = await this.movies.update(id, dto);
+    return { movie: toPublicMovie(movie, { admin: true }) };
+  }
+
+  @Post(':id/from-tmdb')
+  async fromTmdb(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: FromTmdbDto) {
+    const movie = await this.movies.applyFromTmdb(id, dto.tmdbId, {
+      updateArtwork: dto.updateArtwork,
+    });
     return { movie: toPublicMovie(movie, { admin: true }) };
   }
 

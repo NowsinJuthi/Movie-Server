@@ -91,14 +91,6 @@ export default function AdminMovieEditPage() {
     },
   });
 
-  const upload = useMutation({
-    mutationFn: ({ slot, file }: { slot: "poster" | "backdrop"; file: File }) =>
-      movieApi.uploadArtwork(params.id, slot, file),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-movie", params.id] });
-    },
-  });
-
   if (!user || !hasMinimumRole(user.role, UserRole.Admin)) {
     return <ScreenMessage>Checking access...</ScreenMessage>;
   }
@@ -123,8 +115,6 @@ export default function AdminMovieEditPage() {
           onSubmit={(event) => {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
-            const posterUrl = String(data.get("posterUrl") || "");
-            const backdropUrl = String(data.get("backdropUrl") || "");
             const trailerUrl = String(data.get("trailerUrl") || "");
             update.mutate({
               title: String(data.get("title")),
@@ -133,8 +123,6 @@ export default function AdminMovieEditPage() {
               releaseYear: Number(data.get("releaseYear")),
               runtimeMinutes: Number(data.get("runtimeMinutes")),
               ...(trailerUrl.startsWith("http") || trailerUrl === "" ? { trailerUrl: trailerUrl || null } : {}),
-              ...(posterUrl.startsWith("http") ? { posterUrl } : {}),
-              ...(backdropUrl.startsWith("http") ? { backdropUrl } : {}),
               maturityRating: String(data.get("maturityRating")),
               certification: String(data.get("certification") || "") || null,
               availability: String(data.get("availability")),
@@ -164,8 +152,6 @@ export default function AdminMovieEditPage() {
           </div>
           <Field name="releaseYear" label="Year" type="number" defaultValue={String(movie.releaseYear)} />
           <Field name="runtimeMinutes" label="Runtime" type="number" defaultValue={String(movie.runtimeMinutes)} />
-          <Field name="posterUrl" label="Poster URL (https)" defaultValue={movie.posterUrl?.startsWith("http") ? movie.posterUrl : ""} />
-          <Field name="backdropUrl" label="Backdrop URL (https)" defaultValue={movie.backdropUrl?.startsWith("http") ? movie.backdropUrl : ""} />
           <Field name="trailerUrl" label="Trailer URL (https)" defaultValue={movie.trailerUrl ?? ""} />
           <SelectField name="maturityRating" label="Maturity" options={[...MATURITY_LEVELS]} defaultValue={movie.maturityRating} />
           <SelectField
@@ -238,36 +224,6 @@ export default function AdminMovieEditPage() {
             Save metadata
           </Button>
         </form>
-
-        <section className="space-y-3">
-          <h2 className="text-xl font-medium">Artwork</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm">
-              Poster file
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="mt-2"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) upload.mutate({ slot: "poster", file });
-                }}
-              />
-            </label>
-            <label className="text-sm">
-              Backdrop file
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="mt-2"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) upload.mutate({ slot: "backdrop", file });
-                }}
-              />
-            </label>
-          </div>
-        </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-medium">Media versions</h2>

@@ -46,13 +46,19 @@ export class SmbClientService {
   }
 
   private createClient(auth: SmbAuth): SMB2 {
+    // Preserve empty domain when provided — forcing WORKGROUP breaks many
+    // Ubuntu Samba / local Windows account logons.
+    const domain =
+      auth.domain === undefined || auth.domain === null
+        ? 'WORKGROUP'
+        : auth.domain.trim();
     return new SMB2({
       share: this.uncShare(auth),
-      domain: auth.domain?.trim() || 'WORKGROUP',
+      domain: domain || '.',
       username: auth.username,
       password: auth.password,
       port: auth.port ?? 445,
-      autoCloseTimeout: 8_000,
+      autoCloseTimeout: 15_000,
     });
   }
 
@@ -65,22 +71,14 @@ export class SmbClientService {
   }
 
   async test(auth: SmbAuth): Promise<void> {
-    const client = this.createClient(auth);
-    try {
+    await this.withClient(auth, async (client) => {
       await client.readdir('');
-    } finally {
-      try {
-        client.disconnect();
-      } catch {
-        /* ignore */
-      }
-    }
+    });
   }
 
   async list(auth: SmbAuth, remotePath = ''): Promise<SmbListedEntry[]> {
-    const client = this.createClient(auth);
     const base = this.normalizeRemotePath(remotePath);
-    try {
+    return this.withClient(auth, async (client) => {
       const files = await client.readdir(base, { stats: true });
       const entries: SmbListedEntry[] = [];
       for (const file of files) {
@@ -105,12 +103,37 @@ export class SmbClientService {
         return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       });
       return entries;
+    });
+  }
+
+  private async withClient<T>(auth: SmbAuth, run: (client: SMB2) => Promise<T>): Promise<T> {
+    let client: SMB2 | null = null;
+    try {
+      client = this.createClient(auth);
+      return await run(client);
+    } catch (error) {
+      const message = this.formatClientError(error);
+      this.logger.warn(`SMB error for \\\\${auth.host}\\${auth.share}: ${message}`);
+      throw new Error(message);
     } finally {
-      try {
-        client.disconnect();
-      } catch {
-        /* ignore */
+      if (client) {
+        try {
+          client.disconnect();
+        } catch {
+          /* ignore */
+        }
       }
     }
+  }
+
+  private formatClientError(error: unknown): string {
+    if (error instanceof Error) {
+      if (/unsupported|ERR_OSSL_EVP_UNSUPPORTED|digital envelope/i.test(error.message)) {
+        return 'SMB/NTLM crypto is blocked by this Node.js OpenSSL build. Restart the API with NODE_OPTIONS=--openssl-legacy-provider.';
+      }
+      return error.message || 'SMB request failed';
+    }
+    if (typeof error === 'string' && error.trim()) return error.trim();
+    return 'SMB request failed';
   }
 }

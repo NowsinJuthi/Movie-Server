@@ -33,7 +33,7 @@ export default function AdminFileManagerPage() {
   const [port, setPort] = useState("445");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [domain, setDomain] = useState("WORKGROUP");
+  const [domain, setDomain] = useState("");
   const [share, setShare] = useState("");
   const [libraryName, setLibraryName] = useState("");
   const [libraryKind, setLibraryKind] = useState<LibraryKind>("movies");
@@ -67,7 +67,7 @@ export default function AdminFileManagerPage() {
         port: Number(port) || 445,
         username: username.trim(),
         password,
-        domain: domain.trim() || "WORKGROUP",
+        domain: domain.trim(),
         share: share.trim(),
       }),
     onSuccess: (data) => {
@@ -141,14 +141,23 @@ export default function AdminFileManagerPage() {
         <header className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
           <h1 className="text-xl font-semibold">Samba file manager</h1>
           <p className="text-sm text-muted-foreground">
-            Connect an Ubuntu Samba share with IP, username and password, browse folders, then add a
-            directory directly as a movie or TV library.
+            Connect a Samba/Windows share with IP, share name, and Samba username/password, browse
+            folders, then add a directory as a movie or TV library. Use the Samba account (e.g. from{" "}
+            <code className="text-xs">pdbedit -L</code>), not your PC login, unless they are the same.
           </p>
         </header>
 
         {error ? (
           <div className="shrink-0 border-b border-border px-4 py-2 sm:px-5">
             <Alert>{error}</Alert>
+          </div>
+        ) : serversQuery.error ? (
+          <div className="shrink-0 border-b border-border px-4 py-2 sm:px-5">
+            <Alert>
+              {serversQuery.error instanceof ApiError
+                ? serversQuery.error.message
+                : "Could not load Samba servers."}
+            </Alert>
           </div>
         ) : null}
 
@@ -190,7 +199,13 @@ export default function AdminFileManagerPage() {
           </div>
           <div>
             <Label htmlFor="smb-user">Username</Label>
-            <Input id="smb-user" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <Input
+              id="smb-user"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="samba-user"
+              required
+            />
           </div>
           <div>
             <Label htmlFor="smb-pass">Password</Label>
@@ -203,8 +218,13 @@ export default function AdminFileManagerPage() {
             />
           </div>
           <div>
-            <Label htmlFor="smb-domain">Domain</Label>
-            <Input id="smb-domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
+            <Label htmlFor="smb-domain">Domain (optional)</Label>
+            <Input
+              id="smb-domain"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="blank / WORKGROUP / PC name"
+            />
           </div>
           <div className="flex items-end">
             <Button type="submit" disabled={create.isPending}>

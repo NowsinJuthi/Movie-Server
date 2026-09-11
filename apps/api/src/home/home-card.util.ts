@@ -40,8 +40,8 @@ export function movieToHomeCard(movie: PublicMovie, myList: Set<string>, extras?
     trending: movie.trending,
     popular: movie.popular,
     badges: movieBadges(movie),
-    href: `/app/movies/${movie.id}`,
-    watchHref: `/app/movies/${movie.id}/watch`,
+    href: `/home/movies/${movie.id}`,
+    watchHref: `/home/movies/${movie.id}/watch`,
     progressRatio: progressRatio(movie.progressSeconds, movie.durationSeconds),
     episodeLabel: null,
     inMyList: myList.has(movie.id),
@@ -73,8 +73,8 @@ export function seriesToHomeCard(
     trending: series.trending,
     popular: series.popular,
     badges: seriesBadges(series),
-    href: `/app/series/${series.id}`,
-    watchHref: `/app/series/${series.id}`,
+    href: `/home/series/${series.id}`,
+    watchHref: `/home/series/${series.id}`,
     progressRatio: null,
     episodeLabel: null,
     inMyList: myList.has(series.id),
@@ -86,7 +86,7 @@ export function movieContinueToCard(item: MovieContinueItem, myList: Set<string>
   const ratio = progressRatio(item.progress.progressSeconds, item.progress.durationSeconds);
   return movieToHomeCard(item.movie, myList, {
     progressRatio: ratio,
-    watchHref: `/app/movies/${item.movie.id}/watch`,
+    watchHref: `/home/movies/${item.movie.id}/watch`,
   });
 }
 
@@ -95,7 +95,7 @@ export function seriesContinueToCard(item: SeriesContinueItem, myList: Set<strin
   return seriesToHomeCard(item.series, myList, {
     progressRatio: ratio,
     episodeLabel: `S${item.episode.seasonNumber}:E${item.episode.episodeNumber} ${item.episode.title}`,
-    watchHref: `/app/series/${item.series.id}/watch/${item.episode.id}`,
+    watchHref: `/home/series/${item.series.id}/watch/${item.episode.id}`,
     backdropUrl: item.series.backdropUrl ?? item.series.posterUrl,
   });
 }
