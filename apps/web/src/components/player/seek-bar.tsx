@@ -53,26 +53,34 @@ export function SeekBar({
     return clamp01((clientX - rect.left) / rect.width);
   }, []);
 
-  const commitSeek = useCallback(
-    (ratio: number) => {
-      setPreviewRatio(ratio);
-      onSeek(ratio);
-    },
-    [onSeek],
-  );
+  const previewRatioRef = useRef<number | null>(null);
 
   const endScrub = useCallback(() => {
     if (!scrubbingRef.current) return;
+    const finalRatio = previewRatioRef.current;
     scrubbingRef.current = false;
     setScrubbing(false);
-    setPreviewRatio(null);
     onScrubbingChange?.(false);
-  }, [onScrubbingChange]);
+    if (finalRatio != null) {
+      onSeek(finalRatio);
+    }
+  }, [onScrubbingChange, onSeek]);
+
+  useEffect(() => {
+    if (previewRatio == null || duration <= 0) return;
+    const target = previewRatio * duration;
+    if (Math.abs(currentTime - target) < 1.5) {
+      setPreviewRatio(null);
+      previewRatioRef.current = null;
+    }
+  }, [currentTime, previewRatio, duration]);
 
   useEffect(() => {
     if (!scrubbing) return;
     const onMove = (event: PointerEvent) => {
-      commitSeek(ratioFromClientX(event.clientX));
+      const ratio = ratioFromClientX(event.clientX);
+      previewRatioRef.current = ratio;
+      setPreviewRatio(ratio);
     };
     const onUp = () => endScrub();
     window.addEventListener("pointermove", onMove);
@@ -83,7 +91,7 @@ export function SeekBar({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [scrubbing, commitSeek, endScrub, ratioFromClientX]);
+  }, [scrubbing, endScrub, ratioFromClientX]);
 
   return (
     <div
@@ -123,11 +131,13 @@ export function SeekBar({
           if (event.button !== 0) return;
           event.preventDefault();
           event.currentTarget.setPointerCapture?.(event.pointerId);
+          const ratio = ratioFromClientX(event.clientX);
+          previewRatioRef.current = ratio;
+          setPreviewRatio(ratio);
           scrubbingRef.current = true;
           setScrubbing(true);
           setHovering(true);
           onScrubbingChange?.(true);
-          commitSeek(ratioFromClientX(event.clientX));
         }}
         onKeyDown={(event) => {
           if (!duration) return;

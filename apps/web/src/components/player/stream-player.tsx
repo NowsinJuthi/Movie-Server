@@ -275,6 +275,17 @@ export function StreamPlayer({
     resumeApplied.current = true;
   }, []);
 
+  const warmMediaUrl = useCallback(async (url: string) => {
+    try {
+      await fetch(url, {
+        credentials: "include",
+        headers: { Range: "bytes=0-2097151" },
+      });
+    } catch {
+      /* warm SMB/page cache; playback still works if this fails */
+    }
+  }, []);
+
   const attachProgressive = useCallback(
     (info: PlaybackSessionInfo, resolution?: VideoResolution | "auto") => {
       const video = videoRef.current;
@@ -289,11 +300,13 @@ export function StreamPlayer({
       if (chosen) params.set("quality", chosen);
       if (info.selectedAudioId) params.set("audio", info.selectedAudioId);
       const query = params.toString();
-      video.src = query ? `${info.progressiveUrl}?${query}` : info.progressiveUrl;
+      const src = query ? `${info.progressiveUrl}?${query}` : info.progressiveUrl;
+      video.src = src;
       video.load();
+      void warmMediaUrl(src);
       void video.play().catch(() => undefined);
     },
-    [detachEngine],
+    [detachEngine, warmMediaUrl],
   );
 
   const attachHls = useCallback(
@@ -526,13 +539,16 @@ export function StreamPlayer({
       void persistProgress(true);
     };
     const onLoaded = () => {
-      applyResume();
       const dur = Number.isFinite(video.duration) ? video.duration : 0;
       if (dur > 30 && (durationFallback === 0 || dur >= durationFallback * 0.5 || dur >= 60)) {
         setDuration(dur);
       } else if (durationFallback > 0) {
         setDuration(durationFallback);
       }
+      applyResume();
+    };
+    const onCanPlay = () => {
+      applyResume();
     };
     const onEnded = () => {
       void persistProgress(true);
@@ -565,6 +581,7 @@ export function StreamPlayer({
     video.addEventListener("playing", onPlaying);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("loadedmetadata", onLoaded);
+    video.addEventListener("canplay", onCanPlay);
     video.addEventListener("ended", onEnded);
     video.addEventListener("error", onError);
     return () => {
@@ -576,6 +593,7 @@ export function StreamPlayer({
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("loadedmetadata", onLoaded);
+      video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
     };
@@ -620,11 +638,19 @@ export function StreamPlayer({
     video.currentTime = Math.min(Math.max(0, video.currentTime + delta), video.duration);
   }, []);
 
-  const seekToRatio = useCallback((ratio: number) => {
-    const video = videoRef.current;
-    if (!video || !Number.isFinite(video.duration)) return;
-    video.currentTime = video.duration * ratio;
-  }, []);
+  const seekToRatio = useCallback(
+    (ratio: number) => {
+      const video = videoRef.current;
+      const dur =
+        video && Number.isFinite(video.duration) && video.duration > 0
+          ? video.duration
+          : duration;
+      if (!video || dur <= 0) return;
+      const clamped = Math.min(1, Math.max(0, ratio));
+      video.currentTime = dur * clamped;
+    },
+    [duration],
+  );
 
   const changeVolume = useCallback((nextVolume: number) => {
     const video = videoRef.current;

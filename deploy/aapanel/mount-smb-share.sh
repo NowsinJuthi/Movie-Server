@@ -27,8 +27,21 @@ if mountpoint -q "$MP" 2>/dev/null; then
   exit 0
 fi
 
-mount -t cifs "//${HOST}/${SHARE}" "$MP" \
-  -o "credentials=${CRED},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,vers=3.0,noserverino,cache=loose,actimeo=60"
+if ! command -v mount.cifs >/dev/null 2>&1; then
+  echo "Installing cifs-utils (required for mount.cifs)..."
+  apt-get update -qq && apt-get install -y cifs-utils
+fi
 
-echo "Mounted //${HOST}/${SHARE} -> $MP"
+BASE_OPTS="credentials=${CRED},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,vers=3.0,noserverino"
+FAST_OPTS="${BASE_OPTS},cache=loose,actimeo=60"
+
+if mount -t cifs "//${HOST}/${SHARE}" "$MP" -o "$FAST_OPTS" 2>/dev/null; then
+  echo "Mounted //${HOST}/${SHARE} -> $MP (cache=loose)"
+elif mount -t cifs "//${HOST}/${SHARE}" "$MP" -o "$BASE_OPTS"; then
+  echo "Mounted //${HOST}/${SHARE} -> $MP (base options)"
+else
+  echo "Mount failed. Try: apt install cifs-utils && dmesg | tail -5" >&2
+  exit 1
+fi
+
 ls "$MP" | head
