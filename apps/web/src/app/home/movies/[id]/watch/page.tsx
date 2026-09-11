@@ -41,29 +41,35 @@ export default function MovieWatchPage() {
       </main>
     );
   }
-  if (!query.data) return <ScreenMessage>Loading title...</ScreenMessage>;
-
-  const { movie } = query.data;
+  const movie = query.data?.movie;
   const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "hd") as VideoQuality;
+
+  if (!movie && query.isLoading) {
+    return <ScreenMessage>Loading title...</ScreenMessage>;
+  }
 
   return (
     <StreamPlayer
-      title={movie.title}
-      year={movie.releaseYear}
-      mediaInfo={{
-        year: movie.releaseYear,
-        description: movie.description,
-        genres: movie.genres,
-        runtimeMinutes: movie.runtimeMinutes,
-        maturityRating: movie.maturityRating,
-        certification: movie.certification,
-        cast: movie.cast,
-        directors: movie.directors,
-        writers: movie.writers,
-        ratings: movie.ratings,
-        posterUrl: movie.posterUrl,
-      }}
-      backHref={`/home/movies/${movie.id}`}
+      title={movie?.title ?? "Loading..."}
+      year={movie?.releaseYear}
+      mediaInfo={
+        movie
+          ? {
+              year: movie.releaseYear,
+              description: movie.description,
+              genres: movie.genres,
+              runtimeMinutes: movie.runtimeMinutes,
+              maturityRating: movie.maturityRating,
+              certification: movie.certification,
+              cast: movie.cast,
+              directors: movie.directors,
+              writers: movie.writers,
+              ratings: movie.ratings,
+              posterUrl: movie.posterUrl,
+            }
+          : undefined
+      }
+      backHref={movie ? `/home/movies/${movie.id}` : "/home"}
       preferredQuality={quality}
       startPlayback={(requested) =>
         movieApi.playback(params.id, requested).then((body) => ({

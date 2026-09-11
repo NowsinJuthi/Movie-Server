@@ -6,6 +6,33 @@ export type ContainerAudioHint = {
   label: string | null;
 };
 
+/** True when the moov box appears before mdat (browser can start without reading the file tail). */
+export function mp4FastStart(absPath: string): boolean {
+  const fd = openSync(absPath, 'r');
+  try {
+    const size = fstatSync(fd).size;
+    let off = 0;
+    while (off + 8 <= size) {
+      const box = readBox(fd, off, size);
+      if (!box || box.size < 8) {
+        return false;
+      }
+      if (box.type === 'moov') {
+        return true;
+      }
+      if (box.type === 'mdat') {
+        return false;
+      }
+      off = box.end;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /** Lightweight ISO-BMFF walk to count embedded audio tracks when ffprobe under-reports. */
 export function probeMp4AudioTracks(absPath: string): ContainerAudioHint[] {
   const fd = openSync(absPath, 'r');

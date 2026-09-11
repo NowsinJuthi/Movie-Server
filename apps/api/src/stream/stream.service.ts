@@ -39,6 +39,7 @@ import { resolveSafePath } from '../library/storage/path-safety';
 import path from 'path';
 import { Readable } from 'stream';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
+import { mp4FastStart } from '../library/probe/mp4-container-probe';
 
 const API = '/api/v1';
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
@@ -379,34 +380,40 @@ export class StreamService {
     }
     const located = await this.resolveAbsoluteMedia(asset);
     const ext = path.extname(located.relativePath).toLowerCase();
-    if (ext === '.mkv' && this.remux.available()) {
-      return {
-        size: 0,
-        mime: 'video/mp4',
-        remux: true,
-        open: async () => this.remux.openVideoRemux(located.absPath),
-      };
+    if (this.remux.available()) {
+      const remuxForBrowser =
+        ext === '.mkv' ||
+        ((ext === '.mp4' || ext === '.m4v') && !mp4FastStart(located.absPath));
+      if (remuxForBrowser) {
+        return {
+          size: 0,
+          mime: 'video/mp4',
+          remux: true,
+          open: async () => this.remux.openVideoRemux(located.absPath),
+        };
+      }
     }
 
-    // Serve the original file for MP4/WebM so duration/seek stay correct.
+    // Serve the original file for fast-start MP4/WebM so duration/seek stay correct.
     const file = await this.resolveFile(asset);
     return { ...file, remux: false };
   }
 
   private async preferBrowserPlayable(assets: MediaAssetDocument[]): Promise<MediaAssetDocument[]> {
-    const scored = await Promise.all(
-      assets.map(async (asset) => {
-        try {
-          const located = await this.resolveAbsoluteMedia(asset);
-          const ext = path.extname(located.relativePath).toLowerCase();
-          const rank =
-            ext === '.mp4' || ext === '.m4v' ? 0 : ext === '.webm' ? 1 : ext === '.mkv' ? 2 : 3;
-          return { asset, rank };
-        } catch {
-          return { asset, rank: 9 };
-        }
-      }),
-    );
+    const itemIds = assets
+      .map((asset) => asset.libraryItemId)
+      .filter((id): id is Types.ObjectId => Boolean(id));
+    const items = itemIds.length ? await this.items.find({ _id: { $in: itemIds } }) : [];
+    const pathByItemId = new Map(items.map((item) => [String(item._id), item.relativePath]));
+    const scored = assets.map((asset) => {
+      const relativePath = asset.libraryItemId
+        ? pathByItemId.get(String(asset.libraryItemId))
+        : undefined;
+      const ext = relativePath ? path.extname(relativePath).toLowerCase() : '';
+      const rank =
+        ext === '.mp4' || ext === '.m4v' ? 0 : ext === '.webm' ? 1 : ext === '.mkv' ? 2 : 3;
+      return { asset, rank };
+    });
     scored.sort((a, b) => a.rank - b.rank);
     return scored.map((row) => row.asset);
   }

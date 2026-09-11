@@ -852,30 +852,45 @@ export class MoviesService {
     extras?: { currentStreamCount?: number; deviceId?: string; deviceLabel?: string },
   ): Promise<MoviePlaybackResponse> {
     await this.profiles.ensureSessionProfile(user);
-    const viewer = await this.resolveViewer(user);
-    const entitlement = await this.access.assertPlayback(user.id, {
-      quality,
-    });
-    const movie = await this.findByIdOrSlug(idOrSlug);
+    const [viewer, entitlement, movie] = await Promise.all([
+      this.resolveViewer(user),
+      this.access.assertPlayback(user.id, { quality }),
+      this.findByIdOrSlug(idOrSlug),
+    ]);
     if (!movie || !movie.published || !profileCanViewMaturity(viewer.maturity, movie.maturityRating, viewer.isKids)) {
       this.notFound();
     }
-    const detail = await this.toDetail(movie, entitlement, false);
-    if (!detail.movie.playable) {
+    const videoAssets = await this.assetModel
+      .find({
+        movieId: movie._id,
+        kind: MediaKind.Video,
+        status: MediaAssetStatus.Ready,
+      })
+      .select('quality kind status');
+    const publicMovie = toPublicMovie(movie, { entitlement, assets: videoAssets, progress: null });
+    if (!publicMovie.playable) {
       throw new BadRequestException({
         error: ErrorCode.FeatureNotAllowed,
         message: 'This title is not available for playback.',
       });
     }
-    const progress = await this.history.get(user.id, user.activeProfileId!, String(movie._id));
-    const session = await this.streams.open({
-      user,
-      quality,
-      deviceId: extras?.deviceId,
-      deviceLabel: extras?.deviceLabel,
-      movieId: String(movie._id),
-      durationSeconds: Math.max(progress?.durationSeconds ?? movie.runtimeMinutes * 60, 1),
-    });
+    const profileId = user.activeProfileId!;
+    const [progress, session] = await Promise.all([
+      this.history.get(user.id, profileId, String(movie._id)),
+      this.streams.open({
+        user,
+        quality,
+        deviceId: extras?.deviceId,
+        deviceLabel: extras?.deviceLabel,
+        movieId: String(movie._id),
+        durationSeconds: Math.max(movie.runtimeMinutes * 60, 1),
+      }),
+    ]);
+    if (progress) {
+      publicMovie.progressSeconds = progress.progressSeconds;
+      publicMovie.durationSeconds = progress.durationSeconds;
+      publicMovie.watched = progress.completed;
+    }
     if (!session) {
       throw new BadRequestException({
         error: ErrorCode.PlaybackUnavailable,
@@ -886,7 +901,7 @@ export class MoviesService {
     return {
       allowed: true,
       quality,
-      movie: detail.movie,
+      movie: publicMovie,
       session,
       markers: toPlaybackMarkers(movie.markers),
       resumeSeconds: progress?.progressSeconds ?? 0,

@@ -41,32 +41,50 @@ export default function EpisodeWatchPage() {
       </main>
     );
   }
-  if (!query.data) return <ScreenMessage>Loading episode...</ScreenMessage>;
+  const data = query.data;
+  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "hd") as VideoQuality;
 
-  const { series, episode, previous, next, autoPlayNext } = query.data;
-  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "sd") as VideoQuality;
+  if (!data && query.isLoading) {
+    return <ScreenMessage>Loading episode...</ScreenMessage>;
+  }
+
+  const { series, episode, previous, next, autoPlayNext } = data ?? {
+    series: null,
+    episode: null,
+    previous: null,
+    next: null,
+    autoPlayNext: false,
+  };
 
   return (
     <StreamPlayer
-      title={episode.title}
-      year={series.firstAirYear}
-      subtitle={`${series.title} · S${episode.seasonNumber}E${episode.episodeNumber}`}
-      mediaInfo={{
-        year: series.firstAirYear,
-        description: episode.description || series.description,
-        genres: series.genres,
-        maturityRating: series.maturityRating,
-        certification: series.certification,
-        cast: series.cast,
-        directors: series.directors,
-        ratings: series.ratings,
-        posterUrl: series.posterUrl,
-      }}
-      backHref={`/home/series/${series.id}`}
+      title={episode?.title ?? "Loading..."}
+      year={series?.firstAirYear}
+      subtitle={
+        series && episode
+          ? `${series.title} · S${episode.seasonNumber}E${episode.episodeNumber}`
+          : undefined
+      }
+      mediaInfo={
+        series
+          ? {
+              year: series.firstAirYear,
+              description: episode?.description || series.description,
+              genres: series.genres,
+              maturityRating: series.maturityRating,
+              certification: series.certification,
+              cast: series.cast,
+              directors: series.directors,
+              ratings: series.ratings,
+              posterUrl: series.posterUrl,
+            }
+          : undefined
+      }
+      backHref={series ? `/home/series/${series.id}` : "/home"}
       preferredQuality={quality}
       autoPlayNext={autoPlayNext}
       previous={
-        previous
+        previous && series
           ? {
               id: previous.id,
               title: previous.title,
@@ -75,7 +93,7 @@ export default function EpisodeWatchPage() {
           : null
       }
       next={
-        next
+        next && series
           ? {
               id: next.id,
               title: next.title,
