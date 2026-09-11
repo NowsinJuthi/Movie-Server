@@ -71,7 +71,7 @@ export class SmbMountService {
     const safePath = remotePath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
     let output: string;
     try {
-      output = await this.runSmbclient(auth, 'ls', safePath, true);
+      output = await this.runSmbclient(auth, 'ls', safePath, false, true);
     } catch (error) {
       throw new Error(this.formatLinuxSmbError(error));
     }
@@ -79,7 +79,7 @@ export class SmbMountService {
     for (const line of output.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      const parsed = this.parseGrepableSmbLine(trimmed);
+      const parsed = this.parseSmbclientLsLine(line);
       if (!parsed) continue;
       const { name, isDirectory } = parsed;
       if (!name || name === '.' || name === '..') continue;
@@ -199,6 +199,7 @@ export class SmbMountService {
     command: string,
     remotePath = '',
     grepable = false,
+    stdoutOnly = false,
   ): Promise<string> {
     const args = [
       this.linuxShareUrl(auth),
@@ -222,7 +223,33 @@ export class SmbMountService {
       timeout: 45_000,
       maxBuffer: 4_000_000,
     });
-    return [stdout, stderr].filter(Boolean).join('\n');
+    if (stdoutOnly) {
+      return typeof stdout === 'string' ? stdout : stdout?.toString('utf8') ?? '';
+    }
+    const out = typeof stdout === 'string' ? stdout : stdout?.toString('utf8') ?? '';
+    const err = typeof stderr === 'string' ? stderr : stderr?.toString('utf8') ?? '';
+    return [out, err].filter(Boolean).join('\n');
+  }
+
+  /** smbclient `ls` human-readable lines (grepable -g does not apply to dir listings). */
+  private parseSmbclientLsLine(
+    line: string,
+  ): { name: string; isDirectory: boolean; sizeBytes: number | null } | null {
+    if (/blocks of size|blocks available|^Domain=\[/i.test(line)) return null;
+    const human = line.match(
+      /^\s{2}(.+?)\s+([ADHSR]+)\s+(\d+)\s+\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4}\s*$/,
+    );
+    if (human) {
+      const name = human[1].trim();
+      const modes = human[2];
+      const size = Number(human[3]);
+      return {
+        name,
+        isDirectory: modes.includes('D'),
+        sizeBytes: Number.isFinite(size) ? size : null,
+      };
+    }
+    return this.parseGrepableSmbLine(line.trim());
   }
 
   private parseGrepableSmbLine(
@@ -230,7 +257,7 @@ export class SmbMountService {
   ): { name: string; isDirectory: boolean; sizeBytes: number | null } | null {
     const quoted = line.match(/^"((?:[^"\\]|\\.)*)"\|([a-zA-Z])\|(\d+)\|/);
     if (quoted) {
-      const name = quoted[1].replace(/\\"/g, '"');
+      const name = quoted[1].replace(/\\"/g, '"').trim();
       const type = quoted[2].toLowerCase();
       const size = Number(quoted[3]);
       return {
@@ -244,7 +271,7 @@ export class SmbMountService {
     const type = plain[2].toLowerCase();
     const size = Number(plain[3]);
     return {
-      name: plain[1],
+      name: plain[1].trim(),
       isDirectory: type === 'd',
       sizeBytes: Number.isFinite(size) ? size : null,
     };
