@@ -7,6 +7,8 @@ import { StorageFile, StorageProvider } from './storage.types';
 
 const SKIP_NAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);
 const SKIP_PREFIXES = ['.', '@eadir', '#recycle'];
+/** Larger chunks help cold SMB/CIFS reads stream to the browser sooner. */
+const READ_HIGH_WATER_MARK = 512 * 1024;
 
 export class LocalStorageProvider implements StorageProvider {
   readonly kind = 'local' as const;
@@ -42,9 +44,13 @@ export class LocalStorageProvider implements StorageProvider {
   async openReadStream(key: string, range?: { start: number; end: number }): Promise<Readable> {
     const full = this.resolveSafe(key);
     if (range) {
-      return createReadStream(full, { start: range.start, end: range.end });
+      return createReadStream(full, {
+        start: range.start,
+        end: range.end,
+        highWaterMark: READ_HIGH_WATER_MARK,
+      });
     }
-    return createReadStream(full);
+    return createReadStream(full, { highWaterMark: READ_HIGH_WATER_MARK });
   }
 
   async list(prefix = ''): Promise<StorageFile[]> {

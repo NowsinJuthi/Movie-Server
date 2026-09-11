@@ -109,13 +109,6 @@ export class StreamService {
     const playable = await this.preferBrowserPlayable(allowed);
 
     return this.sessions.runExclusive(input.user.id, async () => {
-      await this.sessions.registerDevice(
-        input.user.id,
-        deviceId,
-        deviceLabel,
-        entitlement.maxDevices,
-      );
-
       const selected =
         playable.find((asset) => RESOLUTION_TO_QUALITY[asset.quality as VideoResolution] === input.quality) ??
         playable[playable.length - 1];
@@ -133,9 +126,16 @@ export class StreamService {
           bandwidth: variantBandwidth(asset.quality as VideoResolution, asset.bitrateKbps),
         }));
 
-      const [{ audioTracks, subtitleTracks }, profile] = await Promise.all([
+      const [, { audioTracks, subtitleTracks }, profile, located] = await Promise.all([
+        this.sessions.registerDevice(
+          input.user.id,
+          deviceId,
+          deviceLabel,
+          entitlement.maxDevices,
+        ),
         this.loadTracks(input.movieId, input.episodeId),
         this.profiles.get(input.user.id, profileId),
+        this.resolveAbsoluteMedia(selected),
       ]);
       const selectedAudio = pickStoredTrack(audioTracks, profile.audioLanguage);
       const selectedSubtitle = pickStoredTrack(
@@ -143,6 +143,7 @@ export class StreamService {
         preferredSubtitleCode(profile.subtitleLanguage),
         true,
       );
+      const videoRemux = this.needsVideoRemux(located.absPath, located.relativePath);
 
       const payload = {
         userId: input.user.id,
@@ -163,6 +164,7 @@ export class StreamService {
         selectedAudioId: selectedAudio?.assetId ?? null,
         selectedSubtitleId: selectedSubtitle?.assetId ?? null,
         durationSeconds: input.durationSeconds,
+        videoRemux,
       };
 
       const session = existing
@@ -356,7 +358,6 @@ export class StreamService {
     open: (range?: { start: number; end: number }) => Promise<Readable>;
   }> {
     const session = await this.sessions.requireOwned(sessionId, userId);
-    await this.ensurePlayable(session, userId);
     const resolution =
       preferredResolution && (VIDEO_RESOLUTIONS as readonly string[]).includes(preferredResolution)
         ? (preferredResolution as VideoResolution)
@@ -379,24 +380,33 @@ export class StreamService {
       });
     }
     const located = await this.resolveAbsoluteMedia(asset);
-    const ext = path.extname(located.relativePath).toLowerCase();
-    if (this.remux.available()) {
-      const remuxForBrowser =
-        ext === '.mkv' ||
-        ((ext === '.mp4' || ext === '.m4v') && !mp4FastStart(located.absPath));
-      if (remuxForBrowser) {
-        return {
-          size: 0,
-          mime: 'video/mp4',
-          remux: true,
-          open: async () => this.remux.openVideoRemux(located.absPath),
-        };
-      }
+    const remux =
+      session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
+    if (remux) {
+      return {
+        size: 0,
+        mime: 'video/mp4',
+        remux: true,
+        open: async () => this.remux.openVideoRemux(located.absPath),
+      };
     }
 
-    // Serve the original file for fast-start MP4/WebM so duration/seek stay correct.
     const file = await this.resolveFile(asset);
     return { ...file, remux: false };
+  }
+
+  private needsVideoRemux(absPath: string, relativePath: string): boolean {
+    if (!this.remux.available()) {
+      return false;
+    }
+    const ext = path.extname(relativePath).toLowerCase();
+    if (ext === '.mkv') {
+      return true;
+    }
+    if (ext === '.mp4' || ext === '.m4v') {
+      return !mp4FastStart(absPath);
+    }
+    return false;
   }
 
   private async preferBrowserPlayable(assets: MediaAssetDocument[]): Promise<MediaAssetDocument[]> {

@@ -42,6 +42,8 @@ export type StoredPlaybackSession = {
   selectedAudioId: string | null;
   selectedSubtitleId: string | null;
   durationSeconds: number;
+  /** Cached at session open — avoids re-probing the file on every byte-range request. */
+  videoRemux: boolean;
   createdAt: number;
   lastHeartbeat: number;
   deviceLabel?: string;

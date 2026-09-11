@@ -3,7 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import type { VideoQuality } from "@movie-server/shared";
 import { movieApi } from "@/lib/movie-api";
+import { subscriptionApi } from "@/lib/subscription-api";
+import { cachePlayback } from "@/lib/playback-cache";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -26,6 +29,11 @@ export default function MovieDetailPage() {
     queryFn: () => movieApi.one(params.id),
     enabled: status === "authenticated" && Boolean(params.id),
     retry: false,
+  });
+  const entitlement = useQuery({
+    queryKey: ["subscription-entitlement"],
+    queryFn: subscriptionApi.entitlement,
+    enabled: status === "authenticated",
   });
   const watchedToggle = useMutation({
     mutationFn: async () => {
@@ -111,6 +119,17 @@ export default function MovieDetailPage() {
               <Button
                 onClick={() => {
                   rememberPlayerReturn();
+                  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "hd") as VideoQuality;
+                  void movieApi
+                    .playback(movie.id, quality)
+                    .then((body) => {
+                      cachePlayback(movie.id, {
+                        session: body.session,
+                        markers: body.markers,
+                        resumeSeconds: body.resumeSeconds,
+                      });
+                    })
+                    .catch(() => undefined);
                   router.push(`/home/movies/${movie.id}/watch`);
                 }}
               >

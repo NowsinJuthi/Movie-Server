@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { VideoQuality } from "@movie-server/shared";
 import { movieApi } from "@/lib/movie-api";
+import { takeCachedPlayback } from "@/lib/playback-cache";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { Alert } from "@/components/ui/alert";
@@ -71,13 +72,21 @@ export default function MovieWatchPage() {
       }
       backHref={movie ? `/home/movies/${movie.id}` : "/home"}
       preferredQuality={quality}
-      startPlayback={(requested) =>
-        movieApi.playback(params.id, requested).then((body) => ({
+      startPlayback={(requested) => {
+        const cached = takeCachedPlayback(params.id);
+        if (cached) {
+          return Promise.resolve({
+            session: cached.session,
+            markers: cached.markers,
+            resumeSeconds: cached.resumeSeconds,
+          });
+        }
+        return movieApi.playback(params.id, requested).then((body) => ({
           session: body.session,
           markers: body.markers,
           resumeSeconds: body.resumeSeconds,
-        }))
-      }
+        }));
+      }}
       saveProgress={(progressSeconds, durationSeconds) =>
         movieApi.progress(params.id, progressSeconds, durationSeconds).then(() => undefined)
       }
