@@ -5,8 +5,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.aapanel.yml"
 ENV_FILE="$ROOT_DIR/.env"
-MEDIA_HOST="${CINEVAULT_MEDIA_HOST:-/data/cinevault/media}"
-SMB_HOST="${CINEVAULT_SMB_HOST:-/data/cinevault/smb-mounts}"
+MEDIA_HOST="${CINEVAULT_MEDIA_HOST:-/data/movies.amarpin.com/media}"
+SMB_HOST="${CINEVAULT_SMB_HOST:-/data/movies.amarpin.com/smb-mounts}"
 
 cd "$ROOT_DIR"
 
@@ -27,7 +27,7 @@ SMB_HOST="${CINEVAULT_SMB_HOST:-$SMB_HOST}"
 
 echo ">> Creating media directories on host"
 mkdir -p "$MEDIA_HOST/movies" "$MEDIA_HOST/tv" "$SMB_HOST"
-chmod -R 755 /data/cinevault 2>/dev/null || true
+chmod -R 755 /data/movies.amarpin.com 2>/dev/null || true
 
 echo ">> Building and starting stack"
 docker compose -f "$COMPOSE_FILE" up -d --build

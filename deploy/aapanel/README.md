@@ -20,9 +20,9 @@ This stack is configured so **aaPanel Nginx** handles `80/443` + SSL, while Dock
 ## 2. Upload project
 
 ```bash
-mkdir -p /www/wwwroot/cinevault
-# upload/clone repo into /www/wwwroot/cinevault
-cd /www/wwwroot/cinevault
+mkdir -p /www/wwwroot/movies.amarpin.com
+# upload/clone repo into /www/wwwroot/movies.amarpin.com
+cd /www/wwwroot/movies.amarpin.com
 ```
 
 ## 3. Environment
@@ -55,7 +55,7 @@ chmod +x deploy/aapanel/deploy.sh
 Or manually:
 
 ```bash
-mkdir -p /data/cinevault/media/movies /data/cinevault/media/tv /data/cinevault/smb-mounts
+mkdir -p /data/movies.amarpin.com/media/movies /data/movies.amarpin.com/media/tv /data/movies.amarpin.com/smb-mounts
 docker compose -f docker-compose.aapanel.yml up -d --build
 ```
 
@@ -80,8 +80,8 @@ curl -I http://127.0.0.1:3001
 
 Host folders (default):
 
-- `/data/cinevault/media/movies`
-- `/data/cinevault/media/tv`
+- `/data/movies.amarpin.com/media/movies`
+- `/data/movies.amarpin.com/media/tv`
 
 Inside the API container these are `/data/media/movies` and `/data/media/tv` (already set in compose).
 
@@ -90,7 +90,7 @@ In Admin → Media libraries you can also add other absolute paths under `/data/
 ## 7. Updates
 
 ```bash
-cd /www/wwwroot/cinevault
+cd /www/wwwroot/movies.amarpin.com
 git pull   # if using git
 ./deploy/aapanel/deploy.sh
 ```
@@ -106,6 +106,6 @@ docker compose -f docker-compose.aapanel.yml restart api web
 ## Notes
 
 - Do **not** run the default `docker-compose.yml` nginx on port 80 while aaPanel Nginx is active.
-- Samba: mount shares on the host into `/data/cinevault/smb-mounts` (or use Admin Samba file manager with CIFS permissions).
+- Samba: mount shares on the host into `/data/movies.amarpin.com/smb-mounts` (or use Admin Samba file manager with CIFS permissions).
 - 8GB RAM is enough for this stack; watch Docker stats under heavy transcode/scan load.
 - If API refuses to start because `PAYMENT_PROVIDER=fake` on a public HTTPS URL, set real Stripe keys or temporarily use a non-public test domain until billing is configured.

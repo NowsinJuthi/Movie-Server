@@ -13,7 +13,7 @@ services:
     image: mongo:8.0
     restart: unless-stopped
     volumes:
-      - cinevault_mongo:/data/db
+      - movies_amarpin_com_mongo:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -21,14 +21,14 @@ services:
       retries: 8
       start_period: 20s
     networks:
-      - cinevault
+      - movies_amarpin_com
 
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
-      - cinevault_redis:/data
+      - movies_amarpin_com_redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -36,7 +36,7 @@ services:
       retries: 8
       start_period: 5s
     networks:
-      - cinevault
+      - movies_amarpin_com
 
   api:
     build:
@@ -61,9 +61,9 @@ services:
       MEDIA_MOVIES_DIR: /data/media/movies
       MEDIA_TV_DIR: /data/media/tv
     volumes:
-      - cinevault_uploads:/app/storage
-      - ${CINEVAULT_MEDIA_HOST:-/data/cinevault/media}:/data/media
-      - ${CINEVAULT_SMB_HOST:-/data/cinevault/smb-mounts}:/data/smb-mounts
+      - movies_amarpin_com_uploads:/app/storage
+      - ${CINEVAULT_MEDIA_HOST:-/data/movies.amarpin.com/media}:/data/media
+      - ${CINEVAULT_SMB_HOST:-/data/movies.amarpin.com/smb-mounts}:/data/smb-mounts
     ports:
       - "127.0.0.1:4001:4000"
     depends_on:
@@ -84,7 +84,7 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - cinevault
+      - movies_amarpin_com
 
   web:
     build:
@@ -116,13 +116,13 @@ services:
       retries: 8
       start_period: 25s
     networks:
-      - cinevault
+      - movies_amarpin_com
 
 volumes:
-  cinevault_mongo:
-  cinevault_redis:
-  cinevault_uploads:
+  movies_amarpin_com_mongo:
+  movies_amarpin_com_redis:
+  movies_amarpin_com_uploads:
 
 networks:
-  cinevault:
+  movies_amarpin_com:
     driver: bridge
