@@ -141,7 +141,7 @@ export class SmbService implements OnModuleInit {
       const listed =
         process.platform === 'win32'
           ? await this.mounts.listNative(auth, safePath)
-          : await this.client.list(auth, safePath);
+          : await this.mounts.listLinux(auth, safePath);
       server.lastOkAt = new Date();
       server.lastError = null;
       await server.save();
@@ -188,7 +188,7 @@ export class SmbService implements OnModuleInit {
       const siblings =
         process.platform === 'win32'
           ? await this.mounts.listNative(auth, parent)
-          : await this.client.list(auth, parent);
+          : await this.mounts.listLinux(auth, parent);
       const hit = siblings.find((entry) => entry.name === leaf);
       if (!hit?.isDirectory) {
         throw new BadRequestException({
@@ -301,7 +301,7 @@ export class SmbService implements OnModuleInit {
         if (process.platform === 'win32') {
           await this.mounts.testNative(attempt);
         } else {
-          await this.client.test(attempt);
+          await this.mounts.testLinux(attempt);
         }
         return attempt;
       } catch (error) {

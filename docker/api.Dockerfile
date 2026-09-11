@@ -7,7 +7,7 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY tsconfig.base.json ./
 COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
 COPY apps/api/tsconfig.json apps/api/tsconfig.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 FROM deps AS build
 COPY . .
@@ -16,7 +16,7 @@ RUN npm run build -w @movie-server/shared && npm run build -w @movie-server/api
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates cifs-utils smbclient \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /app/storage/uploads/artwork /app/storage/uploads/avatars /data/media/movies /data/media/tv /data/smb-mounts
 ENV NODE_ENV=production

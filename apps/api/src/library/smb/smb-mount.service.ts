@@ -52,6 +52,54 @@ export class SmbMountService {
     throw new Error('Native SMB test is only available on Windows.');
   }
 
+  /** Linux/Docker: use smbclient — @marsaud/smb2 can crash Node in containers. */
+  async testLinux(auth: SmbAuth): Promise<void> {
+    if (process.platform === 'win32') {
+      throw new Error('Linux SMB test is not available on Windows.');
+    }
+    try {
+      await this.runSmbclient(auth, 'exit');
+    } catch (error) {
+      throw new Error(this.formatLinuxSmbError(error));
+    }
+  }
+
+  async listLinux(auth: SmbAuth, remotePath = ''): Promise<SmbListedEntry[]> {
+    if (process.platform === 'win32') {
+      throw new Error('Linux SMB browse is not available on Windows.');
+    }
+    const safePath = remotePath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    let output: string;
+    try {
+      output = await this.runSmbclient(auth, 'ls', safePath, true);
+    } catch (error) {
+      throw new Error(this.formatLinuxSmbError(error));
+    }
+    const entries: SmbListedEntry[] = [];
+    for (const line of output.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const parsed = this.parseGrepableSmbLine(trimmed);
+      if (!parsed) continue;
+      const { name, isDirectory } = parsed;
+      if (!name || name === '.' || name === '..') continue;
+      const lower = name.toLowerCase();
+      if (lower.startsWith('.') || lower === 'thumbs.db' || lower === 'desktop.ini') continue;
+      const rel = safePath ? `${safePath}/${name}` : name;
+      entries.push({
+        name,
+        path: rel.replace(/\\/g, '/'),
+        isDirectory,
+        sizeBytes: parsed.sizeBytes,
+      });
+    }
+    entries.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+    return entries;
+  }
+
   async listNative(auth: SmbAuth, remotePath = ''): Promise<SmbListedEntry[]> {
     if (process.platform !== 'win32') {
       throw new Error('Native SMB browse is only available on Windows.');
@@ -132,6 +180,93 @@ export class SmbMountService {
 
   private psSingleQuote(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
+  }
+
+  private linuxShareUrl(auth: SmbAuth): string {
+    return `//${auth.host}/${auth.share}`;
+  }
+
+  private linuxUserSpec(auth: SmbAuth): string {
+    const domain = (auth.domain ?? '').trim();
+    if (domain && domain !== '.' && domain.toUpperCase() !== 'WORKGROUP') {
+      return `${domain}/${auth.username}`;
+    }
+    return auth.username;
+  }
+
+  private async runSmbclient(
+    auth: SmbAuth,
+    command: string,
+    remotePath = '',
+    grepable = false,
+  ): Promise<string> {
+    const args = [
+      this.linuxShareUrl(auth),
+      '-U',
+      this.linuxUserSpec(auth),
+      `--password=${auth.password}`,
+      '-p',
+      String(auth.port ?? 445),
+      '-m',
+      'SMB3',
+    ];
+    const domain = (auth.domain ?? '').trim();
+    if (domain && domain !== '.' && domain.toUpperCase() !== 'WORKGROUP') {
+      args.push('-W', domain);
+    }
+    if (grepable) args.push('-g');
+    const cleaned = remotePath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (cleaned) args.push('-D', cleaned);
+    args.push('-c', command);
+    const { stdout, stderr } = await execFileAsync('smbclient', args, {
+      timeout: 45_000,
+      maxBuffer: 4_000_000,
+    });
+    return [stdout, stderr].filter(Boolean).join('\n');
+  }
+
+  private parseGrepableSmbLine(
+    line: string,
+  ): { name: string; isDirectory: boolean; sizeBytes: number | null } | null {
+    const quoted = line.match(/^"((?:[^"\\]|\\.)*)"\|([a-zA-Z])\|(\d+)\|/);
+    if (quoted) {
+      const name = quoted[1].replace(/\\"/g, '"');
+      const type = quoted[2].toLowerCase();
+      const size = Number(quoted[3]);
+      return {
+        name,
+        isDirectory: type === 'd',
+        sizeBytes: Number.isFinite(size) ? size : null,
+      };
+    }
+    const plain = line.match(/^([^|]+)\|([a-zA-Z])\|(\d+)\|/);
+    if (!plain) return null;
+    const type = plain[2].toLowerCase();
+    const size = Number(plain[3]);
+    return {
+      name: plain[1],
+      isDirectory: type === 'd',
+      sizeBytes: Number.isFinite(size) ? size : null,
+    };
+  }
+
+  private formatLinuxSmbError(error: unknown): string {
+    const raw = this.formatExecError(error);
+    const nt = raw.match(/NT_STATUS_[A-Z_]+/)?.[0];
+    if (nt === 'NT_STATUS_LOGON_FAILURE') {
+      return 'Login failure — wrong username or password.';
+    }
+    if (nt === 'NT_STATUS_ACCESS_DENIED') {
+      return 'Access denied.';
+    }
+    if (nt) {
+      return nt
+        .replace(/^NT_STATUS_/, '')
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/^\w/, (c) => c.toUpperCase());
+    }
+    return raw.slice(0, 400);
   }
 
   private formatExecError(error: unknown): string {
