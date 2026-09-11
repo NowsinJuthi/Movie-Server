@@ -39,7 +39,7 @@ export const envSchema = z.object({
   SMTP_PASS: z.string().optional().default(''),
   MAIL_FROM: z.string().min(1).default('CineVault <noreply@localhost>'),
   BOOTSTRAP_SUPERADMIN_EMAIL: z.string().email().optional(),
-  BOOTSTRAP_SUPERADMIN_PASSWORD: z.string().min(10).optional(),
+  BOOTSTRAP_SUPERADMIN_PASSWORD: z.string().min(6).optional(),
   MAX_PROFILES_PER_ACCOUNT: z.coerce.number().int().min(1).max(8).default(5),
   AVATAR_MAX_BYTES: z.coerce.number().int().positive().default(2_097_152),
   AVATAR_UPLOAD_DIR: z.string().optional(),

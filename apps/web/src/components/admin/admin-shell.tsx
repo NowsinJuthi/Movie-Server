@@ -35,9 +35,8 @@ import {
 import { hasMinimumRole, UserRole } from "@movie-server/shared";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
-import { useBranding } from "@/components/branding/site-brand";
-import { brandingAssetSrc } from "@/lib/settings-api";
 import { libraryApi } from "@/lib/library-api";
+import { AppHeader } from "@/components/layout/app-header";
 import styles from "./admin-shell.module.css";
 
 type NavIcon = ComponentType<{ className?: string }>;
@@ -81,6 +80,7 @@ const NAV: NavSection[] = [
           { href: "/admin/license", label: "License", icon: KeyRound },
           { href: "/admin/jobs", label: "Jobs", icon: Settings2 },
           { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
+          { href: "/admin/slider", label: "Home slider", icon: MonitorPlay },
         ],
       },
     ],
@@ -288,8 +288,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, status } = useAuthStore();
   const { isGroupOpen, toggleGroup, expandGroup } = useGroupOpenState(pathname);
-  const { siteName, logoUrl } = useBranding();
-  const logoSrc = brandingAssetSrc(logoUrl);
   const librariesQuery = useQuery({
     queryKey: ["admin-libraries"],
     queryFn: libraryApi.list,
@@ -345,30 +343,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(styles.adminPanel, "admin-panel")}>
+      <AppHeader variant="admin" scrolled planLabel="Admin" />
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          <div className={styles.sidebarHead}>
-            <Link href="/admin" className={styles.brand}>
-              <span className="inline-flex min-h-7 items-center">
-                {/* Keep a stable child slot so logo load does not thrash the brand node. */}
-                {logoSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logoSrc}
-                    alt={siteName}
-                    className="h-7 w-auto max-w-[140px] object-contain"
-                  />
-                ) : null}
-                <span className={cn(!logoSrc ? "inline" : "hidden")}>
-                  {siteName} <span className={styles.brandAccent}>Admin</span>
-                </span>
-              </span>
-            </Link>
-            <Link href="/home" className={styles.appLink}>
-              Home
-            </Link>
-          </div>
-
           <nav className={styles.sidebarNav} aria-label="Admin">
             <div className={styles.menuPanel}>
                   <div className={cn(styles.menuScroll, "brand-scrollbar")}>

@@ -5,6 +5,8 @@
     linear-gradient(165deg, rgba(20, 28, 18, 0.55), transparent 42%),
     linear-gradient(180deg, rgba(8, 22, 28, 0.96), rgba(1, 19, 26, 0.98));
   padding: 1.2rem 1.05rem 1.05rem;
+  height: 100%;
+  box-sizing: border-box;
   box-shadow:
     0 0 0 1px rgba(241, 196, 15, 0.05) inset,
     0 18px 40px rgba(0, 0, 0, 0.28);

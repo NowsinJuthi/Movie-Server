@@ -308,12 +308,111 @@ describe('Auth (e2e)', () => {
       .send({ role: UserRole.User });
     expect(adminCannotPromote.status).toBe(403);
 
+    const adminCreateCustomer = await request(server)
+      .post(`${prefix}/admin/users`)
+      .set('Cookie', adminCookies)
+      .send({
+        email: 'created-customer@example.com',
+        displayName: 'Created Customer',
+        password,
+        role: UserRole.Customer,
+      });
+    expect(adminCreateCustomer.status).toBe(201);
+    expect(adminCreateCustomer.body.user.role).toBe(UserRole.Customer);
+
+    const adminCreateUser = await request(server)
+      .post(`${prefix}/admin/users`)
+      .set('Cookie', adminCookies)
+      .send({
+        email: 'created-by-admin@example.com',
+        displayName: 'Created User',
+        password,
+      });
+    expect(adminCreateUser.status).toBe(201);
+    expect(adminCreateUser.body.user.email).toBe('created-by-admin@example.com');
+    expect(adminCreateUser.body.user.role).toBe(UserRole.User);
+    expect(adminCreateUser.body.user.emailVerified).toBe(true);
+    expect(adminCreateUser.body.user).not.toHaveProperty('passwordHash');
+
+    const promoteToCustomer = await request(server)
+      .patch(`${prefix}/admin/users/${adminCreateUser.body.user.id}/role`)
+      .set('Cookie', adminCookies)
+      .send({ role: UserRole.Customer });
+    expect(promoteToCustomer.status).toBe(200);
+    expect(promoteToCustomer.body.user.role).toBe(UserRole.Customer);
+
+    const adminCannotCreateAdmin = await request(server)
+      .post(`${prefix}/admin/users`)
+      .set('Cookie', adminCookies)
+      .send({
+        email: 'new-admin@example.com',
+        displayName: 'New Admin',
+        password,
+        role: UserRole.Admin,
+      });
+    expect(adminCannotCreateAdmin.status).toBe(403);
+
+    const rootCreateAdmin = await request(server)
+      .post(`${prefix}/admin/users`)
+      .set('Cookie', rootCookies)
+      .send({
+        email: 'new-admin@example.com',
+        displayName: 'New Admin',
+        password,
+        role: UserRole.Admin,
+      });
+    expect(rootCreateAdmin.status).toBe(201);
+    expect(rootCreateAdmin.body.user.role).toBe(UserRole.Admin);
+
     const promote = await request(server)
       .patch(`${prefix}/admin/users/${String(superAdmin._id)}/role`)
       .set('Cookie', rootCookies)
       .send({ role: UserRole.Admin });
     expect(promote.status).toBe(200);
     expect(promote.body.user.role).toBe(UserRole.Admin);
+  });
+
+  it('lets admins edit and delete end-user accounts', async () => {
+    await users.createUser({
+      email: 'editor-admin@example.com',
+      password,
+      displayName: 'Editor Admin',
+      emailVerified: true,
+      role: UserRole.Admin,
+    });
+    const target = await users.createUser({
+      email: 'editable@example.com',
+      password,
+      displayName: 'Editable',
+      emailVerified: true,
+      role: UserRole.User,
+    });
+
+    const adminLogin = await request(server)
+      .post(`${prefix}/auth/login`)
+      .send({ email: 'editor-admin@example.com', password });
+    const adminCookies = cookieJar(adminLogin);
+
+    const edited = await request(server)
+      .patch(`${prefix}/admin/users/${String(target._id)}`)
+      .set('Cookie', adminCookies)
+      .send({
+        displayName: 'Edited Name',
+        email: 'edited@example.com',
+        role: UserRole.Customer,
+        emailVerified: true,
+        isActive: true,
+      });
+    expect(edited.status).toBe(200);
+    expect(edited.body.user.displayName).toBe('Edited Name');
+    expect(edited.body.user.email).toBe('edited@example.com');
+    expect(edited.body.user.role).toBe(UserRole.Customer);
+
+    const deleted = await request(server)
+      .delete(`${prefix}/admin/users/${String(target._id)}`)
+      .set('Cookie', adminCookies);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body.id).toBe(String(target._id));
   });
 
   it('locks an account after repeated failed logins', async () => {

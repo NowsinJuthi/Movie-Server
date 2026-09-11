@@ -98,6 +98,8 @@ export type AdminHomeHero = {
   mediaKind: HomeMediaKind | null;
   mediaId: string | null;
   titleOverride: string | null;
+  /** Ordered slider titles (max 6). */
+  itemIds: string[];
   updatedAt: string;
 };
 

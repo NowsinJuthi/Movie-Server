@@ -46,6 +46,7 @@ import {
 import {
   buildIndexedQueryClauses,
   catalogSort,
+  containsRegex,
   emptyGroup,
   intersectIds,
   matchingGenres,
@@ -138,7 +139,7 @@ export class SearchService {
       return { q, titles: [], people: [], genres: [] };
     }
     const base = this.visibilityFilter(viewer);
-    const rx = prefixRegex(q);
+    const rx = q.length <= 2 ? containsRegex(q) : prefixRegex(q);
     const titleClause = { $or: [{ titleNormalized: rx }, { originalTitleNormalized: rx }] };
     const [movies, series, moviePeople, seriesPeople] = await Promise.all([
       this.movieModel

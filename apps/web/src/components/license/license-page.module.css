@@ -110,15 +110,22 @@
 }
 
 .grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
   animation: riseIn 0.7s ease 0.08s both;
 }
 
+.actionsRow {
+  display: grid;
+  gap: 1.25rem;
+  align-items: stretch;
+  animation: riseIn 0.75s ease 0.12s both;
+}
+
 @media (min-width: 900px) {
-  .grid {
+  .actionsRow {
     grid-template-columns: 1.15fr 0.85fr;
-    align-items: start;
   }
 }
 
@@ -259,11 +266,16 @@
 }
 
 .activate {
-  margin-top: 1.25rem;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 1.1rem;
   border: 1px solid rgb(255 255 255 / 0.07);
   background: rgb(1 19 26 / 0.65);
   padding: 1.15rem 1.05rem;
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .activateHead {
@@ -287,6 +299,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  margin-bottom: 0.85rem;
 }
 
 .label {
@@ -324,7 +337,7 @@
 }
 
 .submit {
-  margin-top: 0.85rem;
+  margin-top: auto;
   width: 100%;
   border: none;
   border-radius: 0.85rem;
@@ -361,15 +374,23 @@
 .side {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  animation: riseIn 0.75s ease 0.16s both;
+  height: 100%;
+  min-height: 100%;
+}
+
+.side > * {
+  flex: 1;
+  height: 100%;
+  min-height: 100%;
 }
 
 .note {
+  margin-top: 1.25rem;
   border-radius: 1rem;
   border: 1px solid rgb(255 255 255 / 0.06);
   background: rgb(3 26 34 / 0.7);
   padding: 1rem 1.05rem;
+  animation: riseIn 0.75s ease 0.2s both;
 }
 
 .noteTitle {
@@ -433,6 +454,7 @@
   .glow,
   .topbar,
   .grid,
+  .actionsRow,
   .side,
   .skeleton {
     animation: none;

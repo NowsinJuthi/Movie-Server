@@ -1,7 +1,7 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model } from 'mongoose';
 import { ErrorCode, UserRole } from '@movie-server/shared';
 import { User, UserDocument } from './schemas/user.schema';
 import { PasswordService } from '../auth/password.service';
@@ -10,6 +10,7 @@ import { PasswordService } from '../auth/password.service';
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly passwordService: PasswordService,
     private readonly config: ConfigService,
   ) {}
@@ -138,12 +139,47 @@ export class UsersService {
     return user;
   }
 
-  async patchAdmin(userId: string, input: { displayName?: string; isActive?: boolean }) {
-    const user = await this.userModel.findById(userId).select('+tokenVersion');
+  async patchAdmin(
+    userId: string,
+    input: {
+      displayName?: string;
+      email?: string;
+      isActive?: boolean;
+      emailVerified?: boolean;
+      password?: string;
+    },
+  ) {
+    const user = await this.userModel.findById(userId).select('+tokenVersion +passwordHash');
     if (!user) return null;
+
     if (input.displayName) {
       user.displayName = input.displayName.trim().slice(0, 80);
     }
+
+    if (input.email) {
+      const nextEmail = input.email.toLowerCase().trim();
+      if (nextEmail !== user.email) {
+        const taken = await this.userModel.exists({ email: nextEmail, _id: { $ne: user._id } });
+        if (taken) {
+          throw new ConflictException({
+            error: ErrorCode.Conflict,
+            message: 'An account with that email already exists.',
+          });
+        }
+        user.email = nextEmail;
+      }
+    }
+
+    if (input.emailVerified !== undefined) {
+      user.emailVerified = input.emailVerified;
+    }
+
+    if (input.password) {
+      user.passwordHash = await this.passwordService.hash(input.password);
+      user.passwordChangedAt = new Date();
+      user.tokenVersion += 1;
+    }
+
     if (input.isActive !== undefined && input.isActive !== user.isActive) {
       if (!input.isActive && user.role === UserRole.SuperAdmin) {
         const others = await this.userModel.countDocuments({
@@ -163,6 +199,61 @@ export class UsersService {
         user.tokenVersion += 1;
       }
     }
+
+    await user.save();
+    return user;
+  }
+
+  async deleteAdmin(userId: string, actorId: string): Promise<UserDocument | null> {
+    if (userId === actorId) {
+      throw new ForbiddenException({
+        error: ErrorCode.Forbidden,
+        message: 'You cannot delete your own account.',
+      });
+    }
+
+    const user = await this.userModel.findById(userId);
+    if (!user) return null;
+
+    if (user.role === UserRole.SuperAdmin) {
+      const others = await this.userModel.countDocuments({
+        _id: { $ne: user._id },
+        role: UserRole.SuperAdmin,
+        isActive: true,
+      });
+      if (others < 1) {
+        throw new ForbiddenException({
+          error: ErrorCode.Forbidden,
+          message: 'Keep at least one active Super Admin.',
+        });
+      }
+    }
+
+    const oid = user._id;
+    const profiles = await this.connection.collection('profiles').find({ userId: oid }, { projection: { _id: 1 } }).toArray();
+    const profileIds = profiles.map((profile) => profile._id);
+
+    await user.deleteOne();
+
+    if (profileIds.length > 0) {
+      await Promise.all([
+        this.connection.collection('profiles').deleteMany({ userId: oid }),
+        this.connection.collection('watch_history').deleteMany({ profileId: { $in: profileIds } }),
+        this.connection.collection('my_list').deleteMany({ profileId: { $in: profileIds } }),
+        this.connection.collection('recommendations').deleteMany({ profileId: { $in: profileIds } }),
+        this.connection.collection('favorites').deleteMany({ profileId: { $in: profileIds } }),
+        this.connection.collection('media_reactions').deleteMany({ profileId: { $in: profileIds } }),
+        this.connection.collection('user_ratings').deleteMany({ profileId: { $in: profileIds } }),
+      ]);
+    }
+
+    return user;
+  }
+
+  async updateDisplayName(userId: string, displayName: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) return null;
+    user.displayName = displayName.trim().slice(0, 80);
     await user.save();
     return user;
   }

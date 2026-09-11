@@ -42,7 +42,9 @@ describe('home-card.util', () => {
     } as PublicMovie;
     const card = movieToHomeCard(movie, new Set(['m1']));
     expect(card.inMyList).toBe(true);
-    expect(card.badges).toEqual(expect.arrayContaining(['New', '4K', 'Trending']));
+    expect(card.badges).toEqual(expect.arrayContaining(['New', '4K', 'PG-13']));
+    expect(card.badges).not.toContain('HD');
+    expect(card.badges).not.toContain('Trending');
     expect(card.href).toBe('/home/movies/m1');
     expect(JSON.stringify(card)).not.toMatch(/C:\\|\/var\/|storage\/uploads/i);
   });

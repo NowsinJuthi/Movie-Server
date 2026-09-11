@@ -155,7 +155,9 @@ export default function LicensePage() {
                 <p className={styles.installId}>Install ID · {status.installId}</p>
               </>
             ) : null}
+          </section>
 
+          <div className={styles.actionsRow}>
             <form
               className={styles.activate}
               onSubmit={form.handleSubmit((values) => {
@@ -194,18 +196,19 @@ export default function LicensePage() {
                 {mutation.isPending ? "Activating..." : "Activate license"}
               </button>
             </form>
-          </section>
 
-          <aside className={styles.side}>
-            <LicenseContactPanel />
-            <div className={styles.note}>
-              <h3 className={styles.noteTitle}>Already have a key?</h3>
-              <p className={styles.noteBody}>
-                After activation the full product unlocks immediately. Keep your install ID handy
-                if you contact support about renewals.
-              </p>
+            <div className={styles.side}>
+              <LicenseContactPanel />
             </div>
-          </aside>
+          </div>
+
+          <div className={styles.note}>
+            <h3 className={styles.noteTitle}>Already have a key?</h3>
+            <p className={styles.noteBody}>
+              After activation the full product unlocks immediately. Keep your install ID handy
+              if you contact support about renewals.
+            </p>
+          </div>
         </div>
       </div>
     </main>

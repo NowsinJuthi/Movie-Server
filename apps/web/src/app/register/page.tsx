@@ -17,10 +17,7 @@ import { ApiError } from "@/lib/api";
 const schema = z.object({
   displayName: z.string().min(2).max(80),
   email: z.string().email(),
-  password: z
-    .string()
-    .min(10)
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, "Use upper, lower, and numeric characters"),
+  password: z.string().min(6, "Password must be at least 6 characters").max(72),
 });
 
 type FormValues = z.infer<typeof schema>;

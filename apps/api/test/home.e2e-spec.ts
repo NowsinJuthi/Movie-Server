@@ -202,9 +202,6 @@ describe('Home browse (e2e)', () => {
     const rowIds = home.body.rows.map((row: { id: string }) => row.id);
     expect(rowIds).toEqual(
       expect.arrayContaining([
-        'continue',
-        'mylist',
-        'favorites',
         'recently-watched',
         'featured',
         'trending',
@@ -213,11 +210,11 @@ describe('Home browse (e2e)', () => {
         'recent',
       ]),
     );
-    const continueRow = home.body.rows.find((row: { id: string }) => row.id === 'continue');
-    expect(continueRow.items.some((item: { id: string }) => item.id === movieId)).toBe(true);
-    const listRow = home.body.rows.find((row: { id: string }) => row.id === 'mylist');
-    expect(listRow.items[0].title).toBe('Nebula Dawn');
-    expect(listRow.items[0].inMyList).toBe(true);
+    expect(rowIds).not.toContain('continue');
+    expect(rowIds).not.toContain('mylist');
+    expect(rowIds).not.toContain('favorites');
+    const recentlyWatchedRow = home.body.rows.find((row: { id: string }) => row.id === 'recently-watched');
+    expect(recentlyWatchedRow.items.some((item: { id: string }) => item.id === movieId)).toBe(true);
     expect(home.body.rows.some((row: { kind: string }) => row.kind === 'genre')).toBe(true);
     expect(
       home.body.rows

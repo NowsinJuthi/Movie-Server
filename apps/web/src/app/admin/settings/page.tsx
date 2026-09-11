@@ -48,10 +48,24 @@ export default function AdminSettingsPage() {
     setFromEmail(settings.smtp.fromEmail);
   }
 
-  const saveMutation = useMutation({
+  const saveBrandingMutation = useMutation({
+    mutationFn: () => settingsApi.update({ siteName }),
+    onSuccess: async (data) => {
+      setError(null);
+      setSuccess("Branding settings saved.");
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    },
+    onError: (err: unknown) => {
+      setSuccess(null);
+      setError(err instanceof ApiError ? err.message : "Unable to save branding settings.");
+    },
+  });
+
+  const saveSmtpMutation = useMutation({
     mutationFn: () =>
       settingsApi.update({
-        siteName,
         smtp: {
           enabled: smtpEnabled,
           host: smtpHost,
@@ -65,14 +79,13 @@ export default function AdminSettingsPage() {
       }),
     onSuccess: async (data) => {
       setError(null);
-      setSuccess("Settings saved.");
+      setSuccess("SMTP settings saved.");
       applySettings(data.settings);
       await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
-      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
     onError: (err: unknown) => {
       setSuccess(null);
-      setError(err instanceof ApiError ? err.message : "Unable to save settings.");
+      setError(err instanceof ApiError ? err.message : "Unable to save SMTP settings.");
     },
   });
 
@@ -152,235 +165,251 @@ export default function AdminSettingsPage() {
       {!settings ? (
         <p className="text-sm text-muted-foreground">Loading settings...</p>
       ) : (
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="space-y-6">
           {error ? <Alert>{error}</Alert> : null}
           {success ? (
             <Alert className="border-emerald-500/40 text-emerald-300">{success}</Alert>
           ) : null}
 
-          <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-            <div>
-              <h2 className="text-base font-semibold">Website branding</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Site name appears in the header, admin panel, browser title, and email subjects.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="siteName">Website name</Label>
-              <Input
-                id="siteName"
-                value={siteName}
-                onChange={(e) => setSiteName(e.target.value)}
-                maxLength={80}
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-3 rounded-lg border border-border/70 p-4">
-                <p className="text-sm font-medium">Logo</p>
-                {settings.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={brandingAssetSrc(settings.logoUrl, bust) ?? undefined}
-                    alt="Logo preview"
-                    className="h-12 w-auto max-w-full object-contain"
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">No logo uploaded</p>
-                )}
-                <Input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) logoMutation.mutate(file);
-                    e.target.value = "";
-                  }}
-                />
-                {settings.logoUrl ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={clearLogoMutation.isPending}
-                    onClick={() => clearLogoMutation.mutate()}
-                  >
-                    Remove logo
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-border/70 p-4">
-                <p className="text-sm font-medium">Favicon</p>
-                {settings.faviconUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={brandingAssetSrc(settings.faviconUrl, bust) ?? undefined}
-                    alt="Favicon preview"
-                    className="h-10 w-10 object-contain"
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">No favicon uploaded</p>
-                )}
-                <Input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon,.ico"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) faviconMutation.mutate(file);
-                    e.target.value = "";
-                  }}
-                />
-                {settings.faviconUrl ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={clearFaviconMutation.isPending}
-                    onClick={() => clearFaviconMutation.mutate()}
-                  >
-                    Remove favicon
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+            <section className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5">
               <div>
-                <h2 className="text-base font-semibold">Email / SMTP</h2>
+                <h2 className="text-base font-semibold">Website branding</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Used for verification and password-reset emails. If disabled here, the API falls
-                  back to <code className="text-xs">SMTP_*</code> environment variables.
+                  Site name appears in the header, admin panel, browser title, and email subjects.
                 </p>
               </div>
-              <span
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  settings.smtpReady
-                    ? "bg-emerald-500/15 text-emerald-300"
-                    : "bg-amber-500/15 text-amber-200"
-                }`}
-              >
-                {settings.smtpReady
-                  ? `Ready (${settings.source.smtp})`
-                  : "Not configured"}
-              </span>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={smtpEnabled}
-                onChange={(e) => setSmtpEnabled(e.target.checked)}
-              />
-              Use SMTP settings from this panel
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="smtpHost">SMTP host</Label>
-                <Input
-                  id="smtpHost"
-                  placeholder="smtp.gmail.com"
-                  value={smtpHost}
-                  onChange={(e) => setSmtpHost(e.target.value)}
-                />
-              </div>
               <div className="space-y-2">
-                <Label htmlFor="smtpPort">Port</Label>
+                <Label htmlFor="siteName">Website name</Label>
                 <Input
-                  id="smtpPort"
-                  type="number"
-                  value={smtpPort}
-                  onChange={(e) => setSmtpPort(Number(e.target.value) || 587)}
+                  id="siteName"
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  maxLength={80}
                 />
               </div>
-              <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={smtpSecure}
-                    onChange={(e) => setSmtpSecure(e.target.checked)}
+
+              <div className="grid flex-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-3 rounded-lg border border-border/70 p-4">
+                  <p className="text-sm font-medium">Logo</p>
+                  {settings.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={brandingAssetSrc(settings.logoUrl, bust) ?? undefined}
+                      alt="Logo preview"
+                      className="h-12 w-auto max-w-full object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No logo uploaded</p>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) logoMutation.mutate(file);
+                      e.target.value = "";
+                    }}
                   />
-                  Secure (TLS / port 465)
-                </label>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="smtpUser">Username</Label>
-                <Input
-                  id="smtpUser"
-                  value={smtpUser}
-                  onChange={(e) => setSmtpUser(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="smtpPassword">
-                  Password {settings.smtp.passwordSet ? "(saved — leave blank to keep)" : ""}
-                </Label>
-                <Input
-                  id="smtpPassword"
-                  type="password"
-                  value={smtpPassword}
-                  onChange={(e) => setSmtpPassword(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder={settings.smtp.passwordSet ? "••••••••" : ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fromName">From name</Label>
-                <Input
-                  id="fromName"
-                  value={fromName}
-                  onChange={(e) => setFromName(e.target.value)}
-                  placeholder={siteName || "CineVault"}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fromEmail">From email</Label>
-                <Input
-                  id="fromEmail"
-                  type="email"
-                  value={fromEmail}
-                  onChange={(e) => setFromEmail(e.target.value)}
-                  placeholder="noreply@yourdomain.com"
-                />
-              </div>
-            </div>
+                  {settings.logoUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={clearLogoMutation.isPending}
+                      onClick={() => clearLogoMutation.mutate()}
+                    >
+                      Remove logo
+                    </Button>
+                  ) : null}
+                </div>
 
-            <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-end">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="testTo">Send test email to</Label>
-                <Input
-                  id="testTo"
-                  type="email"
-                  value={testTo}
-                  onChange={(e) => setTestTo(e.target.value)}
-                  placeholder="you@example.com"
-                />
+                <div className="space-y-3 rounded-lg border border-border/70 p-4">
+                  <p className="text-sm font-medium">Favicon</p>
+                  {settings.faviconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={brandingAssetSrc(settings.faviconUrl, bust) ?? undefined}
+                      alt="Favicon preview"
+                      className="h-10 w-10 object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No favicon uploaded</p>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon,.ico"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) faviconMutation.mutate(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {settings.faviconUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={clearFaviconMutation.isPending}
+                      onClick={() => clearFaviconMutation.mutate()}
+                    >
+                      Remove favicon
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={testMutation.isPending || !testTo.trim()}
-                onClick={() => testMutation.mutate()}
-              >
-                {testMutation.isPending ? "Sending..." : "Send test"}
-              </Button>
-            </div>
-          </section>
 
-          <Button
-            type="button"
-            disabled={saveMutation.isPending}
-            onClick={() => {
-              setSuccess(null);
-              saveMutation.mutate();
-            }}
-          >
-            {saveMutation.isPending ? "Saving..." : "Save settings"}
-          </Button>
+              <div className="mt-auto border-t border-border/60 pt-4">
+                <Button
+                  type="button"
+                  disabled={saveBrandingMutation.isPending}
+                  onClick={() => {
+                    setSuccess(null);
+                    saveBrandingMutation.mutate();
+                  }}
+                >
+                  {saveBrandingMutation.isPending ? "Saving..." : "Save branding"}
+                </Button>
+              </div>
+            </section>
+
+            <section className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">Email / SMTP</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Used for verification and password-reset emails. If disabled here, the API falls
+                    back to <code className="text-xs">SMTP_*</code> environment variables.
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    settings.smtpReady
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : "bg-amber-500/15 text-amber-200"
+                  }`}
+                >
+                  {settings.smtpReady
+                    ? `Ready (${settings.source.smtp})`
+                    : "Not configured"}
+                </span>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={smtpEnabled}
+                  onChange={(e) => setSmtpEnabled(e.target.checked)}
+                />
+                Use SMTP settings from this panel
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="smtpHost">SMTP host</Label>
+                  <Input
+                    id="smtpHost"
+                    placeholder="smtp.gmail.com"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpPort">Port</Label>
+                  <Input
+                    id="smtpPort"
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(Number(e.target.value) || 587)}
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={smtpSecure}
+                      onChange={(e) => setSmtpSecure(e.target.checked)}
+                    />
+                    Secure (TLS / port 465)
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpUser">Username</Label>
+                  <Input
+                    id="smtpUser"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtpPassword">
+                    Password {settings.smtp.passwordSet ? "(saved — leave blank to keep)" : ""}
+                  </Label>
+                  <Input
+                    id="smtpPassword"
+                    type="password"
+                    value={smtpPassword}
+                    onChange={(e) => setSmtpPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder={settings.smtp.passwordSet ? "••••••••" : ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fromName">From name</Label>
+                  <Input
+                    id="fromName"
+                    value={fromName}
+                    onChange={(e) => setFromName(e.target.value)}
+                    placeholder={siteName || "CineVault"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fromEmail">From email</Label>
+                  <Input
+                    id="fromEmail"
+                    type="email"
+                    value={fromEmail}
+                    onChange={(e) => setFromEmail(e.target.value)}
+                    placeholder="noreply@yourdomain.com"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-auto space-y-4 border-t border-border/60 pt-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="testTo">Send test email to</Label>
+                    <Input
+                      id="testTo"
+                      type="email"
+                      value={testTo}
+                      onChange={(e) => setTestTo(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={testMutation.isPending || !testTo.trim()}
+                    onClick={() => testMutation.mutate()}
+                  >
+                    {testMutation.isPending ? "Sending..." : "Send test"}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  disabled={saveSmtpMutation.isPending}
+                  onClick={() => {
+                    setSuccess(null);
+                    saveSmtpMutation.mutate();
+                  }}
+                >
+                  {saveSmtpMutation.isPending ? "Saving..." : "Save SMTP"}
+                </Button>
+              </div>
+            </section>
+          </div>
         </div>
       )}
     </AdminPage>

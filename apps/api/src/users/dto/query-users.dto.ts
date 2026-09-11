@@ -1,7 +1,20 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { USER_ROLES, UserRole } from '@movie-server/shared';
-import { Trim } from '../../common/decorators/transform.decorators';
+import { NormalizeEmail, Trim } from '../../common/decorators/transform.decorators';
+import { sanitizePlainText } from '../../common/security/sanitize';
 
 function toBool({ value }: { value: unknown }): boolean | undefined {
   if (value === true || value === 'true' || value === '1') return true;
@@ -47,11 +60,36 @@ export class QueryUsersDto {
 export class PatchUserDto {
   @IsOptional()
   @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? sanitizePlainText(value) : value))
   @IsString()
+  @MinLength(2)
   @MaxLength(80)
   displayName?: string;
 
   @IsOptional()
+  @NormalizeEmail()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  emailVerified?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...USER_ROLES])
+  role?: UserRole;
+
+  /** Leave empty / omit to keep the current password. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  @IsString()
+  @MinLength(6)
+  @MaxLength(72)
+  password?: string;
 }

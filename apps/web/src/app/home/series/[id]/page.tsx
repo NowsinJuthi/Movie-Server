@@ -74,7 +74,7 @@ export default function SeriesDetailPage() {
         }
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/30" />
-        <div className="relative mx-auto max-w-none space-y-4 px-3 pb-12 pt-10 sm:px-4 md:px-5 lg:px-6">
+        <div className="relative mx-auto max-w-none space-y-4 px-3 pb-12 pt-24 sm:px-4 md:px-5 lg:px-6">
           <Button variant="ghost" onClick={() => router.push("/home")}>
             ← Catalog
           </Button>

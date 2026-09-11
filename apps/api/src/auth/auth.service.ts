@@ -346,6 +346,17 @@ export class AuthService {
     return { user: toPublicUser(user) };
   }
 
+  async updateAccount(userRef: RequestUser, displayName: string): Promise<{ user: PublicUser }> {
+    const user = await this.users.updateDisplayName(userRef.id, displayName);
+    if (!user) {
+      throw new UnauthorizedException({
+        error: ErrorCode.Unauthorized,
+        message: 'Authentication required.',
+      });
+    }
+    return { user: toPublicUser(user) };
+  }
+
   async validateAccessPayload(payload: AccessTokenPayload): Promise<RequestUser> {
     if (payload.typ !== 'access') {
       throw new UnauthorizedException({

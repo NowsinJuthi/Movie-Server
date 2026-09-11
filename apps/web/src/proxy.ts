@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE, UserRole, hasMinimumRole } from "@movie-server/shared";
+import { AUTH_COOKIE, USER_ROLES, UserRole, hasMinimumRole } from "@movie-server/shared";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -49,8 +49,8 @@ function roleFromAccessToken(token?: string): UserRole | null {
   try {
     const json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
     const payload = JSON.parse(json) as { role?: string };
-    if (payload.role === UserRole.User || payload.role === UserRole.Admin || payload.role === UserRole.SuperAdmin) {
-      return payload.role;
+    if (typeof payload.role === "string" && (USER_ROLES as readonly string[]).includes(payload.role)) {
+      return payload.role as UserRole;
     }
     return null;
   } catch {

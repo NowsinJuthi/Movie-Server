@@ -36,8 +36,31 @@ export const adminApi = {
     apiFetch<AdminPage<AdminAuditLog>>(`/admin/audit${qs(query)}`),
   users: (query: { q?: string; role?: string; isActive?: boolean; sort?: string; page?: number; limit?: number } = {}) =>
     apiFetch<AdminPage<AdminUserRow> & { users: PublicUser[] }>(`/admin/users${qs(query)}`),
-  patchUser: (id: string, input: { displayName?: string; isActive?: boolean }) =>
+  createUser: (input: {
+    email: string;
+    displayName: string;
+    password: string;
+    role?: UserRole;
+    emailVerified?: boolean;
+  }) =>
+    apiFetch<{ user: AdminUserRow }>("/admin/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  patchUser: (
+    id: string,
+    input: {
+      displayName?: string;
+      email?: string;
+      isActive?: boolean;
+      emailVerified?: boolean;
+      role?: UserRole;
+      password?: string;
+    },
+  ) =>
     apiFetch<{ user: AdminUserRow }>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteUser: (id: string) =>
+    apiFetch<{ message: string; id: string }>(`/admin/users/${id}`, { method: "DELETE" }),
   updateRole: (id: string, role: UserRole) =>
     apiFetch<{ user: PublicUser }>(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   profiles: (query: { q?: string; userId?: string; page?: number; limit?: number } = {}) =>

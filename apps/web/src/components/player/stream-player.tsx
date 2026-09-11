@@ -21,7 +21,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   PlaybackMarkers,
@@ -37,6 +37,8 @@ import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
+import { SeekBar } from "./seek-bar";
+import { VolumeBar } from "./volume-bar";
 import type { PlayerMediaInfo } from "./player-types";
 
 type PlayerSheet = "info" | "chapters" | "cast" | "settings" | "audio" | "speed" | "subtitles" | null;
@@ -155,6 +157,7 @@ export function StreamPlayer({
   const [rate, setRate] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [bufferedEnd, setBufferedEnd] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [controls, setControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
@@ -458,6 +461,26 @@ export function StreamPlayer({
     const video = videoRef.current;
     if (!video) return;
 
+    const syncBuffered = () => {
+      const dur = Number.isFinite(video.duration) ? video.duration : 0;
+      if (!dur || !video.buffered.length) {
+        setBufferedEnd(0);
+        return;
+      }
+      let end = 0;
+      const t = video.currentTime;
+      for (let i = 0; i < video.buffered.length; i += 1) {
+        const start = video.buffered.start(i);
+        const stop = video.buffered.end(i);
+        if (start <= t && t <= stop) {
+          end = stop;
+          break;
+        }
+        end = Math.max(end, stop);
+      }
+      setBufferedEnd(end);
+    };
+
     const onTime = () => {
       setCurrentTime(video.currentTime);
       const dur = Number.isFinite(video.duration) ? video.duration : 0;
@@ -467,6 +490,7 @@ export function StreamPlayer({
       } else if (durationFallback > 0) {
         setDuration((prev) => (prev > 30 ? prev : durationFallback));
       }
+      syncBuffered();
       const credits = markersRef.current.creditsStartSeconds;
       const effectiveDur = dur > 30 ? dur : durationFallback || dur;
       if (
@@ -532,6 +556,7 @@ export function StreamPlayer({
     };
 
     video.addEventListener("timeupdate", onTime);
+    video.addEventListener("progress", syncBuffered);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("waiting", onWaiting);
@@ -542,6 +567,7 @@ export function StreamPlayer({
     video.addEventListener("error", onError);
     return () => {
       video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("progress", syncBuffered);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("waiting", onWaiting);
@@ -1047,7 +1073,6 @@ export function StreamPlayer({
     session?.selectedSubtitleId,
   ]);
 
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const qualityLabel = useMemo(() => {
     if (quality === "auto") return usingHls ? "Auto" : session?.selectedResolution ?? "Auto";
     return quality;
@@ -1204,19 +1229,10 @@ export function StreamPlayer({
 
           <div className="flex shrink-0 items-center gap-1 md:gap-1.5">
             <div className="mr-1 flex items-center gap-2.5">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round((muted ? 0 : volume) * 100)}
-                aria-label="Volume"
-                className="volume-slider h-5 w-[7.5rem] cursor-pointer appearance-none bg-transparent md:w-36"
-                style={
-                  {
-                    "--volume-pct": `${Math.round((muted ? 0 : volume) * 100)}%`,
-                  } as CSSProperties
-                }
-                onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+              <VolumeBar
+                className="w-[7.5rem] md:w-36"
+                value={muted ? 0 : volume}
+                onChange={changeVolume}
               />
               <IconButton label={muted ? "Unmute" : "Mute"} onClick={toggleMute}>
                 {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
@@ -1539,15 +1555,20 @@ export function StreamPlayer({
             </div>
           </div>
 
-          {/* Scrubber */}
-          <input
-            type="range"
-            min={0}
-            max={1000}
-            value={Math.round(pct * 10)}
-            aria-label="Seek"
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-white [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:top-[-6px] [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-            onChange={(event) => seekToRatio(Number(event.target.value) / 1000)}
+          {/* Scrubber — YouTube-style, brand teal */}
+          <SeekBar
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            onSeek={seekToRatio}
+            onScrubbingChange={(active) => {
+              if (active) {
+                setControls(true);
+                if (hideTimer.current) window.clearTimeout(hideTimer.current);
+              } else {
+                revealControls();
+              }
+            }}
           />
 
           {/* Transport + times */}

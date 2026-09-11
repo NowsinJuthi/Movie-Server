@@ -26,7 +26,13 @@ export class HomeCmsService {
   async getHero(): Promise<HomeHeroDocument> {
     const existing = await this.heroes.findOne({ key: 'default' });
     if (existing) return existing;
-    return this.heroes.create({ key: 'default', enabled: false, mediaKind: null, mediaId: null });
+    return this.heroes.create({
+      key: 'default',
+      enabled: false,
+      mediaKind: null,
+      mediaId: null,
+      itemIds: [],
+    });
   }
 
   async updateHero(input: {
@@ -34,12 +40,23 @@ export class HomeCmsService {
     mediaKind?: 'movie' | 'series' | null;
     mediaId?: string | null;
     titleOverride?: string | null;
+    itemIds?: string[];
   }): Promise<HomeHeroDocument> {
     const hero = await this.getHero();
     if (input.enabled !== undefined) hero.enabled = input.enabled;
     if (input.mediaKind !== undefined) hero.mediaKind = input.mediaKind;
     if (input.mediaId !== undefined) hero.mediaId = input.mediaId;
     if (input.titleOverride !== undefined) hero.titleOverride = input.titleOverride;
+    if (input.itemIds !== undefined) {
+      const ids = [...new Set(input.itemIds.map((id) => id.trim()).filter(Boolean))].slice(0, 6);
+      hero.itemIds = ids;
+      // Keep legacy single-hero fields in sync with the first slider slot.
+      hero.mediaId = ids[0] ?? null;
+      if (ids.length > 0) {
+        hero.mediaKind = hero.mediaKind ?? 'movie';
+        hero.enabled = input.enabled ?? true;
+      }
+    }
     await hero.save();
     await this.bump();
     return hero;
@@ -108,12 +125,19 @@ export class HomeCmsService {
   }
 
   toPublicHero(hero: HomeHeroDocument): AdminHomeHero {
+    const itemIds =
+      hero.itemIds?.length > 0
+        ? hero.itemIds
+        : hero.mediaId
+          ? [hero.mediaId]
+          : [];
     return {
       id: String(hero._id),
       enabled: hero.enabled,
       mediaKind: hero.mediaKind ?? null,
-      mediaId: hero.mediaId ?? null,
+      mediaId: hero.mediaId ?? itemIds[0] ?? null,
       titleOverride: hero.titleOverride ?? null,
+      itemIds,
       updatedAt: hero.updatedAt.toISOString(),
     };
   }

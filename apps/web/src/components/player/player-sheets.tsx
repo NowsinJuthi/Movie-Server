@@ -1,7 +1,8 @@
 "use client";
 
 import { CirclePlay, Star } from "lucide-react";
-import { useCallback, useRef, type PointerEvent, type ReactNode, type WheelEvent, type MouseEvent } from "react";
+import type { ReactNode } from "react";
+import { DragSlider } from "@/components/ui/drag-slider";
 import { cn } from "@/lib/utils";
 import type { PlayerMediaInfo } from "./player-types";
 
@@ -176,76 +177,6 @@ export function PlayerDetailsDock({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function DragSlider({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLUListElement>(null);
-  const drag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
-
-  const onPointerDown = useCallback((event: PointerEvent<HTMLUListElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    drag.current = {
-      active: true,
-      startX: event.clientX,
-      scrollLeft: el.scrollLeft,
-      moved: false,
-    };
-    el.setPointerCapture(event.pointerId);
-    el.classList.add("cursor-grabbing");
-  }, []);
-
-  const onPointerMove = useCallback((event: PointerEvent<HTMLUListElement>) => {
-    const el = ref.current;
-    if (!el || !drag.current.active) return;
-    const delta = event.clientX - drag.current.startX;
-    if (Math.abs(delta) > 4) drag.current.moved = true;
-    el.scrollLeft = drag.current.scrollLeft - delta;
-  }, []);
-
-  const endDrag = useCallback((event: PointerEvent<HTMLUListElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    drag.current.active = false;
-    el.classList.remove("cursor-grabbing");
-    try {
-      el.releasePointerCapture(event.pointerId);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const onClickCapture = useCallback((event: MouseEvent<HTMLUListElement>) => {
-    if (drag.current.moved) {
-      event.preventDefault();
-      event.stopPropagation();
-      drag.current.moved = false;
-    }
-  }, []);
-
-  const onWheel = useCallback((event: WheelEvent<HTMLUListElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-      el.scrollLeft += event.deltaY;
-      event.preventDefault();
-    }
-  }, []);
-
-  return (
-    <ul
-      ref={ref}
-      className="no-scrollbar flex cursor-grab gap-3 overflow-x-auto overscroll-x-contain pb-1 md:gap-4"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onClickCapture={onClickCapture}
-      onWheel={onWheel}
-    >
-      {children}
-    </ul>
   );
 }
 

@@ -18,7 +18,7 @@ Emby-style private media platform with Netflix-style profiles, subscriptions, an
 ### Accounts & security
 - Register / login with email verification and password reset
 - JWT access cookie + rotating refresh sessions
-- Roles: `user`, `admin`, `super_admin`
+- Roles: `user`, `customer`, `admin`, `super_admin`
 - Redis rate limits and login lockout
 
 ### Profiles & personalization
@@ -267,3 +267,6 @@ Need a product license key?
 ## License
 
 Proprietary product software. Unauthorized redistribution or license bypass is prohibited. Trial and key enforcement run on the API server.
+#   M o v i e - S e r v e r 
+ 
+ 

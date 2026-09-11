@@ -6,8 +6,19 @@ const orbits = [
   { r: 148, dots: 9, dur: "34s" },
 ];
 
+/** Circles + emblem share this focal point so the shield sits dead-center. */
+const CX = 200;
+const CY = 255;
+
 /** Cinema-themed graphic inspired by Log-Server's login shield art. */
 export function AuthGraphic({ className }: { className?: string }) {
+  // Same shield as before — only the bottom tip (red-marked round) becomes a sharp V like the inner tip.
+  const shieldTop = CY - 110; // 145
+  const shieldTip = CY + 110; // 365
+  // Top + sides unchanged; bottom uses straight lines instead of round curves.
+  const outer = `M${CX} ${shieldTop} L262 ${shieldTop + 30} L262 ${CY + 21} L${CX} ${shieldTip} L138 ${CY + 21} L138 ${shieldTop + 30} Z`;
+  const inner = `M${CX} ${shieldTop + 14} L248 ${shieldTop + 38} L248 ${CY + 17} L${CX} ${shieldTip - 20} L152 ${CY + 17} L152 ${shieldTop + 38} Z`;
+
   return (
     <svg
       className={className}
@@ -24,15 +35,23 @@ export function AuthGraphic({ className }: { className?: string }) {
           <stop offset="100%" stopColor="var(--auth-accent-soft)" stopOpacity="0" />
         </linearGradient>
         <clipPath id="cvAuthShieldClip">
-          <path d="M200 168 L262 198 L262 276 C262 328 230 364 200 388 C170 364 138 328 138 276 L138 198 Z" />
+          <path d={outer} />
+        </clipPath>
+        {/* Hide orbit strokes over the tip so the sharp V is visible (not a round arc). */}
+        <clipPath id="cvAuthOrbitTipGap" clipRule="evenodd">
+          <path
+            fillRule="evenodd"
+            d={`M0 0H400V500H0Z M${CX} ${CY + 48} L${CX - 78} ${shieldTip + 28} L${CX + 78} ${shieldTip + 28}Z`}
+          />
         </clipPath>
       </defs>
 
+      <g clipPath="url(#cvAuthOrbitTipGap)">
       <g className={styles.ringSlow}>
-        <circle cx="200" cy="255" r="78" stroke="var(--auth-accent-deep)" strokeWidth="0.6" opacity="0.35" />
+        <circle cx={CX} cy={CY} r="78" stroke="var(--auth-accent-deep)" strokeWidth="0.6" opacity="0.35" />
         <circle
-          cx="200"
-          cy="255"
+          cx={CX}
+          cy={CY}
           r="78"
           stroke="var(--auth-accent)"
           strokeWidth="1.1"
@@ -42,8 +61,8 @@ export function AuthGraphic({ className }: { className?: string }) {
       </g>
       <g className={styles.ringMid}>
         <circle
-          cx="200"
-          cy="255"
+          cx={CX}
+          cy={CY}
           r="112"
           stroke="var(--auth-accent)"
           strokeWidth="0.8"
@@ -53,8 +72,8 @@ export function AuthGraphic({ className }: { className?: string }) {
       </g>
       <g className={styles.ringFast}>
         <circle
-          cx="200"
-          cy="255"
+          cx={CX}
+          cy={CY}
           r="148"
           stroke="var(--auth-accent-soft)"
           strokeWidth="0.7"
@@ -74,8 +93,8 @@ export function AuthGraphic({ className }: { className?: string }) {
             }}
           >
             <circle
-              cx={200 + orbit.r}
-              cy="255"
+              cx={CX + orbit.r}
+              cy={CY}
               r={index % 3 === 0 ? 2.4 : 1.5}
               fill="var(--auth-accent-soft)"
               opacity="0.85"
@@ -83,6 +102,7 @@ export function AuthGraphic({ className }: { className?: string }) {
           </g>
         )),
       )}
+      </g>
 
       <g className={styles.satellite}>
         <g transform="translate(68 92)">
@@ -109,30 +129,45 @@ export function AuthGraphic({ className }: { className?: string }) {
       <g className={styles.emblem}>
         <path
           className={styles.shieldStroke}
-          d="M200 168 L262 198 L262 276 C262 328 230 364 200 388 C170 364 138 328 138 276 L138 198 Z"
+          d={outer}
           stroke="var(--auth-accent-soft)"
           strokeWidth="2.4"
+          strokeLinejoin="miter"
+          strokeMiterlimit="10"
           pathLength="1"
         />
         <path
-          d="M200 182 L248 206 L248 272 C248 314 224 344 200 364 C176 344 152 314 152 272 L152 206 Z"
+          d={inner}
           stroke="var(--auth-accent)"
-          strokeWidth="0.8"
-          opacity="0.4"
+          strokeWidth="1.2"
+          strokeLinejoin="miter"
+          opacity="0.55"
         />
         <g clipPath="url(#cvAuthShieldClip)">
-          <rect className={styles.scan} x="130" y="160" width="140" height="28" fill="url(#cvAuthScanGrad)" />
-        </g>
-        {/* Play triangle instead of padlock — media brand */}
-        <g className={styles.padlock}>
-          <path
-            d="M186 236 L186 290 L236 263 Z"
-            stroke="var(--auth-accent-soft)"
-            strokeWidth="2.8"
-            strokeLinejoin="round"
-            fill="none"
+          <rect
+            className={styles.scan}
+            x="130"
+            y={shieldTop - 8}
+            width="140"
+            height="28"
+            fill="url(#cvAuthScanGrad)"
           />
-          <path d="M192 246 L192 280 L224 263 Z" fill="var(--auth-accent)" opacity="0.85" />
+        </g>
+
+        {/* Play emblem — draw-in, pulse, and ripple rings */}
+        <g className={styles.playEmblem} transform={`translate(${CX} ${CY})`}>
+          <circle className={styles.playRipple} r="34" />
+          <circle className={styles.playRipple} r="34" style={{ animationDelay: "1.1s" }} />
+          <circle className={styles.playHalo} r="28" />
+          <g className={styles.playCore}>
+            <path
+              className={styles.playStroke}
+              d="M-25 -26 L-25 26 L25 0 Z"
+              strokeLinejoin="round"
+              pathLength="1"
+            />
+            <path className={styles.playFill} d="M-17 -16 L-17 16 L15 0 Z" />
+          </g>
         </g>
       </g>
     </svg>

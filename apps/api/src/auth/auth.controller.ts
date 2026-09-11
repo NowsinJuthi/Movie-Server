@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -22,6 +23,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Controller('auth')
@@ -68,6 +70,11 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: RequestUser) {
     return this.authService.me(user);
+  }
+
+  @Patch('me')
+  updateAccount(@CurrentUser() user: RequestUser, @Body() dto: UpdateAccountDto) {
+    return this.authService.updateAccount(user, dto.displayName);
   }
 
   @Get('sessions')

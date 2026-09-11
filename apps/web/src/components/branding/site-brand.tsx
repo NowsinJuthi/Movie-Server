@@ -59,7 +59,7 @@ export function SiteBrand({
     <>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={siteName} className="h-7 w-auto max-w-[160px] object-contain" />
+        <img src={src} alt={siteName} className="h-9 w-auto max-w-[180px] object-contain sm:h-10 sm:max-w-[200px]" />
       ) : (
         <span>
           {siteName}

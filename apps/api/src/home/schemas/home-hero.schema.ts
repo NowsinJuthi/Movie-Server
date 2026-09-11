@@ -22,6 +22,10 @@ export class HomeHero {
   @Prop({ type: String, default: null, maxlength: 120 })
   titleOverride?: string | null;
 
+  /** Ordered hero slider movie/series ids (max 6). */
+  @Prop({ type: [String], default: [] })
+  itemIds!: string[];
+
   createdAt!: Date;
   updatedAt!: Date;
 }

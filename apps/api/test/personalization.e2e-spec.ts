@@ -226,7 +226,9 @@ describe('Watch and personalization (e2e)', () => {
     expect(home.status).toBe(200);
     expect(home.body.favoriteIds).toContain(idA);
     const rowIds = home.body.rows.map((row: { id: string }) => row.id);
-    expect(rowIds).toEqual(expect.arrayContaining(['recently-watched', 'favorites', 'recommended']));
+    expect(rowIds).toEqual(expect.arrayContaining(['recently-watched', 'recommended']));
+    expect(rowIds).not.toContain('favorites');
+    expect(rowIds).not.toContain('mylist');
     const recent = home.body.rows.find((row: { id: string }) => row.id === 'recently-watched');
     expect(recent.items.some((item: { id: string }) => item.id === idA)).toBe(true);
     assertNoPaths(home.body);

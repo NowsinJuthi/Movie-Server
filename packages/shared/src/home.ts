@@ -89,6 +89,8 @@ export type HomeRow = {
 
 export type HomeResponse = {
   hero: HomeCard | null;
+  /** Home hero slider cards (max 6). `hero` is `slider[0]` when present. */
+  slider: HomeCard[];
   rows: HomeRow[];
   myListIds: string[];
   favoriteIds: string[];

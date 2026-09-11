@@ -54,7 +54,7 @@ export class HomeService {
       profileId = restored?.id ?? null;
     }
     if (!profileId) {
-      return { hero: null, rows: [], myListIds: [], favoriteIds: [] };
+      return { hero: null, slider: [], rows: [], myListIds: [], favoriteIds: [] };
     }
     user.activeProfileId = profileId;
     const layoutVersion = await this.cms.layoutVersion();
@@ -165,9 +165,6 @@ export class HomeService {
     ].filter((row): row is HomeRow => Boolean(row));
 
     let rows = [
-      homeRow('continue', 'Continue Watching', HomeRowKind.Continue, HomeRowSource.Personalized, continueCards),
-      homeRow('mylist', 'My List', HomeRowKind.MyList, HomeRowSource.Personalized, hydratedList),
-      homeRow('favorites', 'Favorites', HomeRowKind.Favorites, HomeRowSource.Personalized, hydratedFavorites),
       homeRow(
         'recently-watched',
         'Recently Watched',
@@ -194,12 +191,24 @@ export class HomeService {
       trending[0] ??
       recentlyAdded[0] ??
       null;
+    let slider: HomeCard[] = hero ? [hero] : [];
 
     const [cmsHero, cmsRows] = await Promise.all([this.cms.findHero(), this.cms.listEnabledRows()]);
-    if (cmsHero?.enabled && cmsHero.mediaId) {
-      const cards = await this.hydrateIds([cmsHero.mediaId], viewer, entitlement, myList);
-      if (cards[0]) {
-        hero = cmsHero.titleOverride ? { ...cards[0], title: cmsHero.titleOverride } : cards[0];
+    if (cmsHero?.enabled) {
+      const ids =
+        cmsHero.itemIds?.length > 0
+          ? cmsHero.itemIds.slice(0, 6)
+          : cmsHero.mediaId
+            ? [cmsHero.mediaId]
+            : [];
+      if (ids.length) {
+        const cards = await this.hydrateIds(ids, viewer, entitlement, myList);
+        if (cards.length) {
+          slider = cards.map((card, index) =>
+            index === 0 && cmsHero.titleOverride ? { ...card, title: cmsHero.titleOverride } : card,
+          );
+          hero = slider[0] ?? null;
+        }
       }
     }
 
@@ -237,7 +246,7 @@ export class HomeService {
       rows = [...personalized, ...built, ...leftover].filter((row): row is HomeRow => Boolean(row));
     }
 
-    const payload: HomeResponse = { hero, rows, myListIds, favoriteIds };
+    const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };
     await this.redis.client.set(homeCacheKey(profileId, layoutVersion), JSON.stringify(payload), 'PX', CACHE_MS);
     return payload;
   }

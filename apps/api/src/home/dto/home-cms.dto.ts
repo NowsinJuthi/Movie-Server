@@ -40,6 +40,13 @@ export class UpsertHomeHeroDto {
   @IsString()
   @MaxLength(120)
   titleOverride?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @IsString({ each: true })
+  @MaxLength(32, { each: true })
+  itemIds?: string[];
 }
 
 export class CreateHomeRowDto {

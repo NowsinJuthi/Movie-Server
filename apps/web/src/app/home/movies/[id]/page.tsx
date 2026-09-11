@@ -84,7 +84,7 @@ export default function MovieDetailPage() {
         }
       >
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/30" />
-        <div className="relative mx-auto flex max-w-none flex-col gap-6 px-3 pb-12 pt-10 sm:px-4 md:flex-row md:px-5 lg:px-6">
+        <div className="relative mx-auto flex max-w-none flex-col gap-6 px-3 pb-12 pt-24 sm:px-4 md:flex-row md:px-5 lg:px-6">
           <div
             className="h-72 w-48 shrink-0 rounded-md bg-secondary bg-cover bg-center"
             style={movie.posterUrl ? { backgroundImage: `url(${movie.posterUrl})` } : undefined}

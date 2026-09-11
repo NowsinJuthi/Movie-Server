@@ -105,46 +105,48 @@ export default function AdminLicensePage() {
             </p>
           </div>
 
-          <form
-            className="max-w-xl space-y-4 rounded-xl border border-border bg-card p-5"
-            onSubmit={form.handleSubmit((values) => {
-              setFormError(null);
-              setFormSuccess(null);
-              mutation.mutate(values);
-            })}
-          >
-            <div>
-              <h2 className="text-base font-semibold">Activate license key</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Paste the key from your vendor (starts with <code className="text-xs">CV1.</code>).
-                Keys are verified on the API with HMAC — they cannot be forged from the browser.
-              </p>
-            </div>
-            {formError ? <Alert>{formError}</Alert> : null}
-            {formSuccess ? (
-              <Alert className="border-emerald-500/40 text-emerald-300">{formSuccess}</Alert>
-            ) : null}
-            <div className="space-y-2">
-              <Label htmlFor="licenseKey">License key</Label>
-              <Input
-                id="licenseKey"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="CV1...."
-                className="font-mono text-sm"
-                {...form.register("licenseKey")}
-              />
-              {form.formState.errors.licenseKey ? (
-                <p className="text-xs text-destructive">{form.formState.errors.licenseKey.message}</p>
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+            <form
+              className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5"
+              onSubmit={form.handleSubmit((values) => {
+                setFormError(null);
+                setFormSuccess(null);
+                mutation.mutate(values);
+              })}
+            >
+              <div>
+                <h2 className="text-base font-semibold">Activate license key</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Paste the key from your vendor (starts with <code className="text-xs">CV1.</code>).
+                  Keys are verified on the API with HMAC — they cannot be forged from the browser.
+                </p>
+              </div>
+              {formError ? <Alert>{formError}</Alert> : null}
+              {formSuccess ? (
+                <Alert className="border-emerald-500/40 text-emerald-300">{formSuccess}</Alert>
               ) : null}
-            </div>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Activating..." : "Activate license"}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="licenseKey">License key</Label>
+                <Input
+                  id="licenseKey"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="CV1...."
+                  className="font-mono text-sm"
+                  {...form.register("licenseKey")}
+                />
+                {form.formState.errors.licenseKey ? (
+                  <p className="text-xs text-destructive">{form.formState.errors.licenseKey.message}</p>
+                ) : null}
+              </div>
+              <Button type="submit" className="mt-auto w-fit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Activating..." : "Activate license"}
+              </Button>
+            </form>
 
-          <div className="max-w-xl">
-            <LicenseContactPanel />
+            <div className="h-full min-h-full [&_aside]:h-full">
+              <LicenseContactPanel />
+            </div>
           </div>
         </div>
       )}

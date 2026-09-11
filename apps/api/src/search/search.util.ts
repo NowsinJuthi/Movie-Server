@@ -8,6 +8,10 @@ export function prefixRegex(value: string): RegExp {
   return new RegExp(`^${escapeRegex(normalizeSearchText(value))}`);
 }
 
+export function containsRegex(value: string): RegExp {
+  return new RegExp(escapeRegex(normalizeSearchText(value)));
+}
+
 export function toTextSearch(query: string): string {
   return normalizeSearchText(query)
     .replace(/[+\-~\\()"]/g, ' ')

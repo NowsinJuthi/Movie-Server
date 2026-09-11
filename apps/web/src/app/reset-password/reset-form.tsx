@@ -17,10 +17,7 @@ import Link from "next/link";
 
 const schema = z
   .object({
-    password: z
-      .string()
-      .min(10)
-      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, "Use upper, lower, and numeric characters"),
+    password: z.string().min(6, "Password must be at least 6 characters").max(72),
     confirmPassword: z.string(),
   })
   .refine((values) => values.password === values.confirmPassword, {

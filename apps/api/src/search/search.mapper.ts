@@ -126,6 +126,7 @@ export function titleSuggestItems(
       id: String(movie._id),
       mediaKind: 'movie' as const,
       href: `/home/movies/${String(movie._id)}`,
+      imageUrl: movie.posterKey ? artworkPublicPath(movie.posterKey) : (movie.posterUrl ?? null),
     })),
     ...series.map((item) => ({
       kind: 'title' as const,
@@ -134,6 +135,7 @@ export function titleSuggestItems(
       id: String(item._id),
       mediaKind: 'series' as const,
       href: `/home/series/${String(item._id)}`,
+      imageUrl: item.posterKey ? artworkPublicPath(item.posterKey) : (item.posterUrl ?? null),
     })),
   ];
 }

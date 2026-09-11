@@ -6,10 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SearchKind, SearchQuery, SearchResponse, SearchSort } from "@movie-server/shared";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
-import { profileApi } from "@/lib/profile-api";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { searchApi } from "@/lib/search-api";
-import { BrowseHeader } from "@/components/home/browse-header";
 import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { SearchFilters } from "@/components/search/search-filters";
 import { EpisodeResults, PeopleResults, SearchGroupGrid } from "@/components/search/search-results";
@@ -84,11 +82,10 @@ export function SearchPageClient() {
   const router = useRouter();
   const params = useSearchParams();
   const { user, status } = useAuthStore();
-  const { activeProfile, setActiveProfile } = useProfileStore();
+  const profile = useProfileStore((state) => state.activeProfile);
   const queryClient = useQueryClient();
   const filters = useMemo(() => readQuery(params), [params]);
   const filterKey = params.toString();
-  const [scrolled, setScrolled] = useState(false);
   const [paging, setPaging] = useState<{ key: string; page: number; pages: SearchResponse[] }>({
     key: filterKey,
     page: 1,
@@ -101,33 +98,6 @@ export function SearchPageClient() {
   const page = paging.page;
   const pages = paging.pages;
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const activeQuery = useQuery({
-    queryKey: ["active-profile"],
-    queryFn: profileApi.active,
-    enabled: status === "authenticated",
-  });
-
-  useEffect(() => {
-    if (status === "anonymous") router.replace("/login");
-  }, [status, router]);
-
-  useEffect(() => {
-    if (activeQuery.data) {
-      setActiveProfile(activeQuery.data.profile);
-      if (!activeQuery.data.profile && status === "authenticated") {
-        router.replace("/profiles");
-      }
-    }
-  }, [activeQuery.data, setActiveProfile, router, status]);
-
-  const profile = activeProfile ?? activeQuery.data?.profile ?? null;
   const entitlementQuery = useQuery({
     queryKey: ["subscription-entitlement"],
     queryFn: subscriptionApi.entitlement,
@@ -226,12 +196,8 @@ export function SearchPageClient() {
     return <ScreenMessage>Loading search...</ScreenMessage>;
   }
 
-  const plan = entitlementQuery.data?.entitlement;
-  const planLabel = plan?.entitled ? plan.planSlug?.toUpperCase() ?? "Plan" : "Subscribe";
-
   return (
     <main className="min-h-screen bg-background">
-      <BrowseHeader profile={profile} planLabel={planLabel} scrolled={scrolled} />
       <section className="px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
         <div className="space-y-6 rounded-xl border border-border bg-card/40 p-4 sm:p-5">
         <div className="space-y-3">

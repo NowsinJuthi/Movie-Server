@@ -1,9 +1,18 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { USER_ROLES, UserRole } from '@movie-server/shared';
 import { NormalizeEmail, Trim } from '../../common/decorators/transform.decorators';
 import { sanitizePlainText } from '../../common/security/sanitize';
-import { Transform } from 'class-transformer';
 
-export class RegisterDto {
+export class CreateAdminUserDto {
   @NormalizeEmail()
   @IsEmail()
   @MaxLength(254)
@@ -20,4 +29,13 @@ export class RegisterDto {
   @MinLength(6)
   @MaxLength(72)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...USER_ROLES])
+  role?: UserRole;
+
+  @IsOptional()
+  @IsBoolean()
+  emailVerified?: boolean;
 }

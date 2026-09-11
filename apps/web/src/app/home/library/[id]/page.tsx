@@ -3,14 +3,11 @@
 import { hasMinimumRole, UserRole } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { BrowseHeader } from "@/components/home/browse-header";
 import { MediaCard } from "@/components/home/media-card";
 import { useMyListToggle } from "@/components/home/use-my-list";
 import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import { profileApi } from "@/lib/profile-api";
 import { publicLibraryApi } from "@/lib/public-library-api";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -21,36 +18,8 @@ export default function LibraryBrowsePage() {
   const id = params.id;
   const router = useRouter();
   const { user, status } = useAuthStore();
-  const { activeProfile, setActiveProfile } = useProfileStore();
-  const [scrolled, setScrolled] = useState(false);
+  const profile = useProfileStore((state) => state.activeProfile);
 
-  const activeQuery = useQuery({
-    queryKey: ["active-profile"],
-    queryFn: profileApi.active,
-    enabled: status === "authenticated",
-  });
-
-  useEffect(() => {
-    if (status === "anonymous") router.replace("/login");
-  }, [status, router]);
-
-  useEffect(() => {
-    if (activeQuery.data) {
-      setActiveProfile(activeQuery.data.profile);
-      if (!activeQuery.data.profile && status === "authenticated") {
-        router.replace("/profiles");
-      }
-    }
-  }, [activeQuery.data, setActiveProfile, router, status]);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  const profile = activeProfile ?? activeQuery.data?.profile ?? null;
   const entitlementQuery = useQuery({
     queryKey: ["subscription-entitlement"],
     queryFn: subscriptionApi.entitlement,
@@ -73,19 +42,11 @@ export default function LibraryBrowsePage() {
     return <ScreenMessage>Loading your library...</ScreenMessage>;
   }
 
-  const plan = entitlementQuery.data?.entitlement;
-  const planLabel = plan?.entitled
-    ? plan.planSlug?.toUpperCase() ?? "Plan"
-    : staff
-      ? "Admin"
-      : "Subscribe";
-
   const library = browseQuery.data?.library;
   const items = browseQuery.data?.items ?? [];
 
   return (
     <main className="min-h-screen bg-background">
-      <BrowseHeader profile={profile} planLabel={planLabel} scrolled={scrolled} />
       <section className="px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
         {!canBrowse ? (
           <div className="mx-auto max-w-xl space-y-4 pt-8">

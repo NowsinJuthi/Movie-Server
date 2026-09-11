@@ -18,6 +18,16 @@ export const authApi = {
   logoutAll: () =>
     apiFetch<{ message: string }>(AUTH_ROUTES.LogoutAll, { method: "POST" }),
   me: () => apiFetch<{ user: PublicUser }>(AUTH_ROUTES.Me),
+  updateAccount: (input: { displayName: string }) =>
+    apiFetch<{ user: PublicUser }>(AUTH_ROUTES.Me, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  changePassword: (input: { currentPassword: string; newPassword: string }) =>
+    apiFetch<{ message: string }>(AUTH_ROUTES.ChangePassword, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   refresh: () => refreshSession(),
   sessions: () => apiFetch<{ sessions: PublicAuthSession[] }>(AUTH_ROUTES.Sessions),
   revokeSession: (id: string) =>

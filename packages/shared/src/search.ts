@@ -79,6 +79,7 @@ export type SearchSuggestItem = {
   href?: string;
   id?: string;
   mediaKind?: 'movie' | 'series';
+  imageUrl?: string | null;
 };
 
 export type SearchHistoryItem = {

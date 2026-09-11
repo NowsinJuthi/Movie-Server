@@ -27,7 +27,7 @@ export function PageShell({
     <main
       className={cn(
         "flex w-full flex-col bg-background p-3 sm:p-4 md:p-5 lg:p-6",
-        fillHeight ? "h-full min-h-0 overflow-hidden" : "min-h-dvh",
+        fillHeight ? "h-full min-h-0 overflow-hidden" : "min-h-dvh pt-20",
         className,
       )}
     >

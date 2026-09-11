@@ -131,8 +131,6 @@ function movieBadges(movie: PublicMovie): string[] {
   const badges: string[] = [];
   if (movie.releaseYear >= CURRENT_YEAR) badges.push('New');
   if (movie.maxResolution === ('4k' as VideoResolution)) badges.push('4K');
-  else if (movie.maxResolution === '1080p' || movie.maxResolution === '720p') badges.push('HD');
-  if (movie.trending) badges.push('Trending');
   if (movie.maturityRating) badges.push(movie.certification ?? movie.maturityRating);
   return badges;
 }
@@ -141,7 +139,6 @@ function seriesBadges(series: PublicSeries): string[] {
   const badges: string[] = [];
   if (series.firstAirYear >= CURRENT_YEAR) badges.push('New');
   badges.push('Series');
-  if (series.trending) badges.push('Trending');
   if (series.maturityRating) badges.push(series.certification ?? series.maturityRating);
   return badges;
 }
