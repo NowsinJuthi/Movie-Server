@@ -223,12 +223,17 @@ export class SmbMountService {
       timeout: 45_000,
       maxBuffer: 4_000_000,
     });
+    const out = this.decodeExecOutput(stdout);
     if (stdoutOnly) {
-      return typeof stdout === 'string' ? stdout : stdout?.toString('utf8') ?? '';
+      return out;
     }
-    const out = typeof stdout === 'string' ? stdout : stdout?.toString('utf8') ?? '';
-    const err = typeof stderr === 'string' ? stderr : stderr?.toString('utf8') ?? '';
+    const err = this.decodeExecOutput(stderr);
     return [out, err].filter(Boolean).join('\n');
+  }
+
+  private decodeExecOutput(value: string | Buffer | undefined): string {
+    if (value === undefined || value === null) return '';
+    return typeof value === 'string' ? value : value.toString('utf8');
   }
 
   /** smbclient `ls` human-readable lines (grepable -g does not apply to dir listings). */
