@@ -44,7 +44,7 @@ export default function MovieWatchPage() {
   if (!query.data) return <ScreenMessage>Loading title...</ScreenMessage>;
 
   const { movie } = query.data;
-  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "sd") as VideoQuality;
+  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "hd") as VideoQuality;
 
   return (
     <StreamPlayer

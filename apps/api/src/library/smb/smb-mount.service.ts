@@ -378,6 +378,8 @@ export class SmbMountService {
       'dir_mode=0755',
       'noserverino',
       'sec=ntlmssp',
+      'cache=loose',
+      'actimeo=60',
     ];
     const versAttempts = ['3.0', '3.1.1', '2.1'];
     let lastError: unknown;

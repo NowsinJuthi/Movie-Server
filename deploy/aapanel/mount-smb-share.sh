@@ -28,7 +28,7 @@ if mountpoint -q "$MP" 2>/dev/null; then
 fi
 
 mount -t cifs "//${HOST}/${SHARE}" "$MP" \
-  -o "credentials=${CRED},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,vers=3.0,noserverino"
+  -o "credentials=${CRED},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,vers=3.0,noserverino,cache=loose,actimeo=60"
 
 echo "Mounted //${HOST}/${SHARE} -> $MP"
 ls "$MP" | head

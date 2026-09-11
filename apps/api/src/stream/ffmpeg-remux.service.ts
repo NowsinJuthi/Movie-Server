@@ -60,4 +60,46 @@ export class FfmpegRemuxService {
     });
     return stdout;
   }
+
+  /**
+   * Remux MKV/WebM (H.264/AAC) to fragmented MP4 for browser <video> playback.
+   * Seeking is limited while streaming; prefer storing MP4 when possible.
+   */
+  openVideoRemux(absPath: string, startSeconds = 0): Readable {
+    const bin = resolveFfmpegPath(this.config);
+    const args = [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      ...(startSeconds > 0.5 ? ['-ss', startSeconds.toFixed(3)] : []),
+      '-i',
+      absPath,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-c',
+      'copy',
+      '-f',
+      'mp4',
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+      'pipe:1',
+    ];
+    const child = spawn(bin, args, { windowsHide: true });
+    const stdout = child.stdout;
+    child.stderr.on('data', (chunk: Buffer) => {
+      const text = chunk.toString('utf8').trim();
+      if (text) this.logger.warn(`ffmpeg video: ${text}`);
+    });
+    child.on('error', (error) => {
+      stdout.destroy(error);
+    });
+    child.on('close', (code) => {
+      if (code && code !== 0) {
+        stdout.destroy(new Error(`ffmpeg exited ${code}`));
+      }
+    });
+    return stdout;
+  }
 }

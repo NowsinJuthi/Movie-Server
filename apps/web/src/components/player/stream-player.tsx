@@ -553,7 +553,7 @@ export function StreamPlayer({
         return;
       }
       setError(
-        "This file could not be played in the browser. Use MP4 (H.264 + AAC). MKV/HEVC usually need conversion first.",
+        "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
       );
     };
 
@@ -1120,7 +1120,7 @@ export function StreamPlayer({
         ref={videoRef}
         className={cn("h-screen w-full bg-black", videoObjectClass)}
         playsInline
-        preload="metadata"
+        preload="auto"
         onClick={onSkinClick}
       />
       <audio ref={audioRef} preload="metadata" className="hidden" />

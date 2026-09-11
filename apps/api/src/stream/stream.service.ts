@@ -36,6 +36,7 @@ import { pickStoredTrack, preferredSubtitleCode, toPlaybackTrack } from './playb
 import { isPlayableSubtitleFormat, subtitleFormatFromName, toSafeWebVtt } from './subtitle-text';
 import { isAudioFile, isSubtitleFile } from '../library/matching/filename-parser';
 import { resolveSafePath } from '../library/storage/path-safety';
+import path from 'path';
 import { Readable } from 'stream';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
 
@@ -104,6 +105,8 @@ export class StreamService {
       return null;
     }
 
+    const playable = await this.preferBrowserPlayable(allowed);
+
     return this.sessions.runExclusive(input.user.id, async () => {
       await this.sessions.registerDevice(
         input.user.id,
@@ -113,14 +116,14 @@ export class StreamService {
       );
 
       const selected =
-        allowed.find((asset) => RESOLUTION_TO_QUALITY[asset.quality as VideoResolution] === input.quality) ??
-        allowed[allowed.length - 1];
+        playable.find((asset) => RESOLUTION_TO_QUALITY[asset.quality as VideoResolution] === input.quality) ??
+        playable[playable.length - 1];
 
       const existing = await this.sessions.assertStreamSlot(input.user.id, entitlement.maxStreams, {
         deviceId,
         mediaId,
       });
-      const variants: StoredPlaybackVariant[] = allowed
+      const variants: StoredPlaybackVariant[] = playable
         .filter((asset) => asset.quality && (VIDEO_RESOLUTIONS as readonly string[]).includes(asset.quality))
         .map((asset) => ({
           assetId: String(asset._id),
@@ -129,8 +132,10 @@ export class StreamService {
           bandwidth: variantBandwidth(asset.quality as VideoResolution, asset.bitrateKbps),
         }));
 
-      const { audioTracks, subtitleTracks } = await this.loadTracks(input.movieId, input.episodeId);
-      const profile = await this.profiles.get(input.user.id, profileId);
+      const [{ audioTracks, subtitleTracks }, profile] = await Promise.all([
+        this.loadTracks(input.movieId, input.episodeId),
+        this.profiles.get(input.user.id, profileId),
+      ]);
       const selectedAudio = pickStoredTrack(audioTracks, profile.audioLanguage);
       const selectedSubtitle = pickStoredTrack(
         subtitleTracks,
@@ -372,10 +377,38 @@ export class StreamService {
         message: 'No playable media is attached to this title.',
       });
     }
-    // Always serve the original file for video so duration/seek stay correct.
-    // Alternate embedded audio is streamed separately via openAudio + FFmpeg extract.
+    const located = await this.resolveAbsoluteMedia(asset);
+    const ext = path.extname(located.relativePath).toLowerCase();
+    if (ext === '.mkv' && this.remux.available()) {
+      return {
+        size: 0,
+        mime: 'video/mp4',
+        remux: true,
+        open: async () => this.remux.openVideoRemux(located.absPath),
+      };
+    }
+
+    // Serve the original file for MP4/WebM so duration/seek stay correct.
     const file = await this.resolveFile(asset);
     return { ...file, remux: false };
+  }
+
+  private async preferBrowserPlayable(assets: MediaAssetDocument[]): Promise<MediaAssetDocument[]> {
+    const scored = await Promise.all(
+      assets.map(async (asset) => {
+        try {
+          const located = await this.resolveAbsoluteMedia(asset);
+          const ext = path.extname(located.relativePath).toLowerCase();
+          const rank =
+            ext === '.mp4' || ext === '.m4v' ? 0 : ext === '.webm' ? 1 : ext === '.mkv' ? 2 : 3;
+          return { asset, rank };
+        } catch {
+          return { asset, rank: 9 };
+        }
+      }),
+    );
+    scored.sort((a, b) => a.rank - b.rank);
+    return scored.map((row) => row.asset);
   }
 
   private async resolveAbsoluteMedia(asset: MediaAssetDocument): Promise<{ absPath: string; relativePath: string }> {
