@@ -193,6 +193,7 @@ export type PublicMovie = {
   backdropUrl: string | null;
   trailerUrl: string | null;
   releaseYear: number;
+  year: number; // Alias for releaseYear for compatibility
   runtimeMinutes: number;
   genres: string[];
   tags: string[];

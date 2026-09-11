@@ -44,6 +44,8 @@ export const LibraryItemStatus = {
   Error: 'error',
   Processing: 'processing',
   Duplicate: 'duplicate',
+  Matched: 'matched',
+  Imported: 'imported',
 } as const;
 
 export type LibraryItemStatus = (typeof LibraryItemStatus)[keyof typeof LibraryItemStatus];

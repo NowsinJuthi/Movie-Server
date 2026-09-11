@@ -4,6 +4,9 @@ COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY tsconfig.base.json ./
+COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
+COPY apps/web/tsconfig.json apps/web/tsconfig.json
 RUN npm ci
 
 FROM deps AS build
