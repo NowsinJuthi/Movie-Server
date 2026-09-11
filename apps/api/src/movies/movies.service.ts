@@ -866,6 +866,12 @@ export class MoviesService {
         message: 'This title is not available for playback.',
       });
     }
+    if (!user.activeProfileId) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Select a profile before watching.',
+      });
+    }
     const progress = user.activeProfileId
       ? await this.history.get(user.id, user.activeProfileId, String(movie._id))
       : null;

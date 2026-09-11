@@ -2,7 +2,7 @@
 
 import { ErrorCode, type PublicProfile } from "@movie-server/shared";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { ProfileAvatar } from "@/components/profiles/profile-avatar";
@@ -15,7 +15,9 @@ import { useProfileStore } from "@/stores/profile-store";
 
 export default function ProfilesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, status } = useAuthStore();
+  const nextPath = searchParams.get("next");
   const setProfiles = useProfileStore((state) => state.setProfiles);
   const setActiveProfile = useProfileStore((state) => state.setActiveProfile);
   const [pinProfile, setPinProfile] = useState<PublicProfile | null>(null);
@@ -43,7 +45,9 @@ export default function ProfilesPage() {
     mutationFn: ({ id, pin }: { id: string; pin?: string }) => profileApi.select(id, pin),
     onSuccess: (data) => {
       setActiveProfile(data.profile);
-      router.push("/home");
+      const destination =
+        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/home";
+      router.push(destination);
     },
     onError: (error: unknown) => {
       if (error instanceof ApiError && error.error === ErrorCode.ProfilePinRequired && pinProfile) {

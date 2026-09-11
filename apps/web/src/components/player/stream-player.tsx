@@ -392,7 +392,9 @@ export function StreamPlayer({
         setSession(result.session);
         if (!result.session) {
           setLoading(false);
-          setError("Playback is authorized, but no streamable file is attached to this title.");
+          setError(
+            "No streamable video file is linked to this title. Check Admin → Libraries scan, or convert the file to MP4 (H.264 + AAC).",
+          );
           return;
         }
         // Current API serves the raw library file (not remuxed HLS segments).

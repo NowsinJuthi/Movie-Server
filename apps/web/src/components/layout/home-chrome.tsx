@@ -41,13 +41,10 @@ export function HomeChrome({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!activeQuery.data) return;
     setActiveProfile(activeQuery.data.profile);
-    if (
-      !activeQuery.data.profile &&
-      status === "authenticated" &&
-      pathname?.startsWith("/home") &&
-      !pathname.includes("/watch")
-    ) {
-      router.replace("/profiles");
+    if (!activeQuery.data.profile && status === "authenticated" && pathname?.startsWith("/home")) {
+      const next =
+        pathname.includes("/watch") ? `?next=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/profiles${next}`);
     }
   }, [activeQuery.data, setActiveProfile, router, status, pathname]);
 
