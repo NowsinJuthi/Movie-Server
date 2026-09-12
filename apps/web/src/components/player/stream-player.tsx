@@ -322,9 +322,10 @@ export function StreamPlayer({
 
   const warmMediaUrl = useCallback(async (url: string) => {
     try {
+      const warmBytes = isAppleMobileDevice() ? 8_388_607 : 2_097_151;
       await fetch(url, {
         credentials: "include",
-        headers: { Range: "bytes=0-2097151" },
+        headers: { Range: `bytes=0-${warmBytes}` },
       });
     } catch {
       /* warm SMB/page cache; playback still works if this fails */
@@ -647,7 +648,7 @@ export function StreamPlayer({
       }
       setError(
         isAppleMobileDevice()
-          ? "This video could not play on iPhone. Use MP4 (H.264 + AAC) with faststart. MKV and live remux streams are not supported on iOS."
+          ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
           : "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
       );
     };

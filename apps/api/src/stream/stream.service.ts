@@ -437,15 +437,14 @@ export class StreamService {
     const ext = path.extname(located.relativePath).toLowerCase();
     let remux =
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
-    if (remux && options?.disallowRemux) {
-      if (ext === '.mkv' || ext === '.webm') {
-        throw new BadRequestException({
-          error: ErrorCode.PlaybackUnavailable,
-          message:
-            'This file format is not supported on iPhone/iPad. Store MP4 (H.264 + AAC) with faststart instead.',
-        });
-      }
-      remux = false;
+    // iOS Safari cannot play MKV/WebM remux streams; slow-start MP4 remux is still allowed
+    // (ffmpeg emits moov-first fragmented MP4 — much faster than reading moov from SMB tail).
+    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm')) {
+      throw new BadRequestException({
+        error: ErrorCode.PlaybackUnavailable,
+        message:
+          'This file format is not supported on iPhone/iPad. Store MP4 (H.264 + AAC) with faststart instead.',
+      });
     }
     if (remux) {
       return {
