@@ -71,7 +71,7 @@ function applyVideoSeek(video: HTMLVideoElement, target: number): void {
 export async function lockPlaybackLandscape(): Promise<void> {
   if (typeof screen === "undefined") return;
   const orientation = screen.orientation as ScreenOrientation & {
-    lock?: (type: OrientationLockType) => Promise<void>;
+    lock?: (type: string) => Promise<void>;
   };
   if (!orientation?.lock) return;
   try {
