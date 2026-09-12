@@ -54,6 +54,31 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: rgb(6 33 42 / 0.95);
+}
+
+html::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid rgb(6 33 42 / 0.95);
+  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+}
+
+html::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 body {
