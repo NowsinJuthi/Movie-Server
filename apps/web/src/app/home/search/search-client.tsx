@@ -9,6 +9,7 @@ import { useProfileStore } from "@/stores/profile-store";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { searchApi } from "@/lib/search-api";
 import { ScreenMessage } from "@/components/profiles/pin-dialog";
+import { FilterQuickPill } from "@/components/filters/filter-ui";
 import { SearchFilters } from "@/components/search/search-filters";
 import { EpisodeResults, PeopleResults, SearchGroupGrid } from "@/components/search/search-results";
 import { MediaCarousel } from "@/components/home/media-carousel";
@@ -199,11 +200,12 @@ export function SearchPageClient() {
   return (
     <main className="min-h-screen bg-background">
       <section className="px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
-        <div className="space-y-6 rounded-xl border border-border bg-card/40 p-4 sm:p-5">
-        <div className="space-y-3">
-          <h1 className="text-2xl font-semibold sm:text-3xl">{q ? `Results for “${q}”` : "Search & Discover"}</h1>
+        <div className="mx-auto max-w-[1400px] space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold sm:text-3xl">{q ? `Results for “${q}”` : "Search & Discover"}</h1>
+            <p className="text-sm text-muted-foreground">Filter by genre, year, quality, and more.</p>
+          </div>
           <SearchFilters query={filters} onChange={applyFilters} />
-        </div>
 
         {emptyDiscovery ? (
           <div className="space-y-8">
@@ -217,14 +219,7 @@ export function SearchPageClient() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {historyQuery.data?.items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="rounded-full bg-secondary px-3 py-1 text-sm hover:bg-secondary/80"
-                      onClick={() => applyFilters({ q: item.query })}
-                    >
-                      {item.query}
-                    </button>
+                    <FilterQuickPill key={item.id} label={item.query} onClick={() => applyFilters({ q: item.query })} />
                   ))}
                 </div>
               </section>
@@ -234,14 +229,7 @@ export function SearchPageClient() {
                 <h2 className="text-xl font-semibold">Trending searches</h2>
                 <div className="flex flex-wrap gap-2">
                   {trendingQuery.data?.items.map((item) => (
-                    <button
-                      key={item.query}
-                      type="button"
-                      className="rounded-full border border-white/15 px-3 py-1 text-sm hover:bg-white/10"
-                      onClick={() => applyFilters({ q: item.query })}
-                    >
-                      {item.query}
-                    </button>
+                    <FilterQuickPill key={item.query} label={item.query} onClick={() => applyFilters({ q: item.query })} />
                   ))}
                 </div>
               </section>

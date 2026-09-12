@@ -1,20 +1,27 @@
-import { Input } from "@/components/ui/input";
+import type { ReactNode } from "react";
+import { FilterSearch, FilterSelect } from "@/components/filters/filter-ui";
 
 export function AdminSearch({
   value,
   onChange,
   placeholder = "Search",
+  label = "Search",
+  id = "admin-search",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  label?: string;
+  id?: string;
 }) {
   return (
-    <Input
+    <FilterSearch
+      id={id}
+      label={label}
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={onChange}
       placeholder={placeholder}
-      className="max-w-sm"
+      className="w-full min-w-0 flex-1 sm:max-w-sm"
     />
   );
 }
@@ -23,27 +30,28 @@ export function AdminSelect({
   value,
   onChange,
   options,
-  label,
+  label = "Filter",
+  id = "admin-select",
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   label?: string;
+  id?: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-      {label}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm text-foreground"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FilterSelect
+      id={id}
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      className="w-full sm:w-auto sm:min-w-[10rem]"
+    />
   );
+}
+
+/** Wrap admin filter rows for consistent spacing on list pages */
+export function AdminFilterRow({ children }: { children: ReactNode }) {
+  return <div className="mb-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">{children}</div>;
 }
