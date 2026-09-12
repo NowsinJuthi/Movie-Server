@@ -36,6 +36,7 @@ import { ApiError } from "@/lib/api";
 import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
+import { isAppleMobileDevice } from "@/lib/device-playback";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
@@ -172,6 +173,7 @@ export function StreamPlayer({
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("none");
   const [showStats, setShowStats] = useState(false);
   const [clock, setClock] = useState(() => formatClock(new Date()));
+  const [awaitingTap, setAwaitingTap] = useState(false);
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const chapters = useMemo(() => buildChapters(markers, duration), [markers, duration]);
@@ -275,6 +277,21 @@ export function StreamPlayer({
     resumeApplied.current = true;
   }, []);
 
+  const tryStartPlayback = useCallback(async (): Promise<boolean> => {
+    const video = videoRef.current;
+    if (!video) return false;
+    try {
+      await video.play();
+      setAwaitingTap(false);
+      setLoading(false);
+      return true;
+    } catch {
+      setAwaitingTap(true);
+      setLoading(false);
+      return false;
+    }
+  }, []);
+
   const warmMediaUrl = useCallback(async (url: string) => {
     try {
       await fetch(url, {
@@ -304,9 +321,14 @@ export function StreamPlayer({
       video.src = src;
       video.load();
       void warmMediaUrl(src);
-      void video.play().catch(() => undefined);
+      if (isAppleMobileDevice()) {
+        setAwaitingTap(true);
+        setLoading(false);
+        return;
+      }
+      void tryStartPlayback();
     },
-    [detachEngine, warmMediaUrl],
+    [detachEngine, tryStartPlayback, warmMediaUrl],
   );
 
   const attachHls = useCallback(
@@ -569,7 +591,9 @@ export function StreamPlayer({
         return;
       }
       setError(
-        "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
+        isAppleMobileDevice()
+          ? "This video could not play on iPhone. Use MP4 (H.264 + AAC) with faststart. MKV and live remux streams are not supported on iOS."
+          : "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
       );
     };
 
@@ -1146,9 +1170,26 @@ export function StreamPlayer({
         ref={videoRef}
         className={cn("h-screen w-full bg-black", videoObjectClass)}
         playsInline
+        // Legacy iOS inline playback (pre-iOS 10).
+        {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
         preload="auto"
         onClick={onSkinClick}
       />
+
+      {awaitingTap && !error ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55">
+          <button
+            type="button"
+            className="flex min-h-16 min-w-16 flex-col items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground shadow-lg"
+            onClick={() => {
+              void tryStartPlayback();
+            }}
+          >
+            <Play className="h-10 w-10 fill-current" />
+            Tap to play
+          </button>
+        </div>
+      ) : null}
       <audio ref={audioRef} preload="metadata" className="hidden" />
 
       {showStats ? (

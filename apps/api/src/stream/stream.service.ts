@@ -351,6 +351,7 @@ export class StreamService {
     sessionId: string,
     userId: string,
     preferredResolution?: string,
+    options?: { disallowRemux?: boolean },
   ): Promise<{
     size: number;
     mime: string;
@@ -380,8 +381,19 @@ export class StreamService {
       });
     }
     const located = await this.resolveAbsoluteMedia(asset);
-    const remux =
+    const ext = path.extname(located.relativePath).toLowerCase();
+    let remux =
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
+    if (remux && options?.disallowRemux) {
+      if (ext === '.mkv' || ext === '.webm') {
+        throw new BadRequestException({
+          error: ErrorCode.PlaybackUnavailable,
+          message:
+            'This file format is not supported on iPhone/iPad. Store MP4 (H.264 + AAC) with faststart instead.',
+        });
+      }
+      remux = false;
+    }
     if (remux) {
       return {
         size: 0,

@@ -77,7 +77,11 @@ export class StreamController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const file = await this.streams.openMedia(this.id(sessionId), user.id, quality);
+    const ua = req.headers['user-agent'] ?? '';
+    const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
+    const file = await this.streams.openMedia(this.id(sessionId), user.id, quality, {
+      disallowRemux,
+    });
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Type', file.mime);
 
