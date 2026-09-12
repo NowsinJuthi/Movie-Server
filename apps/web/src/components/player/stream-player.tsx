@@ -37,7 +37,7 @@ import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
 import { isAppleMobileDevice } from "@/lib/device-playback";
-import { appendStreamQuery } from "@/lib/stream-url";
+import { appendStreamQuery, toAbsoluteStreamUrl } from "@/lib/stream-url";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
@@ -175,6 +175,7 @@ export function StreamPlayer({
   const [showStats, setShowStats] = useState(false);
   const [clock, setClock] = useState(() => formatClock(new Date()));
   const [awaitingTap, setAwaitingTap] = useState(false);
+  const [iosMutedPlay, setIosMutedPlay] = useState(false);
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const chapters = useMemo(() => buildChapters(markers, duration), [markers, duration]);
@@ -281,20 +282,35 @@ export function StreamPlayer({
   const tryStartPlayback = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current;
     if (!video) return false;
-    if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-      await new Promise<void>((resolve) => {
-        const done = () => {
-          video.removeEventListener("canplay", done);
-          video.removeEventListener("loadeddata", done);
-          resolve();
-        };
-        video.addEventListener("canplay", done);
-        video.addEventListener("loadeddata", done);
-      });
-    }
+    setLoading(true);
     try {
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+        await Promise.race([
+          new Promise<void>((resolve, reject) => {
+            const cleanup = () => {
+              video.removeEventListener("loadedmetadata", onReady);
+              video.removeEventListener("error", onErr);
+            };
+            const onReady = () => {
+              cleanup();
+              resolve();
+            };
+            const onErr = () => {
+              cleanup();
+              reject(new Error("media load failed"));
+            };
+            video.addEventListener("loadedmetadata", onReady);
+            video.addEventListener("error", onErr);
+          }),
+          new Promise<void>((_, reject) => {
+            window.setTimeout(() => reject(new Error("media load timeout")), 60_000);
+          }),
+        ]);
+      }
+      video.muted = false;
       await video.play();
       setAwaitingTap(false);
+      setIosMutedPlay(false);
       setLoading(false);
       return true;
     } catch {
@@ -325,16 +341,44 @@ export function StreamPlayer({
         resolution && resolution !== "auto"
           ? resolution
           : info.selectedResolution;
-      const src = appendStreamQuery(info.progressiveUrl, {
-        quality: chosen ?? undefined,
-        audio: info.selectedAudioId ?? undefined,
-      });
+      const src = toAbsoluteStreamUrl(
+        appendStreamQuery(info.progressiveUrl, {
+          quality: chosen ?? undefined,
+          audio: info.selectedAudioId ?? undefined,
+        }),
+      );
+      setIosMutedPlay(false);
       video.src = src;
       video.load();
       void warmMediaUrl(src);
       if (isAppleMobileDevice()) {
-        setAwaitingTap(true);
-        setLoading(false);
+        const startMutedIos = () => {
+          video.muted = true;
+          void video
+            .play()
+            .then(() => {
+              setAwaitingTap(true);
+              setIosMutedPlay(true);
+              setLoading(false);
+            })
+            .catch(() => {
+              setAwaitingTap(true);
+              setLoading(false);
+            });
+        };
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          startMutedIos();
+        } else {
+          video.addEventListener("loadedmetadata", startMutedIos, { once: true });
+          video.addEventListener(
+            "error",
+            () => {
+              setLoading(false);
+              setAwaitingTap(false);
+            },
+            { once: true },
+          );
+        }
         return;
       }
       void tryStartPlayback();
@@ -1197,7 +1241,7 @@ export function StreamPlayer({
             }}
           >
             <Play className="h-10 w-10 fill-current" />
-            Tap to play
+            {iosMutedPlay ? "Tap for sound" : "Tap to play"}
           </button>
         </div>
       ) : null}

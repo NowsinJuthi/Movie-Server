@@ -179,7 +179,7 @@ export class StreamService {
       const session = existing
         ? await this.replace(existing, payload)
         : await this.sessions.create(payload);
-      return this.toPublic(session, maxQuality);
+      return this.toPublic(await this.ensureMediaToken(session), maxQuality);
     });
   }
 
@@ -196,7 +196,7 @@ export class StreamService {
   async heartbeat(sessionId: string, userId: string): Promise<PlaybackSessionInfo> {
     const current = await this.sessions.requireOwned(sessionId, userId);
     await this.ensurePlayable(current, userId);
-    const session = await this.sessions.heartbeat(sessionId, userId);
+    const session = await this.ensureMediaToken(await this.sessions.heartbeat(sessionId, userId));
     const entitlement = await this.access.assertEntitled(userId);
     return this.toPublic(session, entitlement.maxVideoQuality);
   }
@@ -254,7 +254,7 @@ export class StreamService {
     await this.sessions.persist(session);
     await this.rememberPrefs(session);
     const entitlement = await this.access.assertEntitled(userId);
-    return this.toPublic(session, entitlement.maxVideoQuality);
+    return this.toPublic(await this.ensureMediaToken(session), entitlement.maxVideoQuality);
   }
 
   async openAudio(
@@ -361,13 +361,14 @@ export class StreamService {
     mediaToken: string | undefined,
     req: Request,
   ): Promise<string> {
-    const session = await this.sessions.get(sessionId);
-    if (!session || Date.now() - session.lastHeartbeat > this.sessions.ttlMs()) {
+    const raw = await this.sessions.get(sessionId);
+    if (!raw || Date.now() - raw.lastHeartbeat > this.sessions.ttlMs()) {
       throw new UnauthorizedException({
         error: ErrorCode.PlaybackSessionExpired,
         message: 'Playback session expired. Start playback again.',
       });
     }
+    const session = await this.ensureMediaToken(raw);
     if (mediaToken && mediaToken === session.mediaToken) {
       return session.userId;
     }
@@ -388,6 +389,15 @@ export class StreamService {
       error: ErrorCode.Unauthorized,
       message: 'Authentication required.',
     });
+  }
+
+  private async ensureMediaToken(session: StoredPlaybackSession): Promise<StoredPlaybackSession> {
+    if (session.mediaToken) {
+      return session;
+    }
+    session.mediaToken = randomBytes(16).toString('hex');
+    await this.sessions.persist(session);
+    return session;
   }
 
   async openMedia(

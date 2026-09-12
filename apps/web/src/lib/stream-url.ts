@@ -1,3 +1,10 @@
+/** Same-origin absolute URL for `<video src>` (Safari is picky about relative stream paths). */
+export function toAbsoluteStreamUrl(pathOrUrl: string): string {
+  if (typeof window === "undefined") return pathOrUrl;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  return new URL(pathOrUrl, window.location.origin).href;
+}
+
 /** Append playback query params without breaking an existing `?mt=` token. */
 export function appendStreamQuery(
   baseUrl: string,
