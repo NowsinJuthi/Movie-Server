@@ -13,7 +13,9 @@ import {
 import { AdminPage } from "@/components/admin/admin-page";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminPagination } from "@/components/admin/admin-pagination";
-import { AdminSearch, AdminSelect } from "@/components/admin/admin-filters";
+import { AdminSelect } from "@/components/admin/admin-filters";
+import { AdminUserSearch } from "@/components/admin/admin-user-search";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { AddUserDialog } from "@/components/admin/add-user-dialog";
 import { EditUserDialog } from "@/components/admin/edit-user-dialog";
@@ -32,6 +34,7 @@ export default function AdminUsersPage() {
   const isAdmin = Boolean(user && hasMinimumRole(user.role, UserRole.Admin));
   const isSuper = Boolean(user && hasMinimumRole(user.role, UserRole.SuperAdmin));
   const [q, setQ] = useState("");
+  const qDebounced = useDebouncedValue(q.trim(), 250);
   const [role, setRole] = useState("");
   const [page, setPage] = useState(1);
   const [pendingActive, setPendingActive] = useState<{ id: string; active: boolean } | null>(null);
@@ -41,14 +44,14 @@ export default function AdminUsersPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ["admin-users", q, role, page],
+    queryKey: ["admin-users", qDebounced, role, page],
     queryFn: () =>
       adminApi.users({
-        q: q || undefined,
+        q: qDebounced.length >= 1 ? qDebounced : undefined,
         role: role || undefined,
         page,
         limit: 25,
-        sort: "newest",
+        sort: qDebounced.length >= 1 ? "name" : "newest",
       }),
   });
 
@@ -137,13 +140,13 @@ export default function AdminUsersPage() {
       }
     >
       <div className="mb-4 flex flex-wrap gap-3">
-        <AdminSearch
+        <AdminUserSearch
           value={q}
           onChange={(value) => {
             setQ(value);
             setPage(1);
           }}
-          placeholder="Search name or email"
+          placeholder="Type 1+ letters — name or email"
         />
         <AdminSelect
           label="Role"

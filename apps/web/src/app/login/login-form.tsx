@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/auth-api";
 import { ApiError } from "@/lib/api";
+import { profileApi } from "@/lib/profile-api";
 import { useAuthStore } from "@/stores/auth-store";
+import { useProfileStore } from "@/stores/profile-store";
 
 const schema = z.object({
   email: z.string().email(),
@@ -32,9 +34,26 @@ export default function LoginForm() {
 
   const mutation = useMutation({
     mutationFn: authApi.login,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setUser(data.user);
-      router.push(searchParams.get("next")?.startsWith("/admin") ? searchParams.get("next")! : "/profiles");
+      const next = searchParams.get("next");
+      if (next?.startsWith("/admin")) {
+        router.push(next);
+        return;
+      }
+      try {
+        const active = await profileApi.active();
+        if (active.profile) {
+          useProfileStore.getState().setActiveProfile(active.profile);
+          const destination =
+            next && next.startsWith("/") && !next.startsWith("//") ? next : "/home";
+          router.push(destination);
+          return;
+        }
+      } catch {
+        /* fall through to profile picker */
+      }
+      router.push("/profiles");
     },
     onError: (error: unknown) => {
       setFormError(error instanceof ApiError ? error.message : "Unable to sign in.");

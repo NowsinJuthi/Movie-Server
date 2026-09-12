@@ -195,7 +195,7 @@ export class BillingService {
       email,
       subscriptionId: String(sub._id),
       paymentId: String(created.payment._id),
-      planName: `CineVault ${sub.planSlug}`,
+      planName: `AmarPin ${sub.planSlug}`,
       description: `${sub.billingCycle} billing`,
       amountCents,
       currency: sub.currency,

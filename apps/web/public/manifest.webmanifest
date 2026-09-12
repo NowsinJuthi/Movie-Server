@@ -1,6 +1,6 @@
 {
-  "name": "CineVault",
-  "short_name": "CineVault",
+  "name": "AmarPin",
+  "short_name": "AmarPin",
   "description": "Private media streaming with subscription access.",
   "start_url": "/home",
   "scope": "/",

@@ -32,7 +32,7 @@ export default function VerifyEmailForm() {
   }, [token]);
 
   return (
-    <AuthShell title="Verify email" description="Confirming your CineVault account.">
+    <AuthShell title="Verify email" description="Confirming your AmarPin account.">
       <div className="space-y-4">
         {error ? <Alert>{error}</Alert> : null}
         {message ? <p className="rounded-md bg-secondary px-3 py-2 text-sm">{message}</p> : null}

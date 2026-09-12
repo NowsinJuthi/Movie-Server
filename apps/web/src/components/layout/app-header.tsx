@@ -7,7 +7,7 @@ import {
   type PublicProfile,
 } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Home, Menu, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,15 @@ export function AppHeader({
   planLabel,
   scrolled = true,
   variant = "browse",
+  onMobileMenuClick,
 }: {
   profile?: PublicProfile | null;
   planLabel?: string | null;
   scrolled?: boolean;
   /** browse = Netflix-style; admin = solid bar over admin pages */
   variant?: "browse" | "admin";
+  /** Opens the admin sidebar drawer on small screens */
+  onMobileMenuClick?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,32 +58,123 @@ export function AppHeader({
   const tvLibraries = libraries.filter((library) => library.kind === LibraryKind.Tv);
 
   const solid = variant === "admin" || scrolled;
+  const [browseMenuOpen, setBrowseMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setBrowseMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!browseMenuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [browseMenuOpen]);
+
+  const openMobileMenu = () => {
+    if (variant === "admin" && onMobileMenuClick) {
+      onMobileMenuClick();
+      return;
+    }
+    setBrowseMenuOpen(true);
+  };
+
+  const logoButton = (
+    <button
+      type="button"
+      className="min-w-0 shrink text-xl font-bold text-primary"
+      onClick={() => router.push(variant === "admin" ? "/admin" : "/home")}
+    >
+      {logoSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoSrc}
+          alt={siteName}
+          className="h-8 w-auto max-w-[140px] object-contain sm:h-9 sm:max-w-[160px] lg:h-10 lg:max-w-[200px]"
+        />
+      ) : (
+        <>
+          {siteName}
+          {variant === "admin" ? (
+            <span className="ml-1.5 text-sm font-semibold text-white/55">Admin</span>
+          ) : null}
+        </>
+      )}
+    </button>
+  );
+
+  const headerActions = (
+    <>
+      <Suspense
+        fallback={
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70" />
+        }
+      >
+        <SearchBox />
+      </Suspense>
+      {planLabel && variant !== "admin" && !/^staff$/i.test(planLabel) && !/^admin$/i.test(planLabel) ? (
+        <Button
+          variant="ghost"
+          className="hidden md:inline-flex"
+          onClick={() => router.push("/account/subscription")}
+        >
+          {planLabel}
+        </Button>
+      ) : null}
+      <AccountMenu
+        profile={activeProfile}
+        displayName={user?.displayName}
+        email={user?.email}
+        isAdmin={isAdmin}
+        onAdminRoute={onAdminRoute}
+        onHome={() => router.push("/home")}
+        onAdmin={() => router.push("/admin")}
+        onProfiles={() => router.push("/profiles")}
+        onDevices={() => router.push("/account/devices")}
+        onSettings={() => router.push("/account/settings")}
+        onMyList={() => router.push("/home/list")}
+        onFavorites={() => router.push("/home/favorites")}
+        onHistory={() => router.push("/home/history")}
+        onSubscription={() => router.push("/account/subscription")}
+        onSignOut={async () => {
+          await authApi.logout();
+          clear();
+          clearProfile();
+          router.push("/login");
+        }}
+      />
+    </>
+  );
 
   return (
+    <>
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors sm:px-4 md:px-5 lg:px-6",
+        "fixed inset-x-0 top-0 z-50 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors sm:px-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-3 lg:px-6",
         solid ? "border-b border-white/10 bg-background/95 backdrop-blur" : "bg-gradient-to-b from-black/80 to-transparent",
       )}
     >
-      <div className="flex min-w-0 items-center justify-self-start">
+      <div className="relative flex min-h-10 items-center lg:hidden">
         <button
           type="button"
-          className="shrink-0 text-xl font-bold text-primary"
-          onClick={() => router.push("/home")}
+          aria-label={variant === "admin" ? "Open admin menu" : "Open browse menu"}
+          className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg text-white/85 active:bg-white/10"
+          onClick={openMobileMenu}
         >
-          {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt={siteName} className="h-9 w-auto max-w-[180px] object-contain sm:h-10 sm:max-w-[200px]" />
-          ) : (
-            <>
-              {siteName}
-              {variant === "admin" ? (
-                <span className="ml-1.5 text-sm font-semibold text-white/55">Admin</span>
-              ) : null}
-            </>
-          )}
+          <Menu className="h-5 w-5" />
         </button>
+
+        <div className="pointer-events-none absolute inset-x-12 flex items-center justify-center">
+          <div className="pointer-events-auto">{logoButton}</div>
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">{headerActions}</div>
+      </div>
+
+      <div className="hidden min-w-0 items-center gap-1.5 justify-self-start lg:flex">
+        {logoButton}
       </div>
 
       <nav className="hidden items-center justify-center gap-3 justify-self-center text-sm text-white/80 lg:flex xl:gap-4">
@@ -108,47 +202,111 @@ export function AppHeader({
         ) : null}
       </nav>
 
-      <div className="flex shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2 md:gap-3">
-        <Suspense
-          fallback={
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70" />
-          }
-        >
-          <SearchBox />
-        </Suspense>
-        {planLabel && !/^staff$/i.test(planLabel) ? (
-          <Button
-            variant="ghost"
-            className="hidden md:inline-flex"
-            onClick={() => router.push("/account/subscription")}
-          >
-            {planLabel}
-          </Button>
-        ) : null}
-        <AccountMenu
-          profile={activeProfile}
-          displayName={user?.displayName}
-          email={user?.email}
-          isAdmin={isAdmin}
-          onAdminRoute={onAdminRoute}
-          onHome={() => router.push("/home")}
-          onAdmin={() => router.push("/admin")}
-          onProfiles={() => router.push("/profiles")}
-          onDevices={() => router.push("/account/devices")}
-          onSettings={() => router.push("/account/settings")}
-          onMyList={() => router.push("/home/list")}
-          onFavorites={() => router.push("/home/favorites")}
-          onHistory={() => router.push("/home/history")}
-          onSubscription={() => router.push("/account/subscription")}
-          onSignOut={async () => {
-            await authApi.logout();
-            clear();
-            clearProfile();
-            router.push("/login");
-          }}
-        />
+      <div className="hidden shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2 md:gap-3 lg:flex">
+        {headerActions}
       </div>
     </header>
+
+    {variant === "browse" && browseMenuOpen ? (
+      <BrowseMobileDrawer
+        movieLibraries={movieLibraries}
+        tvLibraries={tvLibraries}
+        onClose={() => setBrowseMenuOpen(false)}
+        onNavigate={(href) => {
+          setBrowseMenuOpen(false);
+          router.push(href);
+        }}
+      />
+    ) : null}
+    </>
+  );
+}
+
+function BrowseMobileDrawer({
+  movieLibraries,
+  tvLibraries,
+  onClose,
+  onNavigate,
+}: {
+  movieLibraries: Array<{ id: string; name: string }>;
+  tvLibraries: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onNavigate: (href: string) => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close menu"
+        className="fixed inset-0 z-40 bg-black/55 lg:hidden"
+        onClick={onClose}
+      />
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-white/10 bg-background/98 shadow-[12px_0_40px_rgb(0_0_0/0.35)] backdrop-blur-md lg:hidden">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <p className="text-base font-semibold text-foreground">Browse</p>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg text-white/80 active:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3 brand-scrollbar" aria-label="Browse libraries">
+          <button
+            type="button"
+            className="mb-3 flex w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-foreground active:bg-white/10"
+            onClick={() => onNavigate("/home")}
+          >
+            <Home className="h-4 w-4 text-primary" />
+            Home
+          </button>
+
+          {movieLibraries.length > 0 ? (
+            <section className="mb-4">
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-white/45">Movies</p>
+              <ul className="space-y-1">
+                {movieLibraries.map((library) => (
+                  <li key={library.id}>
+                    <button
+                      type="button"
+                      className="flex w-full touch-manipulation items-center rounded-lg px-3 py-3 text-left text-sm text-white/90 active:bg-white/10"
+                      onClick={() => onNavigate(`/home/library/${library.id}`)}
+                    >
+                      {library.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {tvLibraries.length > 0 ? (
+            <section className="mb-4">
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-white/45">TV Shows</p>
+              <ul className="space-y-1">
+                {tvLibraries.map((library) => (
+                  <li key={library.id}>
+                    <button
+                      type="button"
+                      className="flex w-full touch-manipulation items-center rounded-lg px-3 py-3 text-left text-sm text-white/90 active:bg-white/10"
+                      onClick={() => onNavigate(`/home/library/${library.id}`)}
+                    >
+                      {library.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {movieLibraries.length === 0 && tvLibraries.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-white/55">No libraries available yet.</p>
+          ) : null}
+        </nav>
+      </aside>
+    </>
   );
 }
 

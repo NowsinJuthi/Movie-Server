@@ -11,29 +11,31 @@ export function AdminTable({
 }) {
   const hasRows = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-secondary text-muted-foreground">
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className="px-4 py-3 font-medium">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {hasRows ? (
-            children
-          ) : (
+    <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 sm:mx-0 sm:px-0">
+      <div className="overflow-hidden rounded-xl border border-border">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="bg-secondary text-muted-foreground">
             <tr>
-              <td className="px-4 py-8 text-muted-foreground" colSpan={columns.length}>
-                {empty ?? "No records."}
-              </td>
+              {columns.map((column) => (
+                <th key={column} className="whitespace-nowrap px-3 py-3 font-medium sm:px-4">
+                  {column}
+                </th>
+              ))}
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {hasRows ? (
+              children
+            ) : (
+              <tr>
+                <td className="px-4 py-8 text-muted-foreground" colSpan={columns.length}>
+                  {empty ?? "No records."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -43,5 +45,5 @@ export function AdminTh({ className, ...props }: React.ComponentProps<"th">) {
 }
 
 export function AdminTd({ className, ...props }: React.ComponentProps<"td">) {
-  return <td className={cn("border-t border-border px-4 py-3", className)} {...props} />;
+  return <td className={cn("border-t border-border px-3 py-3 sm:px-4", className)} {...props} />;
 }

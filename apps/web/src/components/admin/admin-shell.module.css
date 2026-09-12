@@ -1,4 +1,4 @@
-/* UniqBD-style admin menu, tinted with CineVault theme tokens */
+/* UniqBD-style admin menu, tinted with AmarPin theme tokens */
 
 .adminPanel {
   min-height: 100dvh;
@@ -21,22 +21,55 @@
   }
 }
 
+.sidebarBackdrop {
+  position: fixed;
+  inset: 0;
+  top: 3.75rem;
+  z-index: 29;
+  border: 0;
+  background: rgb(0 0 0 / 0.55);
+  touch-action: manipulation;
+}
+
 .sidebar {
   position: relative;
   z-index: 30;
-  display: flex;
+  display: none;
   flex-direction: column;
   border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
   background: var(--background);
+}
+
+@media (max-width: 1023px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 3.75rem;
+    bottom: 0;
+    display: flex;
+    width: min(20rem, 88vw);
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    border-bottom: 0;
+    border-right: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    box-shadow: 12px 0 40px rgb(0 0 0 / 0.35);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
 }
 
 @media (min-width: 1024px) {
   .sidebar {
     position: sticky;
     top: 3.75rem;
+    display: flex;
     height: calc(100dvh - 3.75rem);
+    transform: none;
     border-bottom: 0;
     border-right: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    box-shadow: none;
   }
 }
 
@@ -175,7 +208,8 @@
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
+  touch-action: manipulation;
   align-items: center;
   gap: 0.65rem;
   overflow: hidden;
@@ -404,7 +438,8 @@
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 2.15rem;
+  min-height: 2.75rem;
+  touch-action: manipulation;
   cursor: pointer;
   align-items: center;
   gap: 0.5rem;
@@ -495,10 +530,12 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 1024px) {
   .content {
     height: 100%;
+    padding-bottom: 0;
   }
 }

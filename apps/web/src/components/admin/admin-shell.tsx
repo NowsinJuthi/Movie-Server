@@ -37,6 +37,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { libraryApi } from "@/lib/library-api";
 import { AppHeader } from "@/components/layout/app-header";
+import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import styles from "./admin-shell.module.css";
 
 type NavIcon = ComponentType<{ className?: string }>;
@@ -287,6 +288,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, status } = useAuthStore();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { isGroupOpen, toggleGroup, expandGroup } = useGroupOpenState(pathname);
   const librariesQuery = useQuery({
     queryKey: ["admin-libraries"],
@@ -326,6 +328,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     }
   }, [status, user, router, pathname]);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileNavOpen]);
+
   if (status === "loading" || status === "idle") {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -343,9 +358,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(styles.adminPanel, "admin-panel")}>
-      <AppHeader variant="admin" scrolled planLabel="Admin" />
+      <AppHeader
+        variant="admin"
+        scrolled
+        onMobileMenuClick={() => setMobileNavOpen(true)}
+      />
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          className={styles.sidebarBackdrop}
+          aria-label="Close admin menu"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
       <div className={styles.shell}>
-        <aside className={styles.sidebar}>
+        <aside className={cn(styles.sidebar, mobileNavOpen && styles.sidebarOpen)}>
           <nav className={styles.sidebarNav} aria-label="Admin">
             <div className={styles.menuPanel}>
                   <div className={cn(styles.menuScroll, "brand-scrollbar")}>
@@ -527,6 +554,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
+      <AdminMobileNav onOpenMenu={() => setMobileNavOpen(true)} />
     </div>
   );
 }

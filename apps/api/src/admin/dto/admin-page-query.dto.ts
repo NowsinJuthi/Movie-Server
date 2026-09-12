@@ -1,6 +1,21 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsMongoId, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsMongoId, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { Trim } from '../../common/decorators/transform.decorators';
+
+export class QueryProfileSuggestDto {
+  @Trim()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  q!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number;
+}
 
 export class AdminPageQueryDto {
   @IsOptional()

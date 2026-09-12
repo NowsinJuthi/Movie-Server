@@ -81,7 +81,7 @@ export class SiteSettingsService implements OnModuleInit {
 
   async getPublicBranding(): Promise<PublicBranding> {
     const doc = await this.ensureDoc();
-    const envName = this.config.get<string>('APP_NAME') || 'CineVault';
+    const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
     return {
       siteName: doc.siteName?.trim() || envName,
       logoUrl: this.logoPublicPath(doc.logoKey),
@@ -91,7 +91,7 @@ export class SiteSettingsService implements OnModuleInit {
 
   async getAdminSettings(): Promise<AdminSiteSettings> {
     const doc = await this.ensureDoc();
-    const envName = this.config.get<string>('APP_NAME') || 'CineVault';
+    const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
     const siteName = doc.siteName?.trim() || envName;
     const mail = await this.resolveMailConfig(true);
 
@@ -255,7 +255,7 @@ export class SiteSettingsService implements OnModuleInit {
     }
 
     const doc = await this.ensureDoc();
-    const envName = this.config.get<string>('APP_NAME') || 'CineVault';
+    const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
     const appName = doc.siteName?.trim() || envName;
 
     let value: ResolvedMailConfig;

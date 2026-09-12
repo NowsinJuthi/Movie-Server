@@ -40,8 +40,10 @@ import {
   effectiveVideoDuration,
   isAppleMobileDevice,
   isVideoInNativeFullscreen,
+  lockPlaybackLandscape,
   seekVideoTo,
   toggleVideoFullscreen,
+  unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
 import { appendStreamQuery, toAbsoluteStreamUrl } from "@/lib/stream-url";
@@ -172,6 +174,7 @@ export function StreamPlayer({
   const [controls, setControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [pip, setPip] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
   const [quality, setQuality] = useState<QualityChoice>("auto");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [usingHls, setUsingHls] = useState(false);
@@ -185,11 +188,12 @@ export function StreamPlayer({
   const [awaitingTap, setAwaitingTap] = useState(false);
   const [iosMutedPlay, setIosMutedPlay] = useState(false);
   const mobileLayout = useMobilePlayerLayout();
+  const mobileLayoutRef = useRef(mobileLayout);
+  mobileLayoutRef.current = mobileLayout;
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const chapters = useMemo(() => buildChapters(markers, duration), [markers, duration]);
 
-  const pipSupported = typeof document !== "undefined" && "pictureInPictureEnabled" in document;
   const qualities = session?.qualities.filter((item) => item.allowed) ?? [];
   const audioTracks = useMemo(() => session?.audioTracks ?? [], [session]);
   const subtitleTracks = useMemo(() => session?.subtitleTracks ?? [], [session]);
@@ -734,12 +738,19 @@ export function StreamPlayer({
   }, [countdown, next, router]);
 
   useEffect(() => {
+    setPipSupported("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled));
+
     const syncFullscreen = () => {
       const video = videoRef.current;
-      setFullscreen(
+      const isFs =
         Boolean(document.fullscreenElement) ||
-          (video != null && isVideoInNativeFullscreen(video)),
-      );
+        (video != null && isVideoInNativeFullscreen(video));
+      setFullscreen(isFs);
+      if (isFs && mobileLayoutRef.current) {
+        void lockPlaybackLandscape();
+      } else if (!isFs) {
+        unlockPlaybackOrientation();
+      }
     };
     const onPip = () => setPip(Boolean(document.pictureInPictureElement));
     document.addEventListener("fullscreenchange", syncFullscreen);
@@ -837,6 +848,14 @@ export function StreamPlayer({
 
     if (mobileLayout || isAppleMobileDevice()) {
       await toggleVideoFullscreen(video, shell);
+      const isFs =
+        Boolean(document.fullscreenElement) ||
+        isVideoInNativeFullscreen(video);
+      if (isFs && mobileLayout) {
+        void lockPlaybackLandscape();
+      } else if (!isFs) {
+        unlockPlaybackOrientation();
+      }
       return;
     }
 

@@ -1,6 +1,6 @@
 process.env.NODE_ENV = 'test';
 process.env.PORT = '4001';
-process.env.APP_NAME = 'CineVault';
+process.env.APP_NAME = 'AmarPin';
 process.env.APP_URL = 'http://localhost:3001';
 process.env.API_URL = 'http://localhost:4001';
 process.env.API_PREFIX = 'api/v1';
@@ -19,7 +19,7 @@ process.env.AUTH_THROTTLE_TTL_MS = '900000';
 process.env.AUTH_THROTTLE_LIMIT = '1000';
 process.env.LOCKOUT_MAX_ATTEMPTS = '5';
 process.env.LOCKOUT_DURATION_MINUTES = '15';
-process.env.MAIL_FROM = 'CineVault <noreply@localhost>';
+process.env.MAIL_FROM = 'AmarPin <noreply@localhost>';
 process.env.CORS_ORIGINS = 'http://localhost:3001';
 process.env.SUBSCRIPTION_REQUIRE_PAYMENT = 'false';
 process.env.SUBSCRIPTION_GRACE_DAYS = '3';

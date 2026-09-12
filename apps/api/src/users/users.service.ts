@@ -125,6 +125,48 @@ export class UsersService {
     return { items, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) };
   }
 
+  async findBySearchTerm(q: string, limit = 10) {
+    const term = q.trim();
+    if (!term) return [];
+    const regex = new RegExp(escapeRegex(term), 'i');
+    const items = await this.userModel
+      .find({
+        $or: [{ email: regex }, { displayName: regex }],
+      })
+      .sort({ displayName: 1, email: 1 })
+      .limit(Math.min(Math.max(limit, 1), 20))
+      .select('_id displayName email')
+      .lean()
+      .exec();
+    return items.map((item) => ({
+      id: String(item._id),
+      displayName: item.displayName,
+      email: item.email,
+    }));
+  }
+
+  async suggestAdmin(q: string, limit = 10) {
+    const term = q.trim();
+    if (!term) return [];
+    const regex = new RegExp(escapeRegex(term), 'i');
+    const items = await this.userModel
+      .find({
+        $or: [{ email: regex }, { displayName: regex }],
+      })
+      .sort({ displayName: 1, email: 1 })
+      .limit(Math.min(Math.max(limit, 1), 20))
+      .select('_id displayName email role isActive')
+      .lean()
+      .exec();
+    return items.map((item) => ({
+      id: String(item._id),
+      displayName: item.displayName,
+      email: item.email,
+      role: item.role,
+      isActive: item.isActive,
+    }));
+  }
+
   async updateRole(userId: string, role: UserRole) {
     const user = await this.userModel.findById(userId).select('+tokenVersion');
     if (!user) {

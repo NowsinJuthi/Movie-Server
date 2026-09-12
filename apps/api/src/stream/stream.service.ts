@@ -91,7 +91,7 @@ export class StreamService {
       return null;
     }
     const deviceId = (input.deviceId?.trim() || 'default').slice(0, 80);
-    const deviceLabel = (input.deviceLabel?.trim() || 'CineVault').slice(0, 80);
+    const deviceLabel = (input.deviceLabel?.trim() || 'AmarPin').slice(0, 80);
     const entitlement = await this.access.assertQuality(input.user.id, input.quality);
     const maxQuality = entitlement.maxVideoQuality;
     if (!maxQuality) {

@@ -1,4 +1,4 @@
-# CineVault — aaPanel / Ubuntu VPS production stack
+# AmarPin — aaPanel / Ubuntu VPS production stack
 # aaPanel owns ports 80/443 (Nginx + SSL). App ports are published on localhost only:
 #   host 4001 → container API 4000
 #   host 3001 → container Web 3000
@@ -56,9 +56,6 @@ services:
       MEDIA_PROBE: auto
       ARTWORK_UPLOAD_DIR: /app/storage/uploads/artwork
       SMB_MOUNT_ROOT: /data/smb-mounts
-      # Media dirs are inside the container; host paths are bind-mounted below.
-      MEDIA_MOVIES_DIR: /data/media/movies
-      MEDIA_TV_DIR: /data/media/tv
     volumes:
       - movies_amarpin_com_uploads:/app/storage
       - ${CINEVAULT_MEDIA_HOST:-/data/movies.amarpin.com/media}:/data/media
@@ -94,7 +91,7 @@ services:
       dockerfile: docker/web.Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://movies.api.amarpin.com/api/v1}
-        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-AmarPin}
         API_INTERNAL_URL: http://api:4000
     restart: unless-stopped
     environment:
@@ -102,7 +99,7 @@ services:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
       API_INTERNAL_URL: http://api:4000
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CineVault}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-AmarPin}
     ports:
       - "127.0.0.1:3001:3000"
     depends_on:

@@ -1,4 +1,4 @@
-# CineVault (Movie-Server)
+# AmarPin (Movie-Server)
 
 Emby-style private media platform with Netflix-style profiles, subscriptions, and secure streaming. Built as a monorepo: **Next.js** web app + **NestJS** API + **MongoDB** + **Redis**.
 

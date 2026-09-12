@@ -69,7 +69,7 @@ services:
       NODE_ENV: production
       API_INTERNAL_URL: http://api:4000
       NEXT_PUBLIC_API_URL: /api/v1
-      NEXT_PUBLIC_APP_NAME: CineVault
+      NEXT_PUBLIC_APP_NAME: AmarPin
     depends_on:
       api:
         condition: service_healthy

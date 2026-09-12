@@ -67,6 +67,29 @@ function applyVideoSeek(video: HTMLVideoElement, target: number): void {
   video.currentTime = target;
 }
 
+/** Best-effort landscape lock after mobile fullscreen (Android; iOS ignores). */
+export async function lockPlaybackLandscape(): Promise<void> {
+  if (typeof screen === "undefined") return;
+  const orientation = screen.orientation as ScreenOrientation & {
+    lock?: (type: OrientationLockType) => Promise<void>;
+  };
+  if (!orientation?.lock) return;
+  try {
+    await orientation.lock("landscape");
+  } catch {
+    // Requires fullscreen on many browsers; unsupported on iOS Safari.
+  }
+}
+
+export function unlockPlaybackOrientation(): void {
+  if (typeof screen === "undefined") return;
+  try {
+    screen.orientation?.unlock?.();
+  } catch {
+    // ignore
+  }
+}
+
 export async function toggleVideoFullscreen(
   video: HTMLVideoElement,
   shell: HTMLElement,

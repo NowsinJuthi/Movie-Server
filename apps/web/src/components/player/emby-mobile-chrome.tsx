@@ -35,6 +35,65 @@ function stopControlBubble(event: { stopPropagation: () => void }) {
   event.stopPropagation();
 }
 
+function MobileTransportCluster({
+  compact,
+  playing,
+  onTogglePlay,
+  onSeekBy,
+}: {
+  compact: boolean;
+  playing: boolean;
+  onTogglePlay: () => void;
+  onSeekBy: (seconds: number) => void;
+}) {
+  return (
+    <div className={cn("flex items-center", compact ? "gap-3.5" : "gap-5")}>
+      <button
+        type="button"
+        aria-label="Rewind 10 seconds"
+        onClick={() => onSeekBy(-10)}
+        onTouchStart={stopControlBubble}
+        className={cn(
+          "relative inline-flex touch-manipulation items-center justify-center text-white/90 active:opacity-70",
+          compact ? "h-9 w-9" : "h-10 w-10",
+        )}
+      >
+        <RotateCcw className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
+        <span className={cn("absolute font-semibold", compact ? "text-[8px]" : "text-[9px]")}>10</span>
+      </button>
+      <button
+        type="button"
+        aria-label={playing ? "Pause" : "Play"}
+        onClick={onTogglePlay}
+        onTouchStart={stopControlBubble}
+        className={cn(
+          "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary/12 text-white ring-1 ring-primary/30 active:bg-primary/22",
+          compact ? "h-10 w-10 shadow-none" : "h-11 w-11 shadow-[0_0_16px_rgb(38_191_176/0.22)]",
+        )}
+      >
+        {playing ? (
+          <Pause className={cn("fill-white", compact ? "h-5 w-5" : "h-6 w-6")} />
+        ) : (
+          <Play className={cn("fill-white", compact ? "ml-0.5 h-5 w-5" : "ml-0.5 h-6 w-6")} />
+        )}
+      </button>
+      <button
+        type="button"
+        aria-label="Forward 10 seconds"
+        onClick={() => onSeekBy(10)}
+        onTouchStart={stopControlBubble}
+        className={cn(
+          "relative inline-flex touch-manipulation items-center justify-center text-white/90 active:opacity-70",
+          compact ? "h-9 w-9" : "h-10 w-10",
+        )}
+      >
+        <RotateCw className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
+        <span className={cn("absolute font-semibold", compact ? "text-[8px]" : "text-[9px]")}>10</span>
+      </button>
+    </div>
+  );
+}
+
 function MobileIconButton({
   label,
   onClick,
@@ -178,13 +237,29 @@ export function EmbyMobileChrome({
         </button>
       </header>
 
-      {/* Tap video area — play/pause lives in the bottom transport bar only */}
+      {/* Tap video area — fullscreen shows compact center transport */}
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
         className="relative z-10 min-h-0 touch-manipulation bg-transparent"
         onClick={onSkinClick}
       />
+      {fullscreen ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[22%] bottom-[34%] z-[15] flex items-center justify-center"
+          onPointerDown={stopControlBubble}
+          onTouchStart={stopControlBubble}
+        >
+          <div className="pointer-events-auto">
+            <MobileTransportCluster
+              compact
+              playing={playing}
+              onTogglePlay={onTogglePlay}
+              onSeekBy={onSeekBy}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* Bottom — transport (above tap layer so seek/skip always receive touches) */}
       <div
@@ -206,41 +281,16 @@ export function EmbyMobileChrome({
           <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
         </div>
 
-        <div className="mb-2 flex items-center justify-center gap-6">
-          <button
-            type="button"
-            aria-label="Rewind 10 seconds"
-            onClick={() => onSeekBy(-10)}
-            onTouchStart={stopControlBubble}
-            className="relative inline-flex h-12 w-12 touch-manipulation items-center justify-center text-white active:opacity-70"
-          >
-            <RotateCcw className="h-7 w-7" strokeWidth={1.75} />
-            <span className="absolute text-[10px] font-bold">10</span>
-          </button>
-          <button
-            type="button"
-            aria-label={playing ? "Pause" : "Play"}
-            onClick={onTogglePlay}
-            onTouchStart={stopControlBubble}
-            className="inline-flex h-14 w-14 touch-manipulation items-center justify-center rounded-full bg-primary/15 text-white ring-1 ring-primary/35 shadow-[0_0_20px_rgb(38_191_176/0.28)] active:bg-primary/25"
-          >
-            {playing ? (
-              <Pause className="h-8 w-8 fill-white" />
-            ) : (
-              <Play className="ml-0.5 h-8 w-8 fill-white" />
-            )}
-          </button>
-          <button
-            type="button"
-            aria-label="Forward 10 seconds"
-            onClick={() => onSeekBy(10)}
-            onTouchStart={stopControlBubble}
-            className="relative inline-flex h-12 w-12 touch-manipulation items-center justify-center text-white active:opacity-70"
-          >
-            <RotateCw className="h-7 w-7" strokeWidth={1.75} />
-            <span className="absolute text-[10px] font-bold">10</span>
-          </button>
-        </div>
+        {!fullscreen ? (
+          <div className="mb-2 flex items-center justify-center">
+            <MobileTransportCluster
+              compact={false}
+              playing={playing}
+              onTogglePlay={onTogglePlay}
+              onSeekBy={onSeekBy}
+            />
+          </div>
+        ) : null}
 
         {volumeOpen ? (
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-black/45 px-2 py-2 ring-1 ring-white/10">

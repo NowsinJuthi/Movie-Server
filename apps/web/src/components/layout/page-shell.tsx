@@ -26,7 +26,7 @@ export function PageShell({
   return (
     <main
       className={cn(
-        "flex w-full flex-col bg-background p-3 sm:p-4 md:p-5 lg:p-6",
+        "flex w-full flex-col bg-background p-2 sm:p-4 md:p-5 lg:p-6",
         fillHeight ? "h-full min-h-0 overflow-hidden" : "min-h-dvh pt-20",
         className,
       )}
@@ -38,12 +38,16 @@ export function PageShell({
         )}
       >
         {title || description || actions ? (
-          <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+          <header className="flex shrink-0 flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:px-5">
             <div className="min-w-0">
-              {title ? <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1> : null}
+              {title ? <h1 className="text-lg font-semibold sm:text-2xl">{title}</h1> : null}
               {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
             </div>
-            {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+            {actions ? (
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto [&_button]:min-h-10 [&_button]:touch-manipulation">
+                {actions}
+              </div>
+            ) : null}
           </header>
         ) : null}
         {error ? (
@@ -53,7 +57,7 @@ export function PageShell({
         ) : null}
         <div
           className={cn(
-            "min-h-0 flex-1 space-y-6 overflow-auto p-4 sm:p-5 brand-scrollbar",
+            "min-h-0 flex-1 space-y-4 overflow-auto p-3 sm:space-y-6 sm:p-5 brand-scrollbar",
             bodyClassName,
           )}
         >

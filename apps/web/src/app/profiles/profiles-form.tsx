@@ -29,6 +29,12 @@ export default function ProfilesForm() {
     enabled: status === "authenticated",
   });
 
+  const activeQuery = useQuery({
+    queryKey: ["active-profile"],
+    queryFn: profileApi.active,
+    enabled: status === "authenticated",
+  });
+
   useEffect(() => {
     if (status === "anonymous") {
       router.replace("/login");
@@ -40,6 +46,26 @@ export default function ProfilesForm() {
       setProfiles(query.data.profiles);
     }
   }, [query.data, setProfiles]);
+
+  useEffect(() => {
+    if (!activeQuery.data?.profile) return;
+    setActiveProfile(activeQuery.data.profile);
+    const destination =
+      nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/home";
+    router.replace(destination);
+  }, [activeQuery.data, nextPath, router, setActiveProfile]);
+
+  useEffect(() => {
+    if (activeQuery.isLoading || activeQuery.data?.profile || pinProfile) return;
+    const profiles = query.data?.profiles ?? [];
+    if (profiles.length === 0) return;
+    const lastSelected = [...profiles].sort((a, b) =>
+      (b.lastSelectedAt ?? "").localeCompare(a.lastSelectedAt ?? ""),
+    )[0];
+    if (lastSelected?.hasPin && lastSelected.lastSelectedAt) {
+      setPinProfile(lastSelected);
+    }
+  }, [activeQuery.data?.profile, activeQuery.isLoading, pinProfile, query.data?.profiles]);
 
   const selectMutation = useMutation({
     mutationFn: ({ id, pin }: { id: string; pin?: string }) => profileApi.select(id, pin),

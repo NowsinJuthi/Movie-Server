@@ -18,9 +18,9 @@ export function getDeviceId(): string {
 
 export function getDeviceLabel(): string {
   if (typeof navigator === "undefined") {
-    return "CineVault";
+    return "AmarPin";
   }
-  const ua = navigator.userAgent || "CineVault";
+  const ua = navigator.userAgent || "AmarPin";
   return ua.slice(0, 80);
 }
 

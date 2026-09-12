@@ -90,7 +90,7 @@ export class PlaybackSessionStore {
     const session = await this.requireOwned(sessionId, userId);
     session.lastHeartbeat = Date.now();
     await this.persist(session);
-    await this.touchDevice(userId, session.deviceId, session.deviceLabel || 'CineVault');
+    await this.touchDevice(userId, session.deviceId, session.deviceLabel || 'AmarPin');
     await this.devices.touch(userId, session.deviceId);
     return session;
   }
@@ -247,7 +247,7 @@ export class PlaybackSessionStore {
         message: `This plan allows ${maxDevices} registered device(s).`,
       });
     }
-    devices[deviceId] = { lastSeen: now, label: label.slice(0, 80) || 'CineVault' };
+    devices[deviceId] = { lastSeen: now, label: label.slice(0, 80) || 'AmarPin' };
     await this.redis.client.set(this.deviceKey(userId), JSON.stringify(devices), 'PX', windowMs);
     await this.devices.registerForPlayback(userId, deviceId, label, maxDevices, undefined, { skipLimit: true });
   }

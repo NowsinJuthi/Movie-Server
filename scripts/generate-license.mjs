@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Vendor tool: generate a signed CineVault license key.
+ * Vendor tool: generate a signed AmarPin license key.
  *
  * Usage:
  *   node scripts/generate-license.mjs

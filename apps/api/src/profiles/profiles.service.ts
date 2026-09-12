@@ -62,7 +62,11 @@ export class ProfilesService {
       filter.userId = new Types.ObjectId(query.userId);
     }
     if (query.q?.trim()) {
-      filter.name = new RegExp(query.q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const term = query.q.trim();
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const users = await this.users.findBySearchTerm(term, 20);
+      const userIds = users.map((user) => new Types.ObjectId(user.id));
+      filter.$or = [{ name: regex }, ...(userIds.length ? [{ userId: { $in: userIds } }] : [])];
     }
     const [items, total] = await Promise.all([
       this.profileModel
@@ -87,6 +91,45 @@ export class ProfilesService {
       total,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     };
+  }
+
+  async suggestAdmin(q: string, limit = 10) {
+    const term = q.trim();
+    if (!term) return [];
+    const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const cap = Math.min(Math.max(limit, 1), 20);
+
+    const [byName, users] = await Promise.all([
+      this.profileModel.find({ name: regex }).sort({ name: 1 }).limit(cap).exec(),
+      this.users.findBySearchTerm(term, cap),
+    ]);
+
+    const userIdsFromSearch = users.map((user) => user.id);
+    const byUser =
+      userIdsFromSearch.length > 0
+        ? await this.profileModel
+            .find({ userId: { $in: userIdsFromSearch.map((id) => new Types.ObjectId(id)) } })
+            .sort({ name: 1 })
+            .limit(cap)
+            .exec()
+        : [];
+
+    const merged = new Map<string, (typeof byName)[number]>();
+    for (const profile of [...byName, ...byUser]) {
+      merged.set(String(profile._id), profile);
+    }
+    const items = [...merged.values()].slice(0, cap);
+
+    const userIds = [...new Set(items.map((item) => String(item.userId)))];
+    const accountUsers = await this.users.findByIds(userIds);
+    const byId = new Map(accountUsers.map((user) => [String(user._id), user]));
+
+    return items.map((item) => ({
+      id: String(item._id),
+      name: item.name,
+      userDisplayName: byId.get(String(item.userId))?.displayName ?? '',
+      userEmail: byId.get(String(item.userId))?.email ?? '',
+    }));
   }
 
   async adminRemove(profileId: string): Promise<{ message: string }> {
@@ -313,18 +356,23 @@ export class ProfilesService {
         return toPublicProfile(profile);
       }
     }
-    // Admin → App often skips /profiles; auto-pick the default profile when it has no PIN.
+    // Restore the last profile the user picked (persists across new logins/sessions).
+    const lastSelected = await this.profileModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        lastSelectedAt: { $exists: true, $ne: null },
+      })
+      .sort({ lastSelectedAt: -1 });
     const fallback = await this.profileModel
       .findOne({ userId: new Types.ObjectId(userId), isDefault: true })
       .sort({ createdAt: 1 });
     const candidate =
+      lastSelected ??
       fallback ??
       (await this.profileModel.findOne({ userId: new Types.ObjectId(userId) }).sort({ createdAt: 1 }));
     if (!candidate || candidate.hasPin || candidate.pinHash) {
       return null;
     }
-    candidate.lastSelectedAt = new Date();
-    await candidate.save();
     await this.sessions.setActiveProfile(sessionId, String(candidate._id));
     return toPublicProfile(candidate);
   }

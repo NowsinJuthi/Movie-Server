@@ -6,9 +6,9 @@ import { BILLING_CYCLES, SUBSCRIPTION_STATUSES } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminSearch, AdminSelect } from "@/components/admin/admin-filters";
+import { AdminUserSearch } from "@/components/admin/admin-user-search";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 import { formatCents } from "@/lib/subscription-api";
@@ -18,6 +18,7 @@ export default function AdminSubscriptionsPage() {
   const [userId, setUserId] = useState("");
   const [status, setStatus] = useState("");
   const [grant, setGrant] = useState({ userId: "", planSlug: "standard", billingCycle: "monthly" });
+  const [grantUserQuery, setGrantUserQuery] = useState("");
   const [pending, setPending] = useState<{ id: string; action: "suspend" | "unsuspend" } | null>(null);
 
   const query = useQuery({
@@ -53,10 +54,20 @@ export default function AdminSubscriptionsPage() {
         className="mb-6 grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!grant.userId) return;
           grantMut.mutate();
         }}
       >
-        <Input placeholder="User id" value={grant.userId} onChange={(event) => setGrant({ ...grant, userId: event.target.value })} required />
+        <AdminUserSearch
+          value={grantUserQuery}
+          onChange={setGrantUserQuery}
+          onSelectUser={(user) => {
+            setGrant({ ...grant, userId: user.id });
+            setGrantUserQuery(`${user.displayName} (${user.email})`);
+          }}
+          placeholder="Search user name or email"
+          className="max-w-none"
+        />
         <select
           className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm"
           value={grant.planSlug}
@@ -79,7 +90,9 @@ export default function AdminSubscriptionsPage() {
             </option>
           ))}
         </select>
-        <Button disabled={grantMut.isPending}>{grantMut.isPending ? "Granting..." : "Grant plan"}</Button>
+        <Button disabled={grantMut.isPending || !grant.userId}>
+          {grantMut.isPending ? "Granting..." : "Grant plan"}
+        </Button>
       </form>
       <div className="mb-4 flex flex-wrap gap-3">
         <AdminSearch value={userId} onChange={setUserId} placeholder="Filter by user id" />

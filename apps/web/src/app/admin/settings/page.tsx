@@ -361,7 +361,7 @@ export default function AdminSettingsPage() {
                     id="fromName"
                     value={fromName}
                     onChange={(e) => setFromName(e.target.value)}
-                    placeholder={siteName || "CineVault"}
+                    placeholder={siteName || "AmarPin"}
                   />
                 </div>
                 <div className="space-y-2">

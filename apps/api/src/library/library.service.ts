@@ -6,7 +6,6 @@ import {
   OnModuleInit,
   Optional,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { promises as fs } from 'fs';
@@ -46,7 +45,6 @@ export class LibraryService implements OnModuleInit {
   private readonly logger = new Logger(LibraryService.name);
 
   constructor(
-    private readonly config: ConfigService,
     @InjectModel(MediaLibrary.name) private readonly libraries: Model<MediaLibraryDocument>,
     @InjectModel(LibraryItem.name) private readonly items: Model<LibraryItemDocument>,
     @InjectModel(MediaAsset.name) private readonly assets: Model<MediaAssetDocument>,
@@ -59,8 +57,6 @@ export class LibraryService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedFromEnv('MEDIA_MOVIES_DIR', 'Movies', LibraryKind.Movies);
-    await this.seedFromEnv('MEDIA_TV_DIR', 'TV', LibraryKind.Tv);
     // Clean titles left unavailable after earlier soft-missing scans.
     void this.purgeUnplayableLibraryTitles()
       .then(() => this.dedupeEmptyDuplicateMovies())
@@ -570,34 +566,6 @@ export class LibraryService implements OnModuleInit {
       this.items.countDocuments({ libraryId, status: LibraryItemStatus.Unmatched }),
     ]);
     return { itemCount, readyCount, missingCount, unmatchedCount };
-  }
-
-  private async seedFromEnv(envKey: string, name: string, kind: LibraryKind): Promise<void> {
-    const raw = this.config.get<string>(envKey);
-    if (!raw) {
-      return;
-    }
-    try {
-      const rootPath = assertSafeLibraryRoot(raw);
-      await fs.mkdir(rootPath, { recursive: true });
-      const existing = await this.libraries.findOne({ name, kind }).select('+rootPath');
-      if (existing) {
-        existing.rootPath = rootPath;
-        existing.enabled = true;
-        existing.provider = StorageProviderKind.Local;
-        await existing.save();
-        return;
-      }
-      await this.libraries.create({
-        name,
-        kind,
-        provider: StorageProviderKind.Local,
-        rootPath,
-        enabled: true,
-      });
-    } catch (error) {
-      this.logger.warn(`Skipping ${envKey} library seed: ${error instanceof Error ? error.message : error}`);
-    }
   }
 
   private rejectPathFields(dto: Record<string, unknown>, allow: string[]): void {

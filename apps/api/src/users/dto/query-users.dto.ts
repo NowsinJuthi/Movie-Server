@@ -22,6 +22,21 @@ function toBool({ value }: { value: unknown }): boolean | undefined {
   return undefined;
 }
 
+export class QueryUserSuggestDto {
+  @Trim()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  q!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number;
+}
+
 export class QueryUsersDto {
   @IsOptional()
   @Trim()

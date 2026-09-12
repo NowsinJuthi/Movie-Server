@@ -38,7 +38,7 @@ export default function RegisterPage() {
   });
 
   return (
-    <AuthShell title="Create an account" description="Start with a verified CineVault profile.">
+    <AuthShell title="Create an account" description="Start with a verified AmarPin profile.">
       <form
         className="space-y-4"
         onSubmit={form.handleSubmit((values) => {

@@ -56,7 +56,7 @@ export default function AdminLicensePage() {
   return (
     <AdminPage
       title="License"
-      description="Activate a signed license key for this CineVault install. Without a key the full product stays available for 30 days from first launch."
+      description="Activate a signed license key for this AmarPin install. Without a key the full product stays available for 30 days from first launch."
       error={loadError}
     >
       {!status ? (

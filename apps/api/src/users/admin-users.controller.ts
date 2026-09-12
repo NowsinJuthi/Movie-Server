@@ -25,7 +25,7 @@ import { toPublicUser } from './user.mapper';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
-import { QueryUsersDto, PatchUserDto } from './dto/query-users.dto';
+import { PatchUserDto, QueryUserSuggestDto, QueryUsersDto } from './dto/query-users.dto';
 import { SessionsService } from '../sessions/sessions.service';
 import { UserDocument } from './schemas/user.schema';
 import { RequestUser } from '../auth/auth.types';
@@ -37,6 +37,12 @@ export class AdminUsersController {
     private readonly usersService: UsersService,
     private readonly sessions: SessionsService,
   ) {}
+
+  @Get('suggest')
+  async suggest(@Query() query: QueryUserSuggestDto) {
+    const users = await this.usersService.suggestAdmin(query.q, query.limit);
+    return { users };
+  }
 
   @Get()
   async list(@Query() query: QueryUsersDto) {

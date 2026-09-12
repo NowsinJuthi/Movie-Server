@@ -1,4 +1,4 @@
-# CineVault — aaPanel VPS full deploy guide
+# AmarPin — aaPanel VPS full deploy guide
 
 Production setup used for **movies.amarpin.com** (Ubuntu VPS + aaPanel + Docker + Nginx + SSL).
 
@@ -259,14 +259,11 @@ docker compose -f docker-compose.aapanel.yml logs api --tail 40
 
 ---
 
-## 8. Auto “Movies” / “TV” libraries
+## 8. Media libraries
 
-On API boot, if `MEDIA_MOVIES_DIR` and `MEDIA_TV_DIR` are set in compose/env, empty **Movies** and **TV** libraries are auto-created pointing at:
+Create libraries manually in **Admin → Media libraries** (local folder or Samba). The API no longer auto-creates “Movies” / “TV” entries on deploy or restart.
 
-- `/data/media/movies`
-- `/data/media/tv`
-
-These are **local disk** libraries, not Samba. Delete them in Admin → Libraries if you only use Samba. To disable auto-create, clear those env vars and recreate API.
+Host media folders (`/data/media/movies`, `/data/media/tv`) are still bind-mounted for when you add a local library yourself.
 
 ---
 

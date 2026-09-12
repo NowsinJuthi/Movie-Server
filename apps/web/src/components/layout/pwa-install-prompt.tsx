@@ -83,7 +83,7 @@ export function PwaInstallPrompt() {
 
       {iosHint ? (
         <div className="pr-8">
-          <p className="text-sm font-semibold text-white">Install CineVault</p>
+          <p className="text-sm font-semibold text-white">Install AmarPin</p>
           <p className="mt-1 text-xs leading-relaxed text-white/65">
             Tap <Share className="mx-0.5 inline h-3.5 w-3.5 align-text-bottom" /> Share, then{" "}
             <strong className="text-white/85">Add to Home Screen</strong> for an app-like experience.
@@ -95,7 +95,7 @@ export function PwaInstallPrompt() {
             <Download className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white">Install CineVault</p>
+            <p className="text-sm font-semibold text-white">Install AmarPin</p>
             <p className="text-xs text-white/65">Add to your home screen for faster access.</p>
           </div>
           <button

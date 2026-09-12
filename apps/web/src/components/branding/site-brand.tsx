@@ -6,7 +6,7 @@ import type { PublicBranding } from "@movie-server/shared";
 import { brandingAssetSrc, settingsApi } from "@/lib/settings-api";
 
 const DEFAULT: PublicBranding = {
-  siteName: "CineVault",
+  siteName: "AmarPin",
   logoUrl: null,
   faviconUrl: null,
 };

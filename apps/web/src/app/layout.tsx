@@ -15,14 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CineVault",
+  title: "AmarPin",
   description: "Private media streaming with subscription access.",
-  applicationName: "CineVault",
+  applicationName: "AmarPin",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "CineVault",
+    title: "AmarPin",
   },
   formatDetection: {
     telephone: false,

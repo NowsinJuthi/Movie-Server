@@ -20,7 +20,7 @@ export class StripePaymentProvider implements PaymentProvider {
     private readonly webhookSecret: string,
   ) {
     this.stripe = new Stripe(secretKey, {
-      appInfo: { name: 'CineVault', version: '0.1.0' },
+      appInfo: { name: 'AmarPin', version: '0.1.0' },
     });
   }
 

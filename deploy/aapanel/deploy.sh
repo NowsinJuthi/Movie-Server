@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy / update CineVault on Ubuntu + aaPanel (Docker Compose)
+# Deploy / update AmarPin on Ubuntu + aaPanel (Docker Compose)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

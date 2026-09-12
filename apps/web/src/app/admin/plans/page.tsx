@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PLAN_FEATURES, PLAN_TIERS, VIDEO_QUALITIES } from "@movie-server/shared";
+import type { PublicPlan } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { EditPlanDialog } from "@/components/admin/edit-plan-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +16,9 @@ import { formatCents, subscriptionApi } from "@/lib/subscription-api";
 export default function AdminPlansPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [pendingDisable, setPendingDisable] = useState<string | null>(null);
+  const [editPlan, setEditPlan] = useState<PublicPlan | null>(null);
   const [form, setForm] = useState({
     slug: "",
     name: "",
@@ -58,6 +62,29 @@ export default function AdminPlansPage() {
     onSuccess: async () => {
       setPendingDisable(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-plans"] });
+    },
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Record<string, unknown> }) =>
+      subscriptionApi.updatePlan(id, input),
+    onSuccess: async () => {
+      setFormError(null);
+      setEditPlan(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-plans"] });
+    },
+    onError: (err: unknown) => {
+      setFormError(err instanceof ApiError ? err.message : "Unable to update plan.");
+    },
+  });
+
+  const enable = useMutation({
+    mutationFn: (id: string) => subscriptionApi.updatePlan(id, { isActive: true }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-plans"] });
+    },
+    onError: (err: unknown) => {
+      setError(err instanceof ApiError ? err.message : "Unable to enable plan.");
     },
   });
 
@@ -185,11 +212,32 @@ export default function AdminPlansPage() {
                   </td>
                   <td className="px-4 py-3">{plan.isActive ? "Yes" : "No"}</td>
                   <td className="px-4 py-3 text-right">
-                    {plan.isActive ? (
-                      <Button variant="outline" size="sm" onClick={() => setPendingDisable(plan.id)}>
-                        Disable
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setFormError(null);
+                          setEditPlan(plan);
+                        }}
+                      >
+                        Edit
                       </Button>
-                    ) : null}
+                      {plan.isActive ? (
+                        <Button variant="outline" size="sm" onClick={() => setPendingDisable(plan.id)}>
+                          Disable
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={enable.isPending}
+                          onClick={() => enable.mutate(plan.id)}
+                        >
+                          Enable
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -204,6 +252,41 @@ export default function AdminPlansPage() {
           pending={disable.isPending}
           onClose={() => setPendingDisable(null)}
           onConfirm={() => pendingDisable && disable.mutate(pendingDisable)}
+        />
+
+        <EditPlanDialog
+          open={Boolean(editPlan)}
+          plan={editPlan}
+          pending={update.isPending}
+          error={formError}
+          onClose={() => {
+            if (!update.isPending) {
+              setEditPlan(null);
+              setFormError(null);
+            }
+          }}
+          onSubmit={(values) => {
+            if (!editPlan) return;
+            setFormError(null);
+            update.mutate({
+              id: editPlan.id,
+              input: {
+                name: values.name.trim(),
+                description: values.description.trim(),
+                tier: values.tier,
+                currency: values.currency.trim().toUpperCase(),
+                monthlyPriceCents: values.monthlyPriceCents,
+                yearlyPriceCents: values.yearlyPriceCents,
+                maxVideoQuality: values.maxVideoQuality,
+                maxDevices: values.maxDevices,
+                maxStreams: values.maxStreams,
+                trialDays: values.trialDays,
+                sortOrder: values.sortOrder,
+                features: values.features,
+                isActive: values.isActive,
+              },
+            });
+          }}
         />
       </div>
     </AdminPage>

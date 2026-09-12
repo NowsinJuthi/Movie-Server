@@ -244,8 +244,8 @@ export class LicenseService implements OnModuleInit {
       ok = false;
       edition = null;
       message = doc.licensed
-        ? 'License expired. Enter a valid license key to unlock CineVault.'
-        : 'Free trial ended. Enter a valid license key to unlock CineVault.';
+        ? 'License expired. Enter a valid license key to unlock AmarPin.'
+        : 'Free trial ended. Enter a valid license key to unlock AmarPin.';
     }
 
     return {
