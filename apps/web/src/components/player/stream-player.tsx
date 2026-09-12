@@ -37,7 +37,9 @@ import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
 import { isAppleMobileDevice } from "@/lib/device-playback";
+import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
 import { appendStreamQuery, toAbsoluteStreamUrl } from "@/lib/stream-url";
+import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
@@ -176,6 +178,7 @@ export function StreamPlayer({
   const [clock, setClock] = useState(() => formatClock(new Date()));
   const [awaitingTap, setAwaitingTap] = useState(false);
   const [iosMutedPlay, setIosMutedPlay] = useState(false);
+  const mobileLayout = useMobilePlayerLayout();
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const chapters = useMemo(() => buildChapters(markers, duration), [markers, duration]);
@@ -1254,6 +1257,12 @@ export function StreamPlayer({
             ? "object-contain max-h-screen w-auto mx-auto [aspect-ratio:4/3]"
             : "object-contain";
 
+  const controlsVisible = controls || !playing || sheet != null;
+  const closeSheet = () => {
+    setSheet(null);
+    setSettingsView("root");
+  };
+
   return (
     <div
       ref={shellRef}
@@ -1272,17 +1281,29 @@ export function StreamPlayer({
       />
 
       {awaitingTap && !error ? (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/60">
           <button
             type="button"
-            className="flex min-h-16 min-w-16 flex-col items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground shadow-lg"
+            className={cn(
+              "flex flex-col items-center justify-center gap-3 rounded-full text-white shadow-lg active:scale-95",
+              mobileLayout
+                ? "h-[5.5rem] w-[5.5rem] border-2 border-[#52B54B]/70 bg-black/40 backdrop-blur-sm"
+                : "min-h-16 min-w-16 bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground",
+            )}
             onClick={() => {
               void tryStartPlayback();
             }}
           >
-            <Play className="h-10 w-10 fill-current" />
-            {iosMutedPlay ? "Tap for sound" : "Tap to play"}
+            <Play className={cn("fill-current", mobileLayout ? "h-10 w-10" : "h-10 w-10")} />
+            {!mobileLayout ? (
+              <span>{iosMutedPlay ? "Tap for sound" : "Tap to play"}</span>
+            ) : null}
           </button>
+          {mobileLayout ? (
+            <p className="text-sm font-medium text-white/85">
+              {iosMutedPlay ? "Tap for sound" : "Tap to play"}
+            </p>
+          ) : null}
         </div>
       ) : null}
       <audio ref={audioRef} preload="metadata" className="hidden" />
@@ -1365,10 +1386,49 @@ export function StreamPlayer({
 
       <div
         className={cn(
-          "absolute inset-0 flex flex-col justify-between transition-opacity",
-          controls || !playing || sheet ? "opacity-100" : "pointer-events-none opacity-0",
+          "absolute inset-0 flex flex-col justify-between transition-opacity duration-300",
+          controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
+        {mobileLayout ? (
+          <EmbyMobileChrome
+            visible={controlsVisible}
+            title={title}
+            subtitle={subtitle}
+            year={displayYear}
+            playing={playing}
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            fullscreen={fullscreen}
+            qualityLabel={qualityMenuValue}
+            subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
+            audioOn={sheet === "audio" || audioTracks.length > 1}
+            settingsOn={sheet === "settings"}
+            onGoBack={goBack}
+            onSkinClick={onSkinClick}
+            onTogglePlay={togglePlay}
+            onSeek={seekToRatio}
+            onSeekBy={seekBy}
+            onScrubbingChange={(active) => {
+              if (active) {
+                setControls(true);
+                if (hideTimer.current) window.clearTimeout(hideTimer.current);
+              } else {
+                revealControls();
+              }
+            }}
+            onToggleSubtitles={toggleSubtitlesMenu}
+            onToggleAudio={toggleAudioMenu}
+            onToggleSettings={toggleSettingsMenu}
+            onToggleFullscreen={() => void toggleFullscreen()}
+            onOpenQuality={() => {
+              setSheet("settings");
+              setSettingsView("quality");
+            }}
+          />
+        ) : (
+          <>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/90" />
 
         {/* Top bar — back + logo left, volume / cast / pip / fullscreen right */}
@@ -1803,7 +1863,187 @@ export function StreamPlayer({
             }}
           />
         </div>
+          </>
+        )}
       </div>
+
+      {mobileLayout && sheet === "subtitles" ? (
+        <MobileBottomSheet title="Subtitles" onClose={closeSheet}>
+          <ul className="py-2">
+            <li>
+              <button
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10",
+                  !selectedSubtitle && "font-medium text-[#52B54B]",
+                )}
+                onClick={() => selectSubtitle(null)}
+              >
+                {!selectedSubtitle ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+                Off
+              </button>
+            </li>
+            {subtitleTracks.map((track) => {
+              const selected = track.id === session?.selectedSubtitleId;
+              return (
+                <li key={track.id}>
+                  <button
+                    type="button"
+                    disabled={!track.playable}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10 disabled:opacity-40",
+                      selected && "font-medium text-[#52B54B]",
+                    )}
+                    onClick={() => selectSubtitle(track.id)}
+                  >
+                    {selected ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+                    {track.languageLabel || track.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </MobileBottomSheet>
+      ) : null}
+
+      {mobileLayout && sheet === "audio" ? (
+        <MobileBottomSheet title="Audio" onClose={closeSheet}>
+          <ul className="py-2">
+            {audioTracks.length === 0 ? (
+              <li className="px-5 py-3 text-sm text-white/50">Default audio</li>
+            ) : (
+              audioTracks.map((track) => {
+                const selected = track.id === session?.selectedAudioId;
+                return (
+                  <li key={track.id}>
+                    <button
+                      type="button"
+                      disabled={!track.playable}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10 disabled:opacity-40",
+                        selected && "font-medium text-[#52B54B]",
+                      )}
+                      onClick={() => selectAudio(track.id)}
+                    >
+                      {selected ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+                      {formatAudioMenuLabel(track)}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </MobileBottomSheet>
+      ) : null}
+
+      {mobileLayout && sheet === "speed" ? (
+        <MobileBottomSheet title="Playback speed" onClose={closeSheet}>
+          <ul className="py-2">
+            {SPEEDS.map((speed) => {
+              const selected = Math.abs(rate - speed) < 0.001;
+              return (
+                <li key={speed}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-3 px-5 py-3.5 text-sm text-white active:bg-white/10",
+                      selected && "font-medium text-[#52B54B]",
+                    )}
+                    onClick={() => selectSpeed(speed)}
+                  >
+                    {selected ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+                    {formatSpeedLabel(speed)}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </MobileBottomSheet>
+      ) : null}
+
+      {mobileLayout && sheet === "settings" ? (
+        <MobileBottomSheet
+          title={
+            settingsView === "quality"
+              ? "Quality"
+              : settingsView === "aspect"
+                ? "Aspect ratio"
+                : settingsView === "repeat"
+                  ? "Repeat"
+                  : "Settings"
+          }
+          onClose={closeSheet}
+        >
+          {settingsView === "root" ? (
+            <ul className="py-1">
+              <SettingsMenuRow label="Quality" value={qualityMenuValue} onClick={() => setSettingsView("quality")} />
+              <SettingsMenuRow label="Aspect ratio" value={aspectLabel} onClick={() => setSettingsView("aspect")} />
+              <SettingsMenuRow label="Playback speed" value={formatSpeedLabel(rate)} onClick={() => setSheet("speed")} />
+              <SettingsMenuRow label="Audio" value={selectedAudio?.languageLabel ?? "Default"} onClick={() => setSheet("audio")} />
+              <SettingsMenuRow
+                label="Subtitles"
+                value={selectedSubtitle?.languageLabel ?? "Off"}
+                onClick={() => setSheet("subtitles")}
+              />
+              <SettingsMenuRow label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
+            </ul>
+          ) : null}
+          {settingsView === "quality" ? (
+            <ul className="py-1">
+              <SettingsChoiceRow
+                label={usingHls ? "Auto" : "Auto - Direct"}
+                selected={quality === "auto"}
+                onClick={() => {
+                  applyQuality("auto");
+                  closeSheet();
+                }}
+              />
+              {qualities.map((item) => (
+                <SettingsChoiceRow
+                  key={item.resolution}
+                  label={`${item.label} (${item.quality.toUpperCase()})`}
+                  selected={quality === item.resolution}
+                  disabled={!item.allowed}
+                  onClick={() => {
+                    applyQuality(item.resolution);
+                    closeSheet();
+                  }}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "aspect" ? (
+            <ul className="py-1">
+              {ASPECT_OPTIONS.map((option) => (
+                <SettingsChoiceRow
+                  key={option.id}
+                  label={option.label}
+                  selected={aspectRatio === option.id}
+                  onClick={() => {
+                    setAspectRatio(option.id);
+                    closeSheet();
+                  }}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "repeat" ? (
+            <ul className="py-1">
+              {REPEAT_OPTIONS.map((option) => (
+                <SettingsChoiceRow
+                  key={option.id}
+                  label={option.label}
+                  selected={repeatMode === option.id}
+                  onClick={() => {
+                    setRepeatMode(option.id);
+                    closeSheet();
+                  }}
+                />
+              ))}
+            </ul>
+          ) : null}
+        </MobileBottomSheet>
+      ) : null}
     </div>
   );
 }

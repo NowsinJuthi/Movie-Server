@@ -23,6 +23,7 @@ export function SeekBar({
   bufferedEnd,
   onSeek,
   onScrubbingChange,
+  variant = "default",
 }: {
   currentTime: number;
   duration: number;
@@ -30,7 +31,10 @@ export function SeekBar({
   bufferedEnd?: number;
   onSeek: (ratio: number) => void;
   onScrubbingChange?: (scrubbing: boolean) => void;
+  /** Emby-style green accent for mobile */
+  variant?: "default" | "emby";
 }) {
+  const accentClass = variant === "emby" ? "bg-[#52B54B]" : "bg-primary";
   const trackRef = useRef<HTMLDivElement>(null);
   const [hovering, setHovering] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -171,9 +175,9 @@ export function SeekBar({
             className="absolute inset-y-0 left-0 rounded-full bg-white/35"
             style={{ width: `${bufferedRatio * 100}%` }}
           />
-          {/* Played — brand teal */}
+          {/* Played */}
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-primary"
+            className={cn("absolute inset-y-0 left-0 rounded-full", accentClass)}
             style={{ width: `${displayRatio * 100}%` }}
           />
         </div>
@@ -181,8 +185,15 @@ export function SeekBar({
         {/* Thumb */}
         <div
           className={cn(
-            "pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-[width,height,opacity,transform] duration-150",
-            active ? "h-3.5 w-3.5 opacity-100" : "h-2.5 w-2.5 opacity-0 group-hover/seek:opacity-100",
+            "pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-[width,height,opacity,transform] duration-150",
+            accentClass,
+            variant === "emby"
+              ? active
+                ? "h-4 w-4 opacity-100"
+                : "h-3 w-3 opacity-100"
+              : active
+                ? "h-3.5 w-3.5 opacity-100"
+                : "h-2.5 w-2.5 opacity-0 group-hover/seek:opacity-100",
           )}
           style={{ left: `${displayRatio * 100}%` }}
         />
