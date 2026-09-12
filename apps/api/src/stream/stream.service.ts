@@ -2,7 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
+import { AUTH_COOKIE } from '@movie-server/shared';
+import { AccessTokenPayload } from '../auth/auth.types';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -37,6 +43,7 @@ import { isPlayableSubtitleFormat, subtitleFormatFromName, toSafeWebVtt } from '
 import { isAudioFile, isSubtitleFile } from '../library/matching/filename-parser';
 import { resolveSafePath } from '../library/storage/path-safety';
 import path from 'path';
+import { randomBytes } from 'crypto';
 import { Readable } from 'stream';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
 import { mp4FastStart } from '../library/probe/mp4-container-probe';
@@ -52,6 +59,8 @@ export class StreamService {
     private readonly storageFactory: StorageFactory,
     private readonly profiles: ProfilesService,
     private readonly remux: FfmpegRemuxService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService,
     @InjectModel(MediaAsset.name) private readonly assets: Model<MediaAssetDocument>,
     @InjectModel(Movie.name) private readonly movies: Model<MovieDocument>,
     @InjectModel(Series.name) private readonly series: Model<SeriesDocument>,
@@ -347,6 +356,40 @@ export class StreamService {
     }
   }
 
+  async resolveMediaUser(
+    sessionId: string,
+    mediaToken: string | undefined,
+    req: Request,
+  ): Promise<string> {
+    const session = await this.sessions.get(sessionId);
+    if (!session || Date.now() - session.lastHeartbeat > this.sessions.ttlMs()) {
+      throw new UnauthorizedException({
+        error: ErrorCode.PlaybackSessionExpired,
+        message: 'Playback session expired. Start playback again.',
+      });
+    }
+    if (mediaToken && mediaToken === session.mediaToken) {
+      return session.userId;
+    }
+    const accessToken = req.cookies?.[AUTH_COOKIE.Access] as string | undefined;
+    if (accessToken) {
+      try {
+        const payload = this.jwt.verify<AccessTokenPayload>(accessToken, {
+          secret: this.config.get<string>('JWT_ACCESS_SECRET'),
+        });
+        if (payload.sub === session.userId) {
+          return session.userId;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    throw new UnauthorizedException({
+      error: ErrorCode.Unauthorized,
+      message: 'Authentication required.',
+    });
+  }
+
   async openMedia(
     sessionId: string,
     userId: string,
@@ -473,12 +516,13 @@ export class StreamService {
 
   private async replace(
     existing: StoredPlaybackSession,
-    payload: Omit<StoredPlaybackSession, 'id' | 'createdAt' | 'lastHeartbeat'>,
+    payload: Omit<StoredPlaybackSession, 'id' | 'createdAt' | 'lastHeartbeat' | 'mediaToken'>,
   ): Promise<StoredPlaybackSession> {
     const next: StoredPlaybackSession = {
       ...existing,
       ...payload,
       id: existing.id,
+      mediaToken: existing.mediaToken ?? randomBytes(16).toString('hex'),
       createdAt: existing.createdAt,
       lastHeartbeat: Date.now(),
     };
@@ -494,18 +538,23 @@ export class StreamService {
       label: variant.resolution,
       allowed: Boolean(maxQuality && qualityAllowed(maxQuality, variant.quality)),
     }));
+    const mt = encodeURIComponent(session.mediaToken);
     return {
       id: session.id,
       protocol: 'hls',
       hlsUrl: `${API}/stream/${session.id}/master`,
-      progressiveUrl: `${API}/stream/${session.id}/media`,
+      progressiveUrl: `${API}/stream/${session.id}/media?mt=${mt}`,
       expiresAt: new Date(session.lastHeartbeat + this.sessions.ttlMs()).toISOString(),
       qualities,
       selectedQuality: session.quality,
       selectedResolution: session.resolution,
       adaptive: qualities.length > 1,
-      audioTracks: (session.audioTracks ?? []).map((track) => toPlaybackTrack(session.id, track)),
-      subtitleTracks: (session.subtitleTracks ?? []).map((track) => toPlaybackTrack(session.id, track)),
+      audioTracks: (session.audioTracks ?? []).map((track) =>
+        toPlaybackTrack(session.id, track, session.mediaToken),
+      ),
+      subtitleTracks: (session.subtitleTracks ?? []).map((track) =>
+        toPlaybackTrack(session.id, track, session.mediaToken),
+      ),
       selectedAudioId: session.selectedAudioId ?? null,
       selectedSubtitleId: session.selectedSubtitleId ?? null,
     };

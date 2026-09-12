@@ -62,11 +62,14 @@ export class PlaybackSessionStore {
     return session;
   }
 
-  async create(input: Omit<StoredPlaybackSession, 'id' | 'createdAt' | 'lastHeartbeat'>): Promise<StoredPlaybackSession> {
+  async create(
+    input: Omit<StoredPlaybackSession, 'id' | 'createdAt' | 'lastHeartbeat' | 'mediaToken'>,
+  ): Promise<StoredPlaybackSession> {
     const now = Date.now();
     const session: StoredPlaybackSession = {
       ...input,
       id: randomBytes(16).toString('hex'),
+      mediaToken: randomBytes(16).toString('hex'),
       createdAt: now,
       lastHeartbeat: now,
     };

@@ -33,7 +33,17 @@ export function pickStoredTrack(
   );
 }
 
-export function toPlaybackTrack(sessionId: string, track: StoredPlaybackTrack): PlaybackTrack {
+function withMediaToken(path: string, mediaToken?: string): string {
+  if (!mediaToken) return path;
+  const joiner = path.includes('?') ? '&' : '?';
+  return `${path}${joiner}mt=${encodeURIComponent(mediaToken)}`;
+}
+
+export function toPlaybackTrack(
+  sessionId: string,
+  track: StoredPlaybackTrack,
+  mediaToken?: string,
+): PlaybackTrack {
   const sidecarPlayable = track.playable && (track.kind === 'audio' || isPlayableSubtitle(track.format));
   // Embedded alternate audio (streamIndex > 0) is extracted on demand via FFmpeg.
   const embeddedAlternate =
@@ -61,7 +71,7 @@ export function toPlaybackTrack(sessionId: string, track: StoredPlaybackTrack): 
     playable,
     embedded: Boolean(track.embedded),
     streamIndex: track.streamIndex ?? null,
-    url: sidecarPlayable || embeddedAlternate ? path : null,
+    url: sidecarPlayable || embeddedAlternate ? withMediaToken(path, mediaToken) : null,
   };
 }
 

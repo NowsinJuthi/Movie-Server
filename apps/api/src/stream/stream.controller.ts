@@ -18,7 +18,9 @@ import { Request, Response } from 'express';
 import { Readable } from 'stream';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../auth/auth.types';
+import { Public } from '../common/decorators/public.decorator';
 import { RequireSubscription } from '../subscriptions/decorators/subscription.decorators';
+import { SkipSubscription } from '../subscriptions/decorators/skip-subscription.decorator';
 import { StreamService, isSessionId } from './stream.service';
 import { toPublicPlayback } from './playback-public';
 import { buildMasterPlaylist, buildMediaPlaylist } from './hls-playlist';
@@ -68,18 +70,21 @@ export class StreamController {
     res.send(buildMediaPlaylist(session.durationSeconds, resolution));
   }
 
+  @Public()
+  @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/media')
   async media(
-    @CurrentUser() user: RequestUser,
     @Param('sessionId') sessionId: string,
+    @Query('mt') mediaToken: string | undefined,
     @Query('quality') quality: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
     const ua = req.headers['user-agent'] ?? '';
     const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
-    const file = await this.streams.openMedia(this.id(sessionId), user.id, quality, {
+    const file = await this.streams.openMedia(this.id(sessionId), userId, quality, {
       disallowRemux,
     });
     res.setHeader('Cache-Control', 'private, no-store');
@@ -109,20 +114,23 @@ export class StreamController {
     pipeToResponse(stream, res);
   }
 
+  @Public()
+  @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/audio/:assetId')
   async audio(
-    @CurrentUser() user: RequestUser,
     @Param('sessionId') sessionId: string,
     @Param('assetId') assetId: string,
+    @Query('mt') mediaToken: string | undefined,
     @Query('t') startParam: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
     const startSeconds = startParam ? Number(startParam) : 0;
     const file = await this.streams.openAudio(
       this.id(sessionId),
-      user.id,
+      userId,
       assetId,
       Number.isFinite(startSeconds) ? startSeconds : 0,
     );
@@ -150,15 +158,19 @@ export class StreamController {
     pipeToResponse(stream, res);
   }
 
+  @Public()
+  @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/subtitles/:assetId')
   async subtitles(
-    @CurrentUser() user: RequestUser,
     @Param('sessionId') sessionId: string,
     @Param('assetId') assetId: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const body = await this.streams.openSubtitle(this.id(sessionId), user.id, assetId);
+    const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    const body = await this.streams.openSubtitle(this.id(sessionId), userId, assetId);
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');

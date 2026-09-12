@@ -44,6 +44,8 @@ export type StoredPlaybackSession = {
   durationSeconds: number;
   /** Cached at session open — avoids re-probing the file on every byte-range request. */
   videoRemux: boolean;
+  /** Query token for <video src> on iOS Safari (cookies are not sent on media requests). */
+  mediaToken: string;
   createdAt: number;
   lastHeartbeat: number;
   deviceLabel?: string;

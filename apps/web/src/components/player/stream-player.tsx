@@ -37,6 +37,7 @@ import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
 import { isAppleMobileDevice } from "@/lib/device-playback";
+import { appendStreamQuery } from "@/lib/stream-url";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
@@ -280,6 +281,17 @@ export function StreamPlayer({
   const tryStartPlayback = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current;
     if (!video) return false;
+    if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          video.removeEventListener("canplay", done);
+          video.removeEventListener("loadeddata", done);
+          resolve();
+        };
+        video.addEventListener("canplay", done);
+        video.addEventListener("loadeddata", done);
+      });
+    }
     try {
       await video.play();
       setAwaitingTap(false);
@@ -313,11 +325,10 @@ export function StreamPlayer({
         resolution && resolution !== "auto"
           ? resolution
           : info.selectedResolution;
-      const params = new URLSearchParams();
-      if (chosen) params.set("quality", chosen);
-      if (info.selectedAudioId) params.set("audio", info.selectedAudioId);
-      const query = params.toString();
-      const src = query ? `${info.progressiveUrl}?${query}` : info.progressiveUrl;
+      const src = appendStreamQuery(info.progressiveUrl, {
+        quality: chosen ?? undefined,
+        audio: info.selectedAudioId ?? undefined,
+      });
       video.src = src;
       video.load();
       void warmMediaUrl(src);
