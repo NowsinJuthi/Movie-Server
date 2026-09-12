@@ -15,6 +15,7 @@ import {
 import { ErrorCode } from '@movie-server/shared';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
+import { createReadStream } from 'fs';
 import { Readable } from 'stream';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../auth/auth.types';
@@ -23,13 +24,17 @@ import { RequireSubscription } from '../subscriptions/decorators/subscription.de
 import { SkipSubscription } from '../subscriptions/decorators/skip-subscription.decorator';
 import { StreamService, isSessionId } from './stream.service';
 import { toPublicPlayback } from './playback-public';
-import { buildMasterPlaylist, buildMediaPlaylist } from './hls-playlist';
+import { buildMasterPlaylist } from './hls-playlist';
+import { HlsPackagerService } from './hls-packager.service';
 import { SelectPlaybackTracksDto } from './dto/select-tracks.dto';
 
 @Controller('stream')
 @RequireSubscription()
 export class StreamController {
-  constructor(private readonly streams: StreamService) {}
+  constructor(
+    private readonly streams: StreamService,
+    private readonly hlsPackager: HlsPackagerService,
+  ) {}
 
   @Get('active')
   async active(@CurrentUser() user: RequestUser) {
@@ -37,37 +42,74 @@ export class StreamController {
     return { streams: sessions.map(toPublicPlayback) };
   }
 
+  @Public()
+  @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/master')
-  async master(@CurrentUser() user: RequestUser, @Param('sessionId') sessionId: string, @Res() res: Response) {
-    const session = await this.streams.load(this.id(sessionId), user.id);
+  async master(
+    @Param('sessionId') sessionId: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const sid = this.id(sessionId);
+    const userId = await this.streams.resolveMediaUser(sid, mediaToken, req);
+    const session = await this.streams.load(sid, userId);
     const body = buildMasterPlaylist(
       session.variants.map((variant) => ({
         resolution: variant.resolution,
         bandwidth: variant.bandwidth,
       })),
+      session.mediaToken,
     );
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(body);
   }
 
+  @Public()
+  @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/v/:quality')
   async variant(
-    @CurrentUser() user: RequestUser,
     @Param('sessionId') sessionId: string,
     @Param('quality') quality: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const session = await this.streams.load(this.id(sessionId), user.id);
+    const sid = this.id(sessionId);
+    const userId = await this.streams.resolveMediaUser(sid, mediaToken, req);
+    const session = await this.streams.load(sid, userId);
     const resolution = quality.replace(/\.m3u8$/i, '');
     if (!session.variants.some((variant) => variant.resolution === resolution)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Variant not found.' });
     }
+    await this.streams.ensureMobileHls(sid, userId, resolution);
+    const body = await this.streams.readMobileHlsPlaylist(sid, mediaToken ?? session.mediaToken);
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
-    res.send(buildMediaPlaylist(session.durationSeconds, resolution));
+    res.send(body);
+  }
+
+  @Public()
+  @SkipSubscription()
+  @SkipThrottle()
+  @Get(':sessionId/hls/:segment')
+  async hlsSegment(
+    @Param('sessionId') sessionId: string,
+    @Param('segment') segment: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    const filePath = this.hlsPackager.resolveSegmentPath(this.id(sessionId), segment);
+    res.setHeader('Content-Type', 'video/MP2T');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.status(200);
+    const stream = createReadStream(filePath);
+    pipeToResponse(stream, res);
   }
 
   @Public()

@@ -17,6 +17,7 @@ import { PlaybackSessionStore } from './playback-session.store';
 import { StreamService } from './stream.service';
 import { StreamController } from './stream.controller';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
+import { HlsPackagerService } from './hls-packager.service';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { FfmpegRemuxService } from './ffmpeg-remux.service';
     ]),
   ],
   controllers: [StreamController],
-  providers: [PlaybackSessionStore, StreamService, StorageFactory, FfmpegRemuxService],
+  providers: [PlaybackSessionStore, StreamService, StorageFactory, FfmpegRemuxService, HlsPackagerService],
   exports: [StreamService, PlaybackSessionStore],
 })
 export class StreamModule {}

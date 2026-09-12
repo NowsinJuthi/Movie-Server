@@ -252,7 +252,9 @@ describe('Playback streaming (e2e)', () => {
     expect(playback.status).toBe(200);
     expect(playback.body.allowed).toBe(true);
     expect(playback.body.session).toBeTruthy();
-    expect(playback.body.session.hlsUrl).toMatch(/^\/api\/v1\/stream\/[a-f0-9]{32}\/master$/);
+    expect(playback.body.session.hlsUrl).toMatch(
+      /^\/api\/v1\/stream\/[a-f0-9]{32}\/master\?mt=[a-f0-9]{32}$/,
+    );
     expect(playback.body.session.progressiveUrl).toMatch(
       /^\/api\/v1\/stream\/[a-f0-9]{32}\/media\?mt=[a-f0-9]{32}$/,
     );

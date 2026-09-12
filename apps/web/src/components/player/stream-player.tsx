@@ -332,6 +332,21 @@ export function StreamPlayer({
     }
   }, []);
 
+  const startIosMutedPlayback = useCallback((video: HTMLVideoElement) => {
+    video.muted = true;
+    void video
+      .play()
+      .then(() => {
+        setAwaitingTap(true);
+        setIosMutedPlay(true);
+        setLoading(false);
+      })
+      .catch(() => {
+        setAwaitingTap(true);
+        setLoading(false);
+      });
+  }, []);
+
   const attachProgressive = useCallback(
     (info: PlaybackSessionInfo, resolution?: VideoResolution | "auto") => {
       const video = videoRef.current;
@@ -353,24 +368,10 @@ export function StreamPlayer({
       video.load();
       void warmMediaUrl(src);
       if (isAppleMobileDevice()) {
-        const startMutedIos = () => {
-          video.muted = true;
-          void video
-            .play()
-            .then(() => {
-              setAwaitingTap(true);
-              setIosMutedPlay(true);
-              setLoading(false);
-            })
-            .catch(() => {
-              setAwaitingTap(true);
-              setLoading(false);
-            });
-        };
         if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-          startMutedIos();
+          startIosMutedPlayback(video);
         } else {
-          video.addEventListener("loadedmetadata", startMutedIos, { once: true });
+          video.addEventListener("loadedmetadata", () => startIosMutedPlayback(video), { once: true });
           video.addEventListener(
             "error",
             () => {
@@ -384,7 +385,35 @@ export function StreamPlayer({
       }
       void tryStartPlayback();
     },
-    [detachEngine, tryStartPlayback, warmMediaUrl],
+    [detachEngine, startIosMutedPlayback, tryStartPlayback, warmMediaUrl],
+  );
+
+  /** Safari native HLS — Emby-style segmented stream for fast mobile start. */
+  const attachNativeHls = useCallback(
+    (info: PlaybackSessionInfo) => {
+      const video = videoRef.current;
+      if (!video) return;
+      detachEngine();
+      setUsingHls(true);
+      setIosMutedPlay(false);
+      video.src = toAbsoluteStreamUrl(info.hlsUrl);
+      video.load();
+      const onReady = () => startIosMutedPlayback(video);
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        onReady();
+        return;
+      }
+      video.addEventListener("loadedmetadata", onReady, { once: true });
+      video.addEventListener(
+        "error",
+        () => {
+          setUsingHls(false);
+          attachProgressive(info, quality === "auto" ? undefined : quality);
+        },
+        { once: true },
+      );
+    },
+    [attachProgressive, detachEngine, quality, startIosMutedPlayback],
   );
 
   const attachHls = useCallback(
@@ -488,9 +517,11 @@ export function StreamPlayer({
           );
           return;
         }
-        // Current API serves the raw library file (not remuxed HLS segments).
-        // Progressive MP4/WebM plays in the browser; fake one-segment HLS often hangs.
-        attachProgressive(result.session, quality === "auto" ? undefined : quality);
+        if (isAppleMobileDevice()) {
+          attachNativeHls(result.session);
+        } else {
+          attachProgressive(result.session, quality === "auto" ? undefined : quality);
+        }
         setLoading(false);
       } catch (err) {
         if (unmounted.current) return;
@@ -498,7 +529,7 @@ export function StreamPlayer({
         setError(err instanceof ApiError ? err.message : "Playback could not start.");
       }
     },
-    [attachProgressive, startPlayback, stopSession],
+    [attachNativeHls, attachProgressive, startPlayback, stopSession],
   );
 
   useEffect(() => {

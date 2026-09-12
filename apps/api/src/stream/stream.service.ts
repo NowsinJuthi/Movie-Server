@@ -46,6 +46,7 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 import { Readable } from 'stream';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
+import { HlsPackagerService } from './hls-packager.service';
 import { mp4FastStart } from '../library/probe/mp4-container-probe';
 
 const API = '/api/v1';
@@ -59,6 +60,7 @@ export class StreamService {
     private readonly storageFactory: StorageFactory,
     private readonly profiles: ProfilesService,
     private readonly remux: FfmpegRemuxService,
+    private readonly hlsPackager: HlsPackagerService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     @InjectModel(MediaAsset.name) private readonly assets: Model<MediaAssetDocument>,
@@ -203,6 +205,55 @@ export class StreamService {
 
   async stop(sessionId: string, userId: string): Promise<void> {
     await this.sessions.stop(sessionId, userId);
+    await this.hlsPackager.cleanup(sessionId);
+  }
+
+  async resolveSessionMediaPath(
+    sessionId: string,
+    userId: string,
+    preferredResolution?: string,
+  ): Promise<{ absPath: string; session: StoredPlaybackSession }> {
+    const session = await this.sessions.requireOwned(sessionId, userId);
+    const resolution =
+      preferredResolution && (VIDEO_RESOLUTIONS as readonly string[]).includes(preferredResolution)
+        ? (preferredResolution as VideoResolution)
+        : session.resolution;
+    const variant =
+      session.variants.find((item) => item.resolution === resolution) ??
+      session.variants.find((item) => item.assetId === session.assetId) ??
+      session.variants[0];
+    if (!variant) {
+      throw new NotFoundException({
+        error: ErrorCode.PlaybackUnavailable,
+        message: 'No playable media is attached to this title.',
+      });
+    }
+    const asset = await this.assets.findById(variant.assetId).select('+storagePath +libraryItemId');
+    if (!asset) {
+      throw new NotFoundException({
+        error: ErrorCode.PlaybackUnavailable,
+        message: 'No playable media is attached to this title.',
+      });
+    }
+    const located = await this.resolveAbsoluteMedia(asset);
+    return { absPath: located.absPath, session };
+  }
+
+  async ensureMobileHls(sessionId: string, userId: string, preferredResolution?: string): Promise<void> {
+    const { absPath } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
+    await this.hlsPackager.ensureFirstSegment(sessionId, absPath);
+  }
+
+  async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {
+    const session = await this.sessions.get(sessionId);
+    const token = session?.mediaToken ?? mediaToken;
+    if (!token) {
+      throw new UnauthorizedException({
+        error: ErrorCode.Unauthorized,
+        message: 'Authentication required.',
+      });
+    }
+    return this.hlsPackager.readPlaylistForApi(sessionId, token);
   }
 
   async stopAllForUser(userId: string): Promise<void> {
@@ -527,6 +578,7 @@ export class StreamService {
     existing: StoredPlaybackSession,
     payload: Omit<StoredPlaybackSession, 'id' | 'createdAt' | 'lastHeartbeat' | 'mediaToken'>,
   ): Promise<StoredPlaybackSession> {
+    await this.hlsPackager.cleanup(existing.id);
     const next: StoredPlaybackSession = {
       ...existing,
       ...payload,
@@ -551,7 +603,7 @@ export class StreamService {
     return {
       id: session.id,
       protocol: 'hls',
-      hlsUrl: `${API}/stream/${session.id}/master`,
+      hlsUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
       progressiveUrl: `${API}/stream/${session.id}/media?mt=${mt}`,
       expiresAt: new Date(session.lastHeartbeat + this.sessions.ttlMs()).toISOString(),
       qualities,

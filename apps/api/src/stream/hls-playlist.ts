@@ -23,14 +23,16 @@ export function variantBandwidth(resolution: VideoResolution, bitrateKbps?: numb
 
 export function buildMasterPlaylist(
   variants: Array<{ resolution: VideoResolution; bandwidth: number }>,
+  mediaToken?: string,
 ): string {
+  const mt = mediaToken ? `?mt=${encodeURIComponent(mediaToken)}` : '';
   const lines = ['#EXTM3U', '#EXT-X-INDEPENDENT-SEGMENTS'];
   for (const variant of variants) {
     const [width, height] = DIMS[variant.resolution];
     lines.push(
       `#EXT-X-STREAM-INF:BANDWIDTH=${variant.bandwidth},RESOLUTION=${width}x${height},NAME="${variant.resolution}"`,
     );
-    lines.push(`v/${variant.resolution}`);
+    lines.push(`v/${variant.resolution}.m3u8${mt}`);
   }
   return `${lines.join('\n')}\n`;
 }
