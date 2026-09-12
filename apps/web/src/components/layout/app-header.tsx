@@ -59,7 +59,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 py-3 transition-colors sm:px-4 md:px-5 lg:px-6",
+        "fixed inset-x-0 top-0 z-50 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors sm:px-4 md:px-5 lg:px-6",
         solid ? "border-b border-white/10 bg-background/95 backdrop-blur" : "bg-gradient-to-b from-black/80 to-transparent",
       )}
     >
@@ -241,7 +241,7 @@ function AccountMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className="flex items-center gap-2 rounded-lg outline-none ring-offset-background transition hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex min-h-11 min-w-11 touch-manipulation items-center gap-2 rounded-lg outline-none ring-offset-background transition hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-primary"
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Account menu"
@@ -401,7 +401,7 @@ function MenuItem({
       role="menuitem"
       disabled={disabled}
       className={cn(
-        "block w-full px-3.5 py-2 text-left text-sm transition-colors disabled:opacity-60",
+        "block w-full px-3.5 py-3 text-left text-sm transition-colors disabled:opacity-60",
         accent
           ? "font-medium text-primary hover:bg-primary/15"
           : danger

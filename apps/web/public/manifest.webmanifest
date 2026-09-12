@@ -1,0 +1,26 @@
+{
+  "name": "CineVault",
+  "short_name": "CineVault",
+  "description": "Private media streaming with subscription access.",
+  "start_url": "/home",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#01131a",
+  "theme_color": "#01131a",
+  "categories": ["entertainment", "video"],
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

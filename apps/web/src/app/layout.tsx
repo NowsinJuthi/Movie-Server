@@ -17,13 +17,32 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CineVault",
   description: "Private media streaming with subscription access.",
+  applicationName: "CineVault",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "CineVault",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [{ url: "/icon", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover" as const,
-  themeColor: "#000000",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#01131a" },
+    { media: "(prefers-color-scheme: dark)", color: "#01131a" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

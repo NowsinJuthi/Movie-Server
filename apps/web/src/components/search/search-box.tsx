@@ -138,7 +138,7 @@ export function SearchBox({ className }: { className?: string }) {
             <button
               type="button"
               aria-label="Clear search"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
               onClick={() => {
                 setValue("");
                 inputRef.current?.focus();
@@ -150,7 +150,7 @@ export function SearchBox({ className }: { className?: string }) {
             <button
               type="button"
               aria-label="Close search"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground md:hidden"
+              className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground md:hidden"
               onClick={() => setExpanded(false)}
             >
               <X className="h-3.5 w-3.5" />

@@ -35,7 +35,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ["@movie-server/shared"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/manifest.webmanifest",
+        headers: [{ key: "Content-Type", value: "application/manifest+json" }],
+      },
+    ];
   },
   async redirects() {
     return [

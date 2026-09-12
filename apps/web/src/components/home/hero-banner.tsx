@@ -123,12 +123,16 @@ export function HeroBanner({
                 key={slide.id}
                 type="button"
                 aria-label={`Go to slide ${slideIndex + 1}`}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  slideIndex === index ? "w-6 bg-primary" : "w-1.5 bg-white/45 hover:bg-white/70",
-                )}
+                className="inline-flex h-10 w-10 touch-manipulation items-center justify-center"
                 onClick={() => setIndex(slideIndex)}
-              />
+              >
+                <span
+                  className={cn(
+                    "rounded-full transition-all",
+                    slideIndex === index ? "h-2 w-6 bg-primary" : "h-2 w-2 bg-white/45",
+                  )}
+                />
+              </button>
             ))}
           </div>
         </>
