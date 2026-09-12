@@ -1258,21 +1258,39 @@ export function StreamPlayer({
             : "object-contain";
 
   const controlsVisible = controls || !playing || sheet != null;
+  const mobileChromeVisible = mobileLayout && controlsVisible && !awaitingTap && !loading;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
   };
 
+  useEffect(() => {
+    if (!mobileLayout) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileLayout]);
+
   return (
     <div
       ref={shellRef}
-      className="relative min-h-screen bg-black text-white"
+      className={cn(
+        "bg-black text-white",
+        mobileLayout
+          ? "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden"
+          : "relative min-h-screen",
+      )}
       onMouseMove={revealControls}
       onTouchStart={revealControls}
     >
       <video
         ref={videoRef}
-        className={cn("h-screen w-full bg-black", videoObjectClass)}
+        className={cn(
+          "bg-black",
+          mobileLayout ? "absolute inset-0 h-full w-full object-contain" : cn("h-screen w-full", videoObjectClass),
+        )}
         playsInline
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
@@ -1281,26 +1299,26 @@ export function StreamPlayer({
       />
 
       {awaitingTap && !error ? (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/60">
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
           <button
             type="button"
             className={cn(
-              "flex flex-col items-center justify-center gap-3 rounded-full text-white shadow-lg active:scale-95",
+              "flex flex-col items-center justify-center rounded-full text-white shadow-lg active:scale-95",
               mobileLayout
-                ? "h-[5.5rem] w-[5.5rem] border-2 border-[#52B54B]/70 bg-black/40 backdrop-blur-sm"
-                : "min-h-16 min-w-16 bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground",
+                ? "h-[5rem] w-[5rem] border-2 border-[#52B54B]/80 bg-black/45 backdrop-blur-sm"
+                : "min-h-16 min-w-16 gap-3 bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground",
             )}
             onClick={() => {
               void tryStartPlayback();
             }}
           >
-            <Play className={cn("fill-current", mobileLayout ? "h-10 w-10" : "h-10 w-10")} />
+            <Play className="h-10 w-10 fill-current" />
             {!mobileLayout ? (
               <span>{iosMutedPlay ? "Tap for sound" : "Tap to play"}</span>
             ) : null}
           </button>
           {mobileLayout ? (
-            <p className="text-sm font-medium text-white/85">
+            <p className="text-sm font-medium text-white/90">
               {iosMutedPlay ? "Tap for sound" : "Tap to play"}
             </p>
           ) : null}
@@ -1392,7 +1410,7 @@ export function StreamPlayer({
       >
         {mobileLayout ? (
           <EmbyMobileChrome
-            visible={controlsVisible}
+            visible={mobileChromeVisible}
             title={title}
             subtitle={subtitle}
             year={displayYear}

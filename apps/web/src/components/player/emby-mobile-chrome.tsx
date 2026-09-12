@@ -145,25 +145,16 @@ export function EmbyMobileChrome({
         </button>
       </header>
 
-      {/* Tap area + center play when paused */}
+      {/* Tap video area — play/pause lives in the bottom transport bar only */}
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
         className={cn(
-          "relative z-10 flex flex-1 flex-col items-center justify-center bg-transparent",
+          "relative z-10 min-h-0 flex-1 bg-transparent",
           !visible && "pointer-events-none",
         )}
         onClick={onSkinClick}
-      >
-        {!playing && visible ? (
-          <span
-            className="pointer-events-none flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full border-2 border-white/35 bg-black/35 backdrop-blur-sm"
-            style={{ boxShadow: `0 0 0 1px ${EMBY_GREEN}40` }}
-          >
-            <Play className="ml-1 h-9 w-9 fill-white text-white" />
-          </span>
-        ) : null}
-      </button>
+      />
 
       {/* Bottom — Emby-style transport */}
       <div
