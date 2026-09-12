@@ -11,12 +11,16 @@ export function VolumeBar({
   value,
   onChange,
   className,
+  variant = "default",
 }: {
   /** 0–1 */
   value: number;
   onChange: (next: number) => void;
   className?: string;
+  /** Larger touch target for mobile player */
+  variant?: "default" | "mobile";
 }) {
+  const isMobileVariant = variant === "mobile";
   const trackRef = useRef<HTMLDivElement>(null);
   const [hovering, setHovering] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -49,6 +53,18 @@ export function VolumeBar({
     setPreview(null);
   }, []);
 
+  const beginScrub = useCallback(
+    (clientX: number, event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      scrubbingRef.current = true;
+      setScrubbing(true);
+      setHovering(true);
+      commit(ratioFromClientX(clientX));
+    },
+    [commit, ratioFromClientX],
+  );
+
   useEffect(() => {
     if (!scrubbing) return;
     const onMove = (event: PointerEvent) => {
@@ -67,7 +83,7 @@ export function VolumeBar({
 
   return (
     <div
-      className={cn("group/vol relative select-none py-2", className)}
+      className={cn("group/vol relative select-none", isMobileVariant ? "py-1" : "py-2", className)}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
         if (!scrubbingRef.current) setHovering(false);
@@ -81,15 +97,37 @@ export function VolumeBar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(display * 100)}
-        className="relative w-full cursor-pointer touch-none outline-none"
+        className={cn(
+          "relative w-full cursor-pointer touch-none outline-none",
+          isMobileVariant && "min-h-10",
+        )}
         onPointerDown={(event) => {
-          if (event.button !== 0) return;
+          if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
+          event.stopPropagation();
           event.currentTarget.setPointerCapture?.(event.pointerId);
-          scrubbingRef.current = true;
-          setScrubbing(true);
-          setHovering(true);
-          commit(ratioFromClientX(event.clientX));
+          beginScrub(event.clientX);
+        }}
+        onTouchStart={(event) => {
+          if (event.touches.length !== 1) return;
+          event.stopPropagation();
+          beginScrub(event.touches[0].clientX, event);
+        }}
+        onTouchMove={(event) => {
+          if (!scrubbingRef.current || event.touches.length !== 1) return;
+          event.preventDefault();
+          event.stopPropagation();
+          commit(ratioFromClientX(event.touches[0].clientX));
+        }}
+        onTouchEnd={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
+        }}
+        onTouchCancel={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
         }}
         onKeyDown={(event) => {
           const step = event.shiftKey ? 0.1 : 0.05;
@@ -108,7 +146,12 @@ export function VolumeBar({
           }
         }}
       >
-        <div className="absolute inset-x-0 -top-2 -bottom-2" />
+        <div
+          className={cn(
+            "absolute inset-x-0",
+            isMobileVariant ? "-top-3 -bottom-3" : "-top-2 -bottom-2",
+          )}
+        />
 
         <div
           className={cn(
@@ -125,7 +168,13 @@ export function VolumeBar({
         <div
           className={cn(
             "pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-[width,height,opacity] duration-150",
-            active ? "h-3.5 w-3.5 opacity-100" : "h-2.5 w-2.5 opacity-0 group-hover/vol:opacity-100",
+            isMobileVariant
+              ? active
+                ? "h-4 w-4 opacity-100"
+                : "h-3 w-3 opacity-100"
+              : active
+                ? "h-3.5 w-3.5 opacity-100"
+                : "h-2.5 w-2.5 opacity-0 group-hover/vol:opacity-100",
           )}
           style={{ left: `${display * 100}%` }}
         />

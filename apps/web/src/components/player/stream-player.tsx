@@ -36,7 +36,13 @@ import { ApiError } from "@/lib/api";
 import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
-import { isAppleMobileDevice } from "@/lib/device-playback";
+import {
+  effectiveVideoDuration,
+  isAppleMobileDevice,
+  isVideoInNativeFullscreen,
+  seekVideoTo,
+  toggleVideoFullscreen,
+} from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
 import { appendStreamQuery, toAbsoluteStreamUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
@@ -340,8 +346,8 @@ export function StreamPlayer({
     void video
       .play()
       .then(() => {
-        setAwaitingTap(true);
         setIosMutedPlay(true);
+        setAwaitingTap(false);
         setLoading(false);
       })
       .catch(() => {
@@ -728,46 +734,66 @@ export function StreamPlayer({
   }, [countdown, next, router]);
 
   useEffect(() => {
-    const onFs = () => setFullscreen(Boolean(document.fullscreenElement));
+    const syncFullscreen = () => {
+      const video = videoRef.current;
+      setFullscreen(
+        Boolean(document.fullscreenElement) ||
+          (video != null && isVideoInNativeFullscreen(video)),
+      );
+    };
     const onPip = () => setPip(Boolean(document.pictureInPictureElement));
-    document.addEventListener("fullscreenchange", onFs);
+    document.addEventListener("fullscreenchange", syncFullscreen);
     document.addEventListener("enterpictureinpicture", onPip);
     document.addEventListener("leavepictureinpicture", onPip);
+
+    const video = videoRef.current;
+    video?.addEventListener("webkitbeginfullscreen", syncFullscreen);
+    video?.addEventListener("webkitendfullscreen", syncFullscreen);
+
     return () => {
-      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("fullscreenchange", syncFullscreen);
       document.removeEventListener("enterpictureinpicture", onPip);
       document.removeEventListener("leavepictureinpicture", onPip);
+      video?.removeEventListener("webkitbeginfullscreen", syncFullscreen);
+      video?.removeEventListener("webkitendfullscreen", syncFullscreen);
     };
   }, []);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    if (iosMutedPlay || (mobileLayout && awaitingTap)) {
+      void tryStartPlayback();
+      return;
+    }
     if (video.paused) {
       void video.play().catch(() => undefined);
     } else {
       video.pause();
     }
-  }, []);
+  }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback]);
 
-  const seekBy = useCallback((delta: number) => {
-    const video = videoRef.current;
-    if (!video || !Number.isFinite(video.duration)) return;
-    video.currentTime = Math.min(Math.max(0, video.currentTime + delta), video.duration);
-  }, []);
+  const seekBy = useCallback(
+    (delta: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      seekVideoTo(video, video.currentTime + delta, duration);
+      revealControls();
+    },
+    [duration, revealControls],
+  );
 
   const seekToRatio = useCallback(
     (ratio: number) => {
       const video = videoRef.current;
-      const dur =
-        video && Number.isFinite(video.duration) && video.duration > 0
-          ? video.duration
-          : duration;
-      if (!video || dur <= 0) return;
+      if (!video) return;
+      const dur = effectiveVideoDuration(video, duration);
+      if (dur <= 0) return;
       const clamped = Math.min(1, Math.max(0, ratio));
-      video.currentTime = dur * clamped;
+      seekVideoTo(video, dur * clamped, dur);
+      revealControls();
     },
-    [duration],
+    [duration, revealControls],
   );
 
   const changeVolume = useCallback((nextVolume: number) => {
@@ -806,13 +832,20 @@ export function StreamPlayer({
 
   const toggleFullscreen = useCallback(async () => {
     const shell = shellRef.current;
-    if (!shell) return;
+    const video = videoRef.current;
+    if (!shell || !video) return;
+
+    if (mobileLayout || isAppleMobileDevice()) {
+      await toggleVideoFullscreen(video, shell);
+      return;
+    }
+
     if (document.fullscreenElement) {
       await document.exitFullscreen();
     } else {
       await shell.requestFullscreen();
     }
-  }, []);
+  }, [mobileLayout]);
 
   const togglePip = useCallback(async () => {
     const video = videoRef.current;
@@ -1090,9 +1123,18 @@ export function StreamPlayer({
       setSettingsView("root");
       return;
     }
+    if (iosMutedPlay || (mobileLayout && awaitingTap)) {
+      void tryStartPlayback();
+      revealControls();
+      return;
+    }
+    if (mobileLayout && !controls) {
+      revealControls();
+      return;
+    }
     togglePlay();
     revealControls();
-  }, [revealControls, sheet, togglePlay]);
+  }, [awaitingTap, controls, iosMutedPlay, mobileLayout, revealControls, sheet, togglePlay, tryStartPlayback]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1258,7 +1300,7 @@ export function StreamPlayer({
             : "object-contain";
 
   const controlsVisible = controls || !playing || sheet != null;
-  const mobileChromeVisible = mobileLayout && controlsVisible && !awaitingTap && !loading;
+  const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
@@ -1298,30 +1340,18 @@ export function StreamPlayer({
         onClick={onSkinClick}
       />
 
-      {awaitingTap && !error ? (
+      {awaitingTap && !error && !mobileLayout ? (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
           <button
             type="button"
-            className={cn(
-              "flex flex-col items-center justify-center rounded-full text-white shadow-lg active:scale-95",
-              mobileLayout
-                ? "h-[5rem] w-[5rem] border-2 border-[#52B54B]/80 bg-black/45 backdrop-blur-sm"
-                : "min-h-16 min-w-16 gap-3 bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground",
-            )}
+            className="flex min-h-16 min-w-16 flex-col items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground shadow-lg active:scale-95"
             onClick={() => {
               void tryStartPlayback();
             }}
           >
             <Play className="h-10 w-10 fill-current" />
-            {!mobileLayout ? (
-              <span>{iosMutedPlay ? "Tap for sound" : "Tap to play"}</span>
-            ) : null}
+            <span>Tap to play</span>
           </button>
-          {mobileLayout ? (
-            <p className="text-sm font-medium text-white/90">
-              {iosMutedPlay ? "Tap for sound" : "Tap to play"}
-            </p>
-          ) : null}
         </div>
       ) : null}
       <audio ref={audioRef} preload="metadata" className="hidden" />
@@ -1404,7 +1434,8 @@ export function StreamPlayer({
 
       <div
         className={cn(
-          "absolute inset-0 flex flex-col justify-between transition-opacity duration-300",
+          "absolute inset-0 transition-opacity duration-300",
+          mobileLayout ? "h-full" : "flex flex-col justify-between",
           controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
@@ -1423,7 +1454,19 @@ export function StreamPlayer({
             subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
             audioOn={sheet === "audio" || audioTracks.length > 1}
             settingsOn={sheet === "settings"}
+            volume={volume}
+            muted={muted}
             onGoBack={goBack}
+            onVolumeChange={changeVolume}
+            onToggleMute={toggleMute}
+            onVolumePanelChange={(open) => {
+              if (open) {
+                setControls(true);
+                if (hideTimer.current) window.clearTimeout(hideTimer.current);
+              } else {
+                revealControls();
+              }
+            }}
             onSkinClick={onSkinClick}
             onTogglePlay={togglePlay}
             onSeek={seekToRatio}
@@ -1893,7 +1936,7 @@ export function StreamPlayer({
                 type="button"
                 className={cn(
                   "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10",
-                  !selectedSubtitle && "font-medium text-[#52B54B]",
+                  !selectedSubtitle && "font-medium text-primary",
                 )}
                 onClick={() => selectSubtitle(null)}
               >
@@ -1910,7 +1953,7 @@ export function StreamPlayer({
                     disabled={!track.playable}
                     className={cn(
                       "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10 disabled:opacity-40",
-                      selected && "font-medium text-[#52B54B]",
+                      selected && "font-medium text-primary",
                     )}
                     onClick={() => selectSubtitle(track.id)}
                   >
@@ -1939,7 +1982,7 @@ export function StreamPlayer({
                       disabled={!track.playable}
                       className={cn(
                         "flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-white active:bg-white/10 disabled:opacity-40",
-                        selected && "font-medium text-[#52B54B]",
+                        selected && "font-medium text-primary",
                       )}
                       onClick={() => selectAudio(track.id)}
                     >
@@ -1965,7 +2008,7 @@ export function StreamPlayer({
                     type="button"
                     className={cn(
                       "flex w-full items-center gap-3 px-5 py-3.5 text-sm text-white active:bg-white/10",
-                      selected && "font-medium text-[#52B54B]",
+                      selected && "font-medium text-primary",
                     )}
                     onClick={() => selectSpeed(speed)}
                   >

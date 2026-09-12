@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
+import { Minus, Plus, X } from "lucide-react";
 import {
   AudioLines,
   Captions,
@@ -13,11 +14,12 @@ import {
   RotateCcw,
   RotateCw,
   Settings,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SeekBar } from "./seek-bar";
-
-const EMBY_GREEN = "#52B54B";
+import { VolumeBar } from "./volume-bar";
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -27,6 +29,10 @@ function formatTime(seconds: number): string {
   const s = total % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function stopControlBubble(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
 }
 
 function MobileIconButton({
@@ -45,9 +51,10 @@ function MobileIconButton({
       type="button"
       aria-label={label}
       onClick={onClick}
+      onTouchStart={stopControlBubble}
       className={cn(
-        "inline-flex h-11 w-11 items-center justify-center rounded-full text-white/90 transition-colors active:bg-white/15",
-        active && "text-[#52B54B]",
+        "inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-full text-white/90 transition-colors active:bg-white/15",
+        active && "text-primary",
       )}
     >
       {children}
@@ -69,7 +76,12 @@ export type EmbyMobileChromeProps = {
   subtitlesOn: boolean;
   audioOn: boolean;
   settingsOn: boolean;
+  volume: number;
+  muted: boolean;
   onGoBack: () => void;
+  onVolumeChange: (value: number) => void;
+  onToggleMute: () => void;
+  onVolumePanelChange?: (open: boolean) => void;
   onSkinClick: () => void;
   onTogglePlay: () => void;
   onSeek: (ratio: number) => void;
@@ -96,7 +108,12 @@ export function EmbyMobileChrome({
   subtitlesOn,
   audioOn,
   settingsOn,
+  volume,
+  muted,
   onGoBack,
+  onVolumeChange,
+  onToggleMute,
+  onVolumePanelChange,
   onSkinClick,
   onTogglePlay,
   onSeek,
@@ -108,22 +125,37 @@ export function EmbyMobileChrome({
   onToggleFullscreen,
   onOpenQuality,
 }: EmbyMobileChromeProps) {
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const displayVolume = muted ? 0 : volume;
+  const volumePercent = Math.round(displayVolume * 100);
+
+  const setVolumePanelOpen = (open: boolean) => {
+    setVolumeOpen(open);
+    onVolumePanelChange?.(open);
+  };
+
+  const stepVolume = (delta: number) => {
+    const base = muted ? 0 : volume;
+    onVolumeChange(Math.min(1, Math.max(0, base + delta)));
+  };
+
   return (
-    <>
+    <div
+      className={cn(
+        "relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]",
+        !visible && "pointer-events-none opacity-0",
+      )}
+    >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-transparent via-45% to-black/95" />
 
       {/* Top — back + title */}
-      <header
-        className={cn(
-          "relative z-10 flex items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]",
-          !visible && "pointer-events-none opacity-0",
-        )}
-      >
+      <header className="relative z-10 flex shrink-0 items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
           aria-label="Back"
           onClick={onGoBack}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white active:bg-white/10"
+          onTouchStart={stopControlBubble}
+          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
         >
           <ChevronLeft className="h-7 w-7" strokeWidth={2} />
         </button>
@@ -139,7 +171,8 @@ export function EmbyMobileChrome({
           type="button"
           aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
           onClick={onToggleFullscreen}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/85 active:bg-white/10"
+          onTouchStart={stopControlBubble}
+          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/85 active:bg-white/10"
         >
           {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
         </button>
@@ -149,19 +182,15 @@ export function EmbyMobileChrome({
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
-        className={cn(
-          "relative z-10 min-h-0 flex-1 bg-transparent",
-          !visible && "pointer-events-none",
-        )}
+        className="relative z-10 min-h-0 touch-manipulation bg-transparent"
         onClick={onSkinClick}
       />
 
-      {/* Bottom — Emby-style transport */}
+      {/* Bottom — transport (above tap layer so seek/skip always receive touches) */}
       <div
-        className={cn(
-          "relative z-10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-          !visible && "pointer-events-none opacity-0",
-        )}
+        className="relative z-20 shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        onPointerDown={stopControlBubble}
+        onTouchStart={stopControlBubble}
       >
         <SeekBar
           variant="emby"
@@ -182,7 +211,8 @@ export function EmbyMobileChrome({
             type="button"
             aria-label="Rewind 10 seconds"
             onClick={() => onSeekBy(-10)}
-            className="relative inline-flex h-12 w-12 items-center justify-center text-white active:opacity-70"
+            onTouchStart={stopControlBubble}
+            className="relative inline-flex h-12 w-12 touch-manipulation items-center justify-center text-white active:opacity-70"
           >
             <RotateCcw className="h-7 w-7" strokeWidth={1.75} />
             <span className="absolute text-[10px] font-bold">10</span>
@@ -191,8 +221,8 @@ export function EmbyMobileChrome({
             type="button"
             aria-label={playing ? "Pause" : "Play"}
             onClick={onTogglePlay}
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/20 active:bg-white/20"
-            style={{ boxShadow: `0 0 20px ${EMBY_GREEN}30` }}
+            onTouchStart={stopControlBubble}
+            className="inline-flex h-14 w-14 touch-manipulation items-center justify-center rounded-full bg-primary/15 text-white ring-1 ring-primary/35 shadow-[0_0_20px_rgb(38_191_176/0.28)] active:bg-primary/25"
           >
             {playing ? (
               <Pause className="h-8 w-8 fill-white" />
@@ -204,14 +234,67 @@ export function EmbyMobileChrome({
             type="button"
             aria-label="Forward 10 seconds"
             onClick={() => onSeekBy(10)}
-            className="relative inline-flex h-12 w-12 items-center justify-center text-white active:opacity-70"
+            onTouchStart={stopControlBubble}
+            className="relative inline-flex h-12 w-12 touch-manipulation items-center justify-center text-white active:opacity-70"
           >
             <RotateCw className="h-7 w-7" strokeWidth={1.75} />
             <span className="absolute text-[10px] font-bold">10</span>
           </button>
         </div>
 
+        {volumeOpen ? (
+          <div className="mb-2 flex items-center gap-2 rounded-xl bg-black/45 px-2 py-2 ring-1 ring-white/10">
+            <button
+              type="button"
+              aria-label={muted ? "Unmute" : "Mute"}
+              onClick={onToggleMute}
+              onTouchStart={stopControlBubble}
+              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
+            >
+              {muted || volume === 0 ? (
+                <VolumeX className="h-5 w-5" />
+              ) : (
+                <Volume2 className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label="Decrease volume"
+              onClick={() => stepVolume(-0.1)}
+              onTouchStart={stopControlBubble}
+              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
+            >
+              <Minus className="h-5 w-5" strokeWidth={2.5} />
+            </button>
+            <VolumeBar
+              variant="mobile"
+              className="min-w-0 flex-1"
+              value={displayVolume}
+              onChange={onVolumeChange}
+            />
+            <button
+              type="button"
+              aria-label="Increase volume"
+              onClick={() => stepVolume(0.1)}
+              onTouchStart={stopControlBubble}
+              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
+            >
+              <Plus className="h-5 w-5" strokeWidth={2.5} />
+            </button>
+            <span className="w-9 shrink-0 text-center text-xs font-medium tabular-nums text-white/80">
+              {volumePercent}%
+            </span>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-center gap-1">
+          <MobileIconButton
+            label={volumeOpen ? "Hide volume" : "Volume"}
+            active={volumeOpen}
+            onClick={() => setVolumePanelOpen(!volumeOpen)}
+          >
+            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </MobileIconButton>
           <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
             <Captions className="h-5 w-5" />
           </MobileIconButton>
@@ -222,7 +305,8 @@ export function EmbyMobileChrome({
             type="button"
             aria-label="Quality"
             onClick={onOpenQuality}
-            className="mx-1 min-w-[3rem] rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums text-white/90 ring-1 ring-white/20 active:bg-white/10"
+            onTouchStart={stopControlBubble}
+            className="mx-1 min-w-[3rem] touch-manipulation rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums text-white/90 ring-1 ring-white/20 active:bg-white/10"
           >
             {qualityLabel}
           </button>
@@ -231,7 +315,7 @@ export function EmbyMobileChrome({
           </MobileIconButton>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

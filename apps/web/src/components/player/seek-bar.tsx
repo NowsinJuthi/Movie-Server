@@ -31,10 +31,10 @@ export function SeekBar({
   bufferedEnd?: number;
   onSeek: (ratio: number) => void;
   onScrubbingChange?: (scrubbing: boolean) => void;
-  /** Emby-style green accent for mobile */
+  /** Larger thumb on mobile transport bar */
   variant?: "default" | "emby";
 }) {
-  const accentClass = variant === "emby" ? "bg-[#52B54B]" : "bg-primary";
+  const accentClass = "bg-primary";
   const trackRef = useRef<HTMLDivElement>(null);
   const [hovering, setHovering] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -70,6 +70,21 @@ export function SeekBar({
     }
   }, [onScrubbingChange, onSeek]);
 
+  const beginScrub = useCallback(
+    (clientX: number, event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      const ratio = ratioFromClientX(clientX);
+      previewRatioRef.current = ratio;
+      setPreviewRatio(ratio);
+      scrubbingRef.current = true;
+      setScrubbing(true);
+      setHovering(true);
+      onScrubbingChange?.(true);
+    },
+    [onScrubbingChange, ratioFromClientX],
+  );
+
   useEffect(() => {
     if (previewRatio == null || duration <= 0) return;
     const target = previewRatio * duration;
@@ -97,9 +112,14 @@ export function SeekBar({
     };
   }, [scrubbing, endScrub, ratioFromClientX]);
 
+  const isMobileVariant = variant === "emby";
+
   return (
     <div
-      className="group/seek relative w-full select-none py-2"
+      className={cn(
+        "group/seek relative w-full select-none",
+        isMobileVariant ? "py-3" : "py-2",
+      )}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
         if (!scrubbingRef.current) {
@@ -130,18 +150,39 @@ export function SeekBar({
         aria-valuemax={Math.max(0, Math.floor(duration))}
         aria-valuenow={Math.floor(displayRatio * duration)}
         aria-valuetext={formatSeekTime(displayRatio * duration)}
-        className="relative w-full cursor-pointer touch-none outline-none"
+        className={cn(
+          "relative w-full cursor-pointer touch-none outline-none",
+          isMobileVariant && "min-h-11",
+        )}
         onPointerDown={(event) => {
-          if (event.button !== 0) return;
+          if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
+          event.stopPropagation();
           event.currentTarget.setPointerCapture?.(event.pointerId);
-          const ratio = ratioFromClientX(event.clientX);
+          beginScrub(event.clientX);
+        }}
+        onTouchStart={(event) => {
+          if (event.touches.length !== 1) return;
+          event.stopPropagation();
+          beginScrub(event.touches[0].clientX, event);
+        }}
+        onTouchMove={(event) => {
+          if (!scrubbingRef.current || event.touches.length !== 1) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const ratio = ratioFromClientX(event.touches[0].clientX);
           previewRatioRef.current = ratio;
           setPreviewRatio(ratio);
-          scrubbingRef.current = true;
-          setScrubbing(true);
-          setHovering(true);
-          onScrubbingChange?.(true);
+        }}
+        onTouchEnd={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
+        }}
+        onTouchCancel={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
         }}
         onKeyDown={(event) => {
           if (!duration) return;
@@ -161,8 +202,13 @@ export function SeekBar({
           }
         }}
       >
-        {/* Hit area */}
-        <div className="absolute inset-x-0 -top-2 -bottom-2" />
+        {/* Hit area — taller on mobile for touch */}
+        <div
+          className={cn(
+            "absolute inset-x-0",
+            isMobileVariant ? "-top-4 -bottom-4" : "-top-2 -bottom-2",
+          )}
+        />
 
         <div
           className={cn(
