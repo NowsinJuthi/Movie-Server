@@ -422,7 +422,12 @@ export function StreamPlayer({
       if (!video) return;
       detachEngine();
 
-      const fallback = () => attachProgressive(info, quality);
+      const fallback = () => {
+        setUsingHls(false);
+        attachProgressive(info, quality === "auto" ? undefined : quality);
+      };
+
+      const src = toAbsoluteStreamUrl(info.hlsUrl);
 
       void import("hls.js").then(({ default: HlsLib }) => {
         if (!videoRef.current) return;
@@ -431,8 +436,8 @@ export function StreamPlayer({
             enableWorker: true,
             lowLatencyMode: false,
             backBufferLength: 30,
-            maxBufferLength: 18,
-            maxMaxBufferLength: 36,
+            maxBufferLength: 24,
+            maxMaxBufferLength: 48,
             startFragPrefetch: true,
             capLevelToPlayerSize: true,
             xhrSetup(xhr) {
@@ -449,7 +454,7 @@ export function StreamPlayer({
             } else {
               hls.currentLevel = -1;
             }
-            void video.play().catch(() => undefined);
+            void tryStartPlayback();
           });
           hls.on(HlsLib.Events.ERROR, (_event, data) => {
             if (!data.fatal) return;
@@ -465,23 +470,23 @@ export function StreamPlayer({
             }
             fallback();
           });
-          hls.loadSource(info.hlsUrl);
+          hls.loadSource(src);
           hls.attachMedia(video);
           return;
         }
 
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           setUsingHls(true);
-          video.src = info.hlsUrl;
+          video.src = src;
           video.load();
-          void video.play().catch(() => undefined);
+          void tryStartPlayback();
           return;
         }
 
         fallback();
-      });
+      }).catch(() => fallback());
     },
-    [attachProgressive, detachEngine, quality],
+    [attachProgressive, detachEngine, quality, tryStartPlayback],
   );
 
   const boot = useCallback(
@@ -520,16 +525,15 @@ export function StreamPlayer({
         if (isAppleMobileDevice()) {
           attachNativeHls(result.session);
         } else {
-          attachProgressive(result.session, quality === "auto" ? undefined : quality);
+          attachHls(result.session);
         }
-        setLoading(false);
       } catch (err) {
         if (unmounted.current) return;
         setLoading(false);
         setError(err instanceof ApiError ? err.message : "Playback could not start.");
       }
     },
-    [attachNativeHls, attachProgressive, startPlayback, stopSession],
+    [attachHls, attachNativeHls, startPlayback, stopSession],
   );
 
   useEffect(() => {
@@ -840,10 +844,14 @@ export function StreamPlayer({
         }
       }
       if (info) {
-        attachProgressive(info, choice);
+        if (usingHls) {
+          attachHls(info);
+        } else {
+          attachProgressive(info, choice);
+        }
       }
     },
-    [attachProgressive],
+    [attachHls, attachProgressive, usingHls],
   );
 
   const applyTracks = useCallback(
