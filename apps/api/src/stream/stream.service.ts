@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -63,6 +64,8 @@ const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
 
 @Injectable()
 export class StreamService {
+  private readonly logger = new Logger(StreamService.name);
+
   constructor(
     private readonly sessions: PlaybackSessionStore,
     private readonly access: SubscriptionAccessService,
@@ -103,6 +106,8 @@ export class StreamService {
     }
     const deviceId = (input.deviceId?.trim() || 'default').slice(0, 80);
     const deviceLabel = (input.deviceLabel?.trim() || 'AmarPin').slice(0, 80);
+    const isAppleMobile = /iPhone|iPad|iPod/i.test(deviceLabel);
+    const forceVideoTranscode = Boolean(input.forceVideoTranscode) || isAppleMobile;
     const entitlement = await this.access.assertQuality(input.user.id, input.quality);
     const maxQuality = entitlement.maxVideoQuality;
     if (!maxQuality) {
@@ -176,13 +181,14 @@ export class StreamService {
       const rawPlan = this.remux.available()
         ? await this.resolveTranscodePlan(located.absPath, selected.libraryItemId)
         : null;
-      // HEVC direct stream is Safari-only on the web client; never honor the flag when forcing full transcode.
+      // Never trust cached client capability flags for iPhone/iPad: Safari can
+      // play audio while rendering black video for unsupported MKV/HEVC profiles.
       const allowHevcDirect =
-        Boolean(input.clientHevc) && !input.forceVideoTranscode;
+        Boolean(input.clientHevc) && !forceVideoTranscode;
       let transcodePlan = rawPlan
         ? applyClientCapabilities(rawPlan, { hevcDirectStream: allowHevcDirect })
         : null;
-      if (input.forceVideoTranscode && transcodePlan) {
+      if (forceVideoTranscode && transcodePlan) {
         transcodePlan = {
           ...transcodePlan,
           encodeVideo: true,
@@ -202,6 +208,12 @@ export class StreamService {
       // Emby DirectStream: MKV/WebM with browser-safe codecs still needs HLS packaging (seek + compatibility).
       if (videoRemux && transcodePlan && !videoTranscode) {
         videoTranscode = true;
+      }
+      if (isAppleMobile) {
+        this.logger.log(
+          `iOS playback ${mediaId}: codec=${transcodePlan?.probe.videoCodec ?? 'unknown'} ` +
+            `encodeVideo=${transcodePlan?.encodeVideo ?? false} encodeAudio=${transcodePlan?.encodeAudio ?? false}`,
+        );
       }
 
       const payload = {
