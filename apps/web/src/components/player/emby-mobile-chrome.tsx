@@ -242,21 +242,22 @@ export function EmbyMobileChrome({
       {/* Spacer only — iOS Safari will not paint video if a full-screen element sits above it. */}
       <div className="pointer-events-none relative z-10 min-h-0" aria-hidden />
 
-      {/* YouTube-style center transport: picture taps only toggle chrome. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-[22%] bottom-[30%] z-[15] flex items-center justify-center"
-        onPointerDown={stopControlBubble}
-        onTouchStart={stopControlBubble}
-      >
-        <div className="pointer-events-auto">
-          <MobileTransportCluster
-            compact={fullscreen}
-            playing={playing}
-            onTogglePlay={onTogglePlay}
-            onSeekBy={onSeekBy}
-          />
+      {fullscreen ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[22%] bottom-[34%] z-[15] flex items-center justify-center"
+          onPointerDown={stopControlBubble}
+          onTouchStart={stopControlBubble}
+        >
+          <div className="pointer-events-auto">
+            <MobileTransportCluster
+              compact
+              playing={playing}
+              onTogglePlay={onTogglePlay}
+              onSeekBy={onSeekBy}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Bottom — transport */}
       <div
@@ -278,6 +279,17 @@ export function EmbyMobileChrome({
           <span>{formatTime(currentTime)}</span>
           <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
         </div>
+
+        {!fullscreen ? (
+          <div className="mb-2 flex items-center justify-center">
+            <MobileTransportCluster
+              compact={false}
+              playing={playing}
+              onTogglePlay={onTogglePlay}
+              onSeekBy={onSeekBy}
+            />
+          </div>
+        ) : null}
 
         {volumeOpen ? (
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-black/45 px-2 py-2 ring-1 ring-white/10">
