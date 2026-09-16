@@ -8,7 +8,7 @@
 | **API** | **4000** | http://localhost:4000/api/v1 | https://movies.api.amarpin.com/api/v1 |
 | **Health** | **4000** | `http://127.0.0.1:4000/api/v1/health` | `https://movies.api.amarpin.com/api/v1/health` |
 
-PC dev ar VPS production — **dui jaygay same port**. Shudhu public domain HTTPS (443) alada.
+PC dev and VPS production use the **same ports**. Only the public HTTPS domain (443) differs.
 
 Nginx (80/443) proxies to localhost **3000** (web) and **4000** (API). Do **not** open 3000/4000 in firewall.
 

@@ -52,7 +52,7 @@ Minimum upload set for partial updates:
 | `apps/web/src/` | Web source |
 | `packages/shared/src/` | Shared types |
 | `deploy/aapanel/` | systemd, nginx, Samba scripts |
-| `.env` | From `.env.ready` |
+| `.env` | From `.env.example` or `deploy/aapanel/.env.aapanel.example` |
 
 ---
 
@@ -71,7 +71,8 @@ sudo chmod -R 755 /www/wwwroot/movies.amarpin.com/storage
 ## Step 3 — `.env`
 
 ```bash
-cp .env.ready .env
+cp .env.example .env
+# or: cp deploy/aapanel/.env.aapanel.example .env
 nano .env
 ```
 

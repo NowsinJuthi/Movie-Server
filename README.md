@@ -134,7 +134,7 @@ Live stack: **systemd** (`amarpin-api` + `amarpin-web`) · **aaPanel Nginx** · 
 | **Web** | systemd → localhost **3000** |
 | **API** | systemd (`www` user) → localhost **4000** |
 | **Public** | Nginx 443 → 3000 / 4000 |
-| **Env template** | [`.env.ready`](.env.ready) |
+| **Env template** | [`.env.example`](.env.example) · [`deploy/aapanel/.env.aapanel.example`](deploy/aapanel/.env.aapanel.example) |
 
 ### Deploy guides
 
@@ -162,12 +162,12 @@ sudo bash deploy/aapanel/install-smb-mount-helper.sh
 sudo systemctl restart amarpin-api
 ```
 
-### aaPanel tips (বাংলা সংক্ষেপ)
+### aaPanel tips
 
-1. PC ar VPS **same port**: web **3000**, API **4000**।
-2. Firewall-এ শুধু `80/443` পাবলিক — `3000`/`4000` localhost-এ রাখুন।
-3. সব upload/HLS/Samba mount → `storage/` folder (`.env.ready` দেখুন)।
-4. MongoDB reset হলে: `npm run bootstrap:admin` → libraries/Samba আবার add।
+1. PC and VPS use the **same ports**: web **3000**, API **4000**.
+2. Open only **80/443** in the firewall — keep **3000**/**4000** on localhost.
+3. Store uploads, HLS temp files, and Samba mounts under **`storage/`** (see `.env.example`).
+4. After a MongoDB reset: run `npm run bootstrap:admin`, then re-add libraries and Samba shares.
 5. Full guide: [deploy/aapanel/README.md](deploy/aapanel/README.md)
 
 ---

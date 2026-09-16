@@ -71,14 +71,13 @@ sudo chmod -R 755 /www/wwwroot/movies.amarpin.com/storage
 
 ## 3. Environment (`.env`)
 
-Copy template from repo root:
+Copy a template and edit:
 
 ```bash
-cp .env.ready .env
+cp .env.example .env
+# or: cp deploy/aapanel/.env.aapanel.example .env
 nano .env
 ```
-
-Or upload `.env.ready` from PC → `/www/wwwroot/movies.amarpin.com/.env`
 
 ### Required variables
 
@@ -105,7 +104,7 @@ Or upload `.env.ready` from PC → `/www/wwwroot/movies.amarpin.com/.env`
 | `SMB_MOUNT_ROOT` | `.../storage/smb-mounts` |
 | `SMB_MOUNT_USE_SUDO` | `true` (after helper install) |
 
-Full annotated template: **`.env.ready`** in repo root.
+Full annotated templates: **`.env.example`** (root) and **`deploy/aapanel/.env.aapanel.example`**.
 
 ### MongoDB Atlas
 
@@ -286,7 +285,8 @@ sudo chown -R www:www apps/web/.next/standalone
 
 | File | Purpose |
 |------|---------|
-| `.env.ready` | Full production `.env` template |
+| `.env.example` | Development / production env template |
+| `deploy/aapanel/.env.aapanel.example` | aaPanel production env template |
 | `deploy/aapanel/amarpin-api.service` | API systemd unit (`www`, port 4000) |
 | `deploy/aapanel/amarpin-web.service` | Web systemd unit (standalone Next.js, port 3000) |
 | `deploy/aapanel/install-smb-mount-helper.sh` | One-time Samba sudo helper |
