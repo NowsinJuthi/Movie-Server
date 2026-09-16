@@ -18,7 +18,10 @@ import type {
 } from "@movie-server/shared";
 import { apiFetch } from "./api";
 import { playbackDevicePayload } from "./device";
-import { hevcDirectStreamForPlayback } from "./device-playback";
+import {
+  hevcDirectStreamForPlayback,
+  requiresMobileVideoTranscode,
+} from "./device-playback";
 
 export type SeriesQuery = {
   q?: string;
@@ -72,10 +75,12 @@ export const seriesApi = {
       method: "POST",
       body: JSON.stringify({
         quality,
-        hevcDirectStream: options?.forceVideoTranscode
+        hevcDirectStream:
+          options?.forceVideoTranscode || requiresMobileVideoTranscode()
           ? false
           : hevcDirectStreamForPlayback(),
-        forceVideoTranscode: options?.forceVideoTranscode ?? false,
+        forceVideoTranscode:
+          Boolean(options?.forceVideoTranscode) || requiresMobileVideoTranscode(),
         ...playbackDevicePayload(),
       }),
     }),
