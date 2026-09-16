@@ -53,18 +53,13 @@ export function isCoarsePointerMobile(): boolean {
  * PC/desktop keeps full browser detection; Android mobile uses hls.js and often cannot decode HEVC.
  */
 export function hevcDirectStreamForPlayback(): boolean {
+  if (isAppleMobileDevice()) {
+    return true;
+  }
   if (isCoarsePointerMobile()) {
     return false;
   }
   return browserSupportsHevcDirectStream();
-}
-
-/**
- * iOS may claim HEVC support while rejecting the source profile/bit depth.
- * Always request server-side H.264 for iPhone/iPad to avoid audio-only playback.
- */
-export function requiresMobileVideoTranscode(): boolean {
-  return isAppleMobileDevice();
 }
 
 /** iPhone / iPad / iPod — Safari blocks autoplay without a direct tap on the video surface. */

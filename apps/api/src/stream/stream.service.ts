@@ -107,7 +107,9 @@ export class StreamService {
     const deviceId = (input.deviceId?.trim() || 'default').slice(0, 80);
     const deviceLabel = (input.deviceLabel?.trim() || 'AmarPin').slice(0, 80);
     const isAppleMobile = /iPhone|iPad|iPod/i.test(deviceLabel);
-    const forceVideoTranscode = Boolean(input.forceVideoTranscode) || isAppleMobile;
+    // iOS gets Emby-style HEVC copy in CMAF/fMP4 HLS. Ignore the older web
+    // bundle's blanket force flag so capable iPhones do not software-encode 1080p.
+    const forceVideoTranscode = Boolean(input.forceVideoTranscode) && !isAppleMobile;
     const entitlement = await this.access.assertQuality(input.user.id, input.quality);
     const maxQuality = entitlement.maxVideoQuality;
     if (!maxQuality) {
@@ -181,10 +183,10 @@ export class StreamService {
       const rawPlan = this.remux.available()
         ? await this.resolveTranscodePlan(located.absPath, selected.libraryItemId)
         : null;
-      // Never trust cached client capability flags for iPhone/iPad: Safari can
-      // play audio while rendering black video for unsupported MKV/HEVC profiles.
+      // iOS HEVC must use CMAF/fMP4 HLS (chosen by HlsPackagerService), not
+      // MPEG-TS. Other clients continue to use their declared capabilities.
       const allowHevcDirect =
-        Boolean(input.clientHevc) && !forceVideoTranscode;
+        (isAppleMobile || Boolean(input.clientHevc)) && !forceVideoTranscode;
       let transcodePlan = rawPlan
         ? applyClientCapabilities(rawPlan, { hevcDirectStream: allowHevcDirect })
         : null;

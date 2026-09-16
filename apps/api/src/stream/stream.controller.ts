@@ -122,7 +122,15 @@ export class StreamController {
   ) {
     await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
     const filePath = this.hlsPackager.resolveSegmentPath(this.id(sessionId), segment);
-    res.setHeader('Content-Type', 'video/MP2T');
+    const lower = segment.toLowerCase();
+    res.setHeader(
+      'Content-Type',
+      lower.endsWith('.ts')
+        ? 'video/MP2T'
+        : lower.endsWith('.mp4')
+          ? 'video/mp4'
+          : 'video/iso.segment',
+    );
     res.setHeader('Cache-Control', 'private, no-store');
     res.status(200);
     const stream = createReadStream(filePath);

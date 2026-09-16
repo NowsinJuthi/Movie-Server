@@ -12,12 +12,14 @@ import {
   hlsInitialSegments,
   hlsSegmentSeconds,
   hlsStreamCopyVideoArgs,
+  isHevcVideoCodec,
   planNeedsEncode,
   type TranscodePlan,
 } from './stream-transcode.util';
 
 const PLAYLIST_NAME = 'stream.m3u8';
-const SEGMENT_PATTERN = /^seg\d+\.ts$/i;
+const SEGMENT_PATTERN = /^seg\d+\.(?:ts|m4s)$/i;
+const INIT_SEGMENT_NAME = 'init.mp4';
 
 type SessionPackState = {
   startSeconds: number;
@@ -81,7 +83,7 @@ export class HlsPackagerService {
     // the normal startup buffer here makes every scrub feel several seconds slower.
     const initialSegments = startSeconds > 0.5 ? 1 : hlsInitialSegments(this.config, plan);
     try {
-      await this.assertSegmentsReady(outDir, initialSegments);
+      await this.assertSegmentsReady(outDir, initialSegments, plan);
       if (!prior || prior.startSeconds === startSeconds) {
         return outDir;
       }
@@ -114,7 +116,7 @@ export class HlsPackagerService {
 
   resolveSegmentPath(sessionId: string, segment: string): string {
     const name = path.basename(segment);
-    if (!SEGMENT_PATTERN.test(name)) {
+    if (!SEGMENT_PATTERN.test(name) && name !== INIT_SEGMENT_NAME) {
       throw new ServiceUnavailableException({
         error: ErrorCode.NotFound,
         message: 'Segment not found.',
@@ -150,10 +152,28 @@ export class HlsPackagerService {
     }
   }
 
-  private async assertSegmentsReady(outDir: string, count: number): Promise<void> {
+  private async assertSegmentsReady(
+    outDir: string,
+    count: number,
+    plan: TranscodePlan,
+  ): Promise<void> {
+    const fmp4 = usesFmp4Segments(plan);
+    if (fmp4) {
+      const init = await fs.stat(path.join(outDir, INIT_SEGMENT_NAME));
+      if (!init.isFile() || init.size < 64) {
+        throw new Error('HLS init segment is not complete.');
+      }
+    }
     for (let i = 0; i < count; i += 1) {
-      const info = await fs.stat(path.join(outDir, `seg${String(i).padStart(3, '0')}.ts`));
-      if (!info.isFile() || info.size < 188 || info.size % 188 !== 0) {
+      const ext = fmp4 ? 'm4s' : 'ts';
+      const info = await fs.stat(
+        path.join(outDir, `seg${String(i).padStart(3, '0')}.${ext}`),
+      );
+      if (
+        !info.isFile() ||
+        info.size < (fmp4 ? 64 : 188) ||
+        (!fmp4 && info.size % 188 !== 0)
+      ) {
         throw new Error('HLS segment is not complete.');
       }
     }
@@ -234,7 +254,7 @@ export class HlsPackagerService {
       const poll = setInterval(() => {
         void (async () => {
           try {
-            await this.assertSegmentsReady(outDir, initialSegments);
+            await this.assertSegmentsReady(outDir, initialSegments, plan);
             clearInterval(poll);
             resolve(outDir);
           } catch {
@@ -297,7 +317,8 @@ export function buildFfmpegHlsArgs(
   config: ConfigService,
 ): string[] {
   const playlistPath = path.join(outDir, PLAYLIST_NAME);
-  const segmentPath = path.join(outDir, 'seg%03d.ts');
+  const fmp4 = usesFmp4Segments(plan);
+  const segmentPath = path.join(outDir, fmp4 ? 'seg%03d.m4s' : 'seg%03d.ts');
   const base = [
     ...ffmpegInputArgs(absPath, startSeconds, config),
     '-map',
@@ -314,6 +335,9 @@ export function buildFfmpegHlsArgs(
     '0',
     '-hls_flags',
     'independent_segments+append_list+omit_endlist+program_date_time+temp_file',
+    ...(fmp4
+      ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', INIT_SEGMENT_NAME]
+      : []),
     '-hls_segment_filename',
     segmentPath,
     playlistPath,
@@ -335,6 +359,12 @@ export function rewriteHlsPlaylist(
     .split('\n')
     .map((line) => {
       const trimmed = line.trim();
+      if (trimmed.startsWith('#EXT-X-MAP:')) {
+        return line.replace(
+          /URI="[^"]+"/,
+          `URI="${prefix}${INIT_SEGMENT_NAME}?mt=${mt}"`,
+        );
+      }
       if (!trimmed || trimmed.startsWith('#')) {
         return line;
       }
@@ -345,6 +375,10 @@ export function rewriteHlsPlaylist(
       return line;
     })
     .join('\n');
+}
+
+function usesFmp4Segments(plan: TranscodePlan): boolean {
+  return !plan.encodeVideo && isHevcVideoCodec(plan.probe.videoCodec);
 }
 
 function waitForProcessExit(child: ChildProcess, timeoutMs: number): Promise<void> {

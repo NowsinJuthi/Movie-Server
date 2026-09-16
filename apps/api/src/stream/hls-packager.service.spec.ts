@@ -22,6 +22,20 @@ describe('rewriteHlsPlaylist', () => {
     expect(out).not.toContain('#EXT-X-START');
   });
 
+  it('rewrites CMAF init and media segments for iOS HEVC HLS', () => {
+    const raw = [
+      '#EXTM3U',
+      '#EXT-X-MAP:URI="init.mp4"',
+      '#EXTINF:4.0,',
+      'seg000.m4s',
+    ].join('\n');
+    const out = rewriteHlsPlaylist(raw, 'ios123', 'tok456');
+    expect(out).toContain(
+      '#EXT-X-MAP:URI="/api/v1/stream/ios123/hls/init.mp4?mt=tok456"',
+    );
+    expect(out).toContain('/api/v1/stream/ios123/hls/seg000.m4s?mt=tok456');
+  });
+
   it('writes HLS segments atomically', () => {
     const probe: LibraryProbe = {
       durationMs: 60_000,
@@ -81,5 +95,41 @@ describe('rewriteHlsPlaylist', () => {
 
     expect(packagingSegmentSeconds(config, plan, 0)).toBe(4);
     expect(packagingSegmentSeconds(config, plan, 120)).toBe(2);
+  });
+
+  it('uses CMAF fMP4 segments when HEVC video is copied', () => {
+    const probe: LibraryProbe = {
+      durationMs: 60_000,
+      width: 1920,
+      height: 1080,
+      resolution: '1080p',
+      videoCodec: 'hevc',
+      audioCodec: 'eac3',
+      bitrateKbps: 4_000,
+      sizeBytes: 1_000,
+      videoStreams: [],
+      audioTracks: [],
+      subtitleTracks: [],
+    };
+    const plan: TranscodePlan = {
+      transcode: true,
+      encodeVideo: false,
+      encodeAudio: true,
+      audioOrdinal: 0,
+      probe,
+    };
+    const config = { get: () => undefined } as unknown as ConfigService;
+    const args = buildFfmpegHlsArgs('/media/movie.mkv', '/tmp/hls', plan, 4, 0, config);
+    expect(args).toEqual(
+      expect.arrayContaining([
+        '-c:v',
+        'copy',
+        '-hls_segment_type',
+        'fmp4',
+        '-hls_fmp4_init_filename',
+        'init.mp4',
+      ]),
+    );
+    expect(args.join(' ')).toContain('seg%03d.m4s');
   });
 });
