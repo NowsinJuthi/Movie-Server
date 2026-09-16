@@ -1068,6 +1068,7 @@ export function StreamPlayer({
       const video = videoRef.current;
       const info = sessionRef.current;
       if (!video || !info || seekingRef.current) return;
+      const wasPlaying = !video.paused;
       const total = durationHintRef.current || duration;
       const target = Math.max(0, Math.min(targetSeconds, total > 0 ? total : targetSeconds));
       const beforeSeek = displayTimelineSeconds(
@@ -1136,6 +1137,11 @@ export function StreamPlayer({
         } else {
           video.src = nextSrc;
           video.load();
+          // Start play during the seek gesture. Waiting for metadata first loses
+          // iOS user activation and leaves the movie paused after every scrub.
+          const resumePromise = wasPlaying
+            ? video.play().catch(() => undefined)
+            : Promise.resolve();
           await new Promise<void>((resolve, reject) => {
             const timeout = window.setTimeout(() => reject(new Error("Seek timed out")), 90_000);
             video.addEventListener(
@@ -1155,10 +1161,13 @@ export function StreamPlayer({
               { once: true },
             );
           });
+          await resumePromise;
         }
 
         setCurrentTime(target);
-        void video.play().catch(() => undefined);
+        if (wasPlaying) {
+          void video.play().catch(() => undefined);
+        }
       } catch {
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
@@ -1601,18 +1610,25 @@ export function StreamPlayer({
       setSettingsView("root");
       return;
     }
-    if (mobileLayout || isCoarsePointerMobile()) {
+    const mobile = mobileLayout || isCoarsePointerMobile();
+    if (mobile) {
       if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
         void unlockMobileAudible();
         revealControls();
         return;
       }
-    } else if (iosMutedPlay || awaitingTap) {
-      void tryStartPlayback();
-      revealControls();
+      // YouTube-style mobile behavior: tapping the picture only shows/hides
+      // controls. Play/pause is reserved for the center transport button.
+      if (controls) {
+        setControls(false);
+        if (hideTimer.current) window.clearTimeout(hideTimer.current);
+      } else {
+        revealControls();
+      }
       return;
     }
-    if (mobileLayout && !controls) {
+    if (iosMutedPlay || awaitingTap) {
+      void tryStartPlayback();
       revealControls();
       return;
     }
@@ -1795,14 +1811,7 @@ export function StreamPlayer({
 
   const controlsVisible = controls || !playing || sheet != null;
   const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
-  /** iOS: lift the video above all UI while playing — Safari will not paint frames under overlays. */
-  const iosVideoOnTop =
-    mobileLayout && isAppleMobileDevice() && playing && sheet == null && !error;
-  /** iOS Safari stops painting video when any layer covers it — unmount chrome while playing. */
-  const mobileChromeMounted =
-    mobileLayout &&
-    !iosVideoOnTop &&
-    (sheet != null || !playing || controlsVisible || loading || buffering || Boolean(error));
+  const mobileChromeMounted = mobileLayout;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
@@ -1834,10 +1843,7 @@ export function StreamPlayer({
         className={cn(
           "bg-black",
           mobileLayout
-            ? cn(
-                "absolute inset-0 h-full w-full object-contain",
-                iosVideoOnTop ? "z-[200] [transform:translateZ(0)]" : "z-[1]",
-              )
+            ? "absolute inset-0 z-[1] h-full w-full object-contain"
             : cn("h-screen w-full", videoObjectClass),
         )}
         playsInline
@@ -1887,7 +1893,7 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || buffering) && !error && !(mobileLayout && playing && !loading) && !iosVideoOnTop ? (
+      {(loading || buffering) && !error && !(mobileLayout && playing && !loading) ? (
         <div
           className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
           role="status"

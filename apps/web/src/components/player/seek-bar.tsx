@@ -162,35 +162,16 @@ export function SeekBar({
           "relative w-full cursor-pointer touch-none outline-none",
           isMobileVariant && "min-h-11",
         )}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
         onPointerDown={(event) => {
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
           event.stopPropagation();
           event.currentTarget.setPointerCapture?.(event.pointerId);
-          beginScrub(event.clientX);
-        }}
-        onTouchStart={(event) => {
-          if (event.touches.length !== 1) return;
-          event.stopPropagation();
-          beginScrub(event.touches[0].clientX, event);
-        }}
-        onTouchMove={(event) => {
-          if (!scrubbingRef.current || event.touches.length !== 1) return;
-          event.preventDefault();
-          event.stopPropagation();
-          const ratio = ratioFromClientX(event.touches[0].clientX);
-          previewRatioRef.current = ratio;
-          setPreviewRatio(ratio);
-        }}
-        onTouchEnd={(event) => {
-          if (!scrubbingRef.current) return;
-          event.stopPropagation();
-          endScrub();
-        }}
-        onTouchCancel={(event) => {
-          if (!scrubbingRef.current) return;
-          event.stopPropagation();
-          endScrub();
+          beginScrub(event.clientX, event);
         }}
         onKeyDown={(event) => {
           if (!duration) return;
