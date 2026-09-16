@@ -37,16 +37,20 @@ import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
 import {
+  browserSupportsHevcDirectStream,
+  displayTimelineSeconds,
   effectiveVideoDuration,
   isAppleMobileDevice,
+  isLocalTimeBuffered,
   isVideoInNativeFullscreen,
+  localTimelineSeconds,
   lockPlaybackLandscape,
   seekVideoTo,
   toggleVideoFullscreen,
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
-import { appendStreamQuery, toAbsoluteStreamUrl } from "@/lib/stream-url";
+import { appendStreamQuery, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
@@ -95,7 +99,10 @@ type StreamPlayerProps = {
   mediaInfo?: PlayerMediaInfo | null;
   backHref: string;
   preferredQuality?: VideoQuality;
-  startPlayback: (quality: VideoQuality) => Promise<StreamStartResult>;
+  startPlayback: (
+    quality: VideoQuality,
+    options?: { forceVideoTranscode?: boolean },
+  ) => Promise<StreamStartResult>;
   saveProgress: (progressSeconds: number, durationSeconds: number) => Promise<void>;
   next?: PlayerNeighbor | null;
   previous?: PlayerNeighbor | null;
@@ -118,10 +125,12 @@ export function StreamPlayer({
   const router = useRouter();
   const queryClient = useQueryClient();
   const returnToRef = useRef<string | null>(null);
+  const autoplayRequestedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    autoplayRequestedRef.current = params.get("autoplay") === "1";
     const from = params.get("from");
     if (isSafeAppPath(from) && !from.includes("/watch")) {
       returnToRef.current = from;
@@ -152,11 +161,18 @@ export function StreamPlayer({
   const markersRef = useRef<PlaybackMarkers>(emptyPlaybackMarkers());
   const resumeRef = useRef(0);
   const resumeApplied = useRef(false);
+  /** Movie time (seconds) where the current HLS package started. */
+  const mediaOriginRef = useRef(0);
+  const usingHlsRef = useRef(false);
   const unmounted = useRef(false);
   const lastSaved = useRef(0);
   const nextStarted = useRef(false);
   const hideTimer = useRef<number | null>(null);
   const recoverCount = useRef(0);
+  const seekingRef = useRef(false);
+  const seekPlaybackRef = useRef<(seconds: number) => void>(() => undefined);
+  const transcodeFallbackRef = useRef(false);
+  const transcodeRetryRef = useRef<(() => void) | null>(null);
   const repeatModeRef = useRef<RepeatMode>("none");
 
   const [session, setSession] = useState<PlaybackSessionInfo | null>(null);
@@ -168,7 +184,17 @@ export function StreamPlayer({
   const [volume, setVolume] = useState(1);
   const [rate, setRate] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const durationHint = useMemo(() => {
+    const fromMedia = (mediaInfo?.runtimeMinutes ?? 0) > 0 ? mediaInfo!.runtimeMinutes! * 60 : 0;
+    const fromSession = session?.durationSeconds ?? 0;
+    return Math.max(fromMedia, fromSession);
+  }, [mediaInfo?.runtimeMinutes, session?.durationSeconds]);
+  const durationHintRef = useRef(durationHint);
+  durationHintRef.current = durationHint;
+  const [duration, setDuration] = useState(() => {
+    const fromMedia = (mediaInfo?.runtimeMinutes ?? 0) > 0 ? mediaInfo!.runtimeMinutes! * 60 : 0;
+    return fromMedia;
+  });
   const [bufferedEnd, setBufferedEnd] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [controls, setControls] = useState(true);
@@ -184,7 +210,6 @@ export function StreamPlayer({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("none");
   const [showStats, setShowStats] = useState(false);
-  const [clock, setClock] = useState(() => formatClock(new Date()));
   const [awaitingTap, setAwaitingTap] = useState(false);
   const [iosMutedPlay, setIosMutedPlay] = useState(false);
   const mobileLayout = useMobilePlayerLayout();
@@ -192,6 +217,10 @@ export function StreamPlayer({
   mobileLayoutRef.current = mobileLayout;
 
   const displayYear = year ?? mediaInfo?.year ?? null;
+  const timelineDuration = durationHint > 0 ? durationHint : duration;
+  const packagedPlayback = Boolean(
+    session && (session.transcode || session.remuxStream || session.hevcStream),
+  );
   const chapters = useMemo(() => buildChapters(markers, duration), [markers, duration]);
 
   const qualities = session?.qualities.filter((item) => item.allowed) ?? [];
@@ -219,13 +248,6 @@ export function StreamPlayer({
   }, [repeatMode]);
 
   useEffect(() => {
-    if (!controls && !sheet) return;
-    const id = window.setInterval(() => setClock(formatClock(new Date())), 30_000);
-    setClock(formatClock(new Date()));
-    return () => window.clearInterval(id);
-  }, [controls, sheet]);
-
-  useEffect(() => {
     if (!sheet) return;
     setControls(true);
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -234,16 +256,29 @@ export function StreamPlayer({
   const persistProgress = useCallback(
     async (force = false) => {
       const video = videoRef.current;
-      if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
-        return;
-      }
-      const seconds = Math.floor(video.currentTime);
+      if (!video) return;
+      const videoDur = Number.isFinite(video.duration) ? video.duration : 0;
+      const totalSeconds = resolvePlaybackDuration(
+        videoDur,
+        durationHintRef.current,
+        durationHintRef.current,
+      );
+      if (totalSeconds <= 0) return;
+      const seconds = Math.floor(
+        usingHlsRef.current
+          ? displayTimelineSeconds(
+              video.currentTime,
+              mediaOriginRef.current,
+              durationHintRef.current,
+            )
+          : video.currentTime,
+      );
       if (!force && Math.abs(seconds - lastSaved.current) < 3) {
         return;
       }
       lastSaved.current = seconds;
       try {
-        await saveProgress(seconds, Math.max(1, Math.floor(video.duration)));
+        await saveProgress(seconds, Math.max(1, Math.floor(totalSeconds)));
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["series-continue"] }),
           queryClient.invalidateQueries({ queryKey: ["movie-continue"] }),
@@ -275,6 +310,7 @@ export function StreamPlayer({
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
+    usingHlsRef.current = false;
     const video = videoRef.current;
     if (video) {
       video.removeAttribute("src");
@@ -285,6 +321,10 @@ export function StreamPlayer({
   const applyResume = useCallback(() => {
     const video = videoRef.current;
     if (!video || resumeApplied.current) return;
+    if (usingHlsRef.current) {
+      resumeApplied.current = true;
+      return;
+    }
     const resume = resumeRef.current;
     if (resume > 5 && Number.isFinite(video.duration) && resume < video.duration * 0.95) {
       video.currentTime = resume;
@@ -327,6 +367,20 @@ export function StreamPlayer({
       setLoading(false);
       return true;
     } catch {
+      // An explicit poster/Play click should still start the movie when the
+      // browser blocks audible autoplay after client-side navigation.
+      if (autoplayRequestedRef.current) {
+        try {
+          video.muted = true;
+          await video.play();
+          setMuted(true);
+          setAwaitingTap(false);
+          setLoading(false);
+          return true;
+        } catch {
+          /* fall through to the manual play affordance */
+        }
+      }
       setAwaitingTap(true);
       setLoading(false);
       return false;
@@ -344,6 +398,23 @@ export function StreamPlayer({
       /* warm SMB/page cache; playback still works if this fails */
     }
   }, []);
+
+  const usesPackagedHls = useCallback(
+    (info: PlaybackSessionInfo) =>
+      info.transcode || info.remuxStream || info.hevcStream,
+    [],
+  );
+
+  const hlsSourceFor = useCallback(
+    (info: PlaybackSessionInfo, startSeconds = 0) =>
+      usesPackagedHls(info)
+        ? variantHlsUrl(info, {
+            startSeconds,
+            resolution: quality === "auto" ? "auto" : quality,
+          })
+        : toAbsoluteStreamUrl(info.hlsUrl),
+    [quality, usesPackagedHls],
+  );
 
   const startIosMutedPlayback = useCallback((video: HTMLVideoElement) => {
     video.muted = true;
@@ -407,9 +478,12 @@ export function StreamPlayer({
       const video = videoRef.current;
       if (!video) return;
       detachEngine();
+      const origin = Math.max(0, resumeRef.current);
+      mediaOriginRef.current = origin;
+      usingHlsRef.current = true;
       setUsingHls(true);
       setIosMutedPlay(false);
-      video.src = toAbsoluteStreamUrl(info.hlsUrl);
+      video.src = hlsSourceFor(info, origin);
       video.load();
       const onReady = () => startIosMutedPlayback(video);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -421,12 +495,22 @@ export function StreamPlayer({
         "error",
         () => {
           setUsingHls(false);
-          attachProgressive(info, quality === "auto" ? undefined : quality);
+          setLoading(false);
+          setError(
+            usesPackagedHls(info)
+              ? "HLS playback failed to start. Tap Retry, or check ffmpeg/SMB access on the server."
+              : "This video could not play on iPhone. Use MP4 (H.264 + AAC).",
+          );
         },
         { once: true },
       );
     },
-    [attachProgressive, detachEngine, quality, startIosMutedPlayback],
+    [
+      detachEngine,
+      hlsSourceFor,
+      startIosMutedPlayback,
+      usesPackagedHls,
+    ],
   );
 
   const attachHls = useCallback(
@@ -437,10 +521,24 @@ export function StreamPlayer({
 
       const fallback = () => {
         setUsingHls(false);
+        if (usesPackagedHls(info) && !transcodeFallbackRef.current) {
+          transcodeFallbackRef.current = true;
+          transcodeRetryRef.current?.();
+          return;
+        }
+        if (usesPackagedHls(info)) {
+          setLoading(false);
+          setError(
+            "Playback failed to start. Wait a moment and tap Retry, or check that ffmpeg can read this file on the server.",
+          );
+          return;
+        }
         attachProgressive(info, quality === "auto" ? undefined : quality);
       };
 
-      const src = toAbsoluteStreamUrl(info.hlsUrl);
+      const src = hlsSourceFor(info, resumeRef.current);
+      const videoTranscode = info.transcode;
+      const encoding = videoTranscode || info.audioTranscode;
 
       void import("hls.js").then(({ default: HlsLib }) => {
         if (!videoRef.current) return;
@@ -448,17 +546,59 @@ export function StreamPlayer({
           const hls = new HlsLib({
             enableWorker: true,
             lowLatencyMode: false,
-            backBufferLength: 30,
-            maxBufferLength: 24,
-            maxMaxBufferLength: 48,
+            liveDurationInfinity: encoding,
+            // This is an on-demand movie playlist that grows while ffmpeg packages
+            // it, not a broadcast. Never chase its advancing "live edge": doing so
+            // auto-jumps the movie forward once ffmpeg gets several segments ahead.
+            liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
+            liveMaxLatencyDurationCount: Infinity,
+            maxLiveSyncPlaybackRate: 1,
+            backBufferLength: videoTranscode ? 120 : encoding ? 60 : 30,
+            maxBufferLength: videoTranscode ? 120 : encoding ? 60 : 24,
+            maxMaxBufferLength: videoTranscode ? 240 : encoding ? 120 : 48,
+            maxBufferHole: videoTranscode ? 2 : encoding ? 1 : 0.5,
+            highBufferWatchdogPeriod: videoTranscode ? 3 : encoding ? 2 : 1,
+            nudgeOffset: 0.2,
+            nudgeMaxRetry: videoTranscode ? 12 : encoding ? 8 : 4,
             startFragPrefetch: true,
-            capLevelToPlayerSize: true,
+            capLevelToPlayerSize: !videoTranscode,
             xhrSetup(xhr) {
               xhr.withCredentials = true;
             },
           });
           hlsRef.current = hls;
+          mediaOriginRef.current = Math.max(0, resumeRef.current);
+          usingHlsRef.current = true;
           setUsingHls(true);
+
+          const startWhenBuffered = (minSeconds: number) => {
+            const video = videoRef.current;
+            if (!video) {
+              void tryStartPlayback();
+              return;
+            }
+            let attempts = 0;
+            const tick = () => {
+              if (!videoRef.current) return;
+              let ahead = 0;
+              const localT = video.currentTime;
+              for (let i = 0; i < video.buffered.length; i += 1) {
+                const start = video.buffered.start(i);
+                const end = video.buffered.end(i);
+                if (localT >= start - 0.25 && localT <= end + 0.25) {
+                  ahead = Math.max(ahead, end - localT);
+                }
+              }
+              if (ahead >= minSeconds || attempts >= 120) {
+                void tryStartPlayback();
+                return;
+              }
+              attempts += 1;
+              window.setTimeout(tick, 500);
+            };
+            tick();
+          };
+
           hls.on(HlsLib.Events.MANIFEST_PARSED, () => {
             recoverCount.current = 0;
             if (quality !== "auto") {
@@ -467,16 +607,27 @@ export function StreamPlayer({
             } else {
               hls.currentLevel = -1;
             }
-            void tryStartPlayback();
+            if (videoTranscode) {
+              setBuffering(true);
+              startWhenBuffered(8);
+            } else if (info.audioTranscode) {
+              setBuffering(true);
+              startWhenBuffered(7);
+            } else if (info.remuxStream || info.hevcStream) {
+              setBuffering(true);
+              startWhenBuffered(4);
+            } else {
+              void tryStartPlayback();
+            }
           });
           hls.on(HlsLib.Events.ERROR, (_event, data) => {
             if (!data.fatal) return;
-            if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR && recoverCount.current < 2) {
+            if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR && recoverCount.current < 4) {
               recoverCount.current += 1;
               hls.startLoad();
               return;
             }
-            if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR && recoverCount.current < 2) {
+            if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR && recoverCount.current < 3) {
               recoverCount.current += 1;
               hls.recoverMediaError();
               return;
@@ -489,6 +640,8 @@ export function StreamPlayer({
         }
 
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          mediaOriginRef.current = Math.max(0, resumeRef.current);
+          usingHlsRef.current = true;
           setUsingHls(true);
           video.src = src;
           video.load();
@@ -499,25 +652,59 @@ export function StreamPlayer({
         fallback();
       }).catch(() => fallback());
     },
-    [attachProgressive, detachEngine, quality, tryStartPlayback],
+    [attachProgressive, detachEngine, hlsSourceFor, quality, tryStartPlayback, usesPackagedHls],
+  );
+
+  const attachPlayback = useCallback(
+    (info: PlaybackSessionInfo) => {
+      if (info.directPlay) {
+        attachProgressive(info);
+        return;
+      }
+      if (info.hevcStream && !browserSupportsHevcDirectStream()) {
+        transcodeFallbackRef.current = true;
+        transcodeRetryRef.current?.();
+        return;
+      }
+      // Emby-style: MKV/WebM direct stream + transcode/hevc paths all use packaged HLS.
+      if (usesPackagedHls(info)) {
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
+        } else {
+          attachHls(info);
+        }
+        return;
+      }
+      attachProgressive(info);
+    },
+    [attachHls, attachNativeHls, attachProgressive, usesPackagedHls],
   );
 
   const boot = useCallback(
-    async (requested: VideoQuality) => {
+    async (requested: VideoQuality, options?: { forceVideoTranscode?: boolean }) => {
+      if (options?.forceVideoTranscode) {
+        transcodeFallbackRef.current = true;
+      } else {
+        transcodeFallbackRef.current = false;
+      }
       setLoading(true);
       setError(null);
       setCountdown(null);
       nextStarted.current = false;
       resumeApplied.current = false;
       recoverCount.current = 0;
+      seekingRef.current = false;
+      mediaOriginRef.current = 0;
+      usingHlsRef.current = false;
       await stopSession();
       try {
         let result: StreamStartResult;
+        const playbackOpts = { forceVideoTranscode: options?.forceVideoTranscode ?? false };
         try {
-          result = await startPlayback(requested);
+          result = await startPlayback(requested, playbackOpts);
         } catch (err) {
           if (err instanceof ApiError && err.error === ErrorCode.QualityNotAllowed && requested !== "sd") {
-            result = await startPlayback("sd");
+            result = await startPlayback("sd", playbackOpts);
           } else {
             throw err;
           }
@@ -535,19 +722,22 @@ export function StreamPlayer({
           );
           return;
         }
-        if (isAppleMobileDevice()) {
-          attachNativeHls(result.session);
-        } else {
-          attachHls(result.session);
-        }
+        attachPlayback(result.session);
       } catch (err) {
         if (unmounted.current) return;
         setLoading(false);
         setError(err instanceof ApiError ? err.message : "Playback could not start.");
       }
     },
-    [attachHls, attachNativeHls, startPlayback, stopSession],
+    [attachPlayback, startPlayback, stopSession],
   );
+
+  useEffect(() => {
+    transcodeRetryRef.current = () => {
+      const q = sessionRef.current?.selectedQuality ?? preferredQuality;
+      void boot(q, { forceVideoTranscode: true });
+    };
+  }, [boot, preferredQuality]);
 
   useEffect(() => {
     unmounted.current = false;
@@ -596,50 +786,64 @@ export function StreamPlayer({
     };
   }, [persistProgress]);
 
-  const durationFallback = (mediaInfo?.runtimeMinutes ?? 0) > 0 ? mediaInfo!.runtimeMinutes! * 60 : 0;
+  useEffect(() => {
+    if (durationHint <= 0) return;
+    setDuration(durationHint);
+  }, [durationHint]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const syncBuffered = () => {
-      const dur = Number.isFinite(video.duration) ? video.duration : 0;
-      if (!dur || !video.buffered.length) {
+      if (!video.buffered.length) {
         setBufferedEnd(0);
         return;
       }
-      let end = 0;
-      const t = video.currentTime;
+      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
+      const max = durationHintRef.current;
+      const displayNow = usingHlsRef.current
+        ? displayTimelineSeconds(video.currentTime, origin, max)
+        : video.currentTime;
+      let localEnd = 0;
+      const localT = video.currentTime;
       for (let i = 0; i < video.buffered.length; i += 1) {
         const start = video.buffered.start(i);
         const stop = video.buffered.end(i);
-        if (start <= t && t <= stop) {
-          end = stop;
+        if (start <= localT && localT <= stop) {
+          localEnd = stop;
           break;
         }
-        end = Math.max(end, stop);
+        localEnd = Math.max(localEnd, stop);
       }
-      setBufferedEnd(end);
+      if (usingHlsRef.current) {
+        localEnd = Math.min(localEnd, localT + 120);
+      }
+      const end = origin + localEnd;
+      setBufferedEnd(max > 0 ? Math.min(end, max) : end);
     };
 
     const onTime = () => {
-      setCurrentTime(video.currentTime);
-      const dur = Number.isFinite(video.duration) ? video.duration : 0;
-      // Ignore broken/short metadata (e.g. old fragmented remux) when we know the runtime.
-      if (dur > 30 && (durationFallback === 0 || dur >= durationFallback * 0.5 || dur >= 60)) {
-        setDuration(dur);
-      } else if (durationFallback > 0) {
-        setDuration((prev) => (prev > 30 ? prev : durationFallback));
+      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
+      const displayTime = usingHlsRef.current
+        ? displayTimelineSeconds(video.currentTime, origin, durationHintRef.current)
+        : video.currentTime;
+      setCurrentTime(displayTime);
+      if (durationHintRef.current > 0) {
+        setDuration(durationHintRef.current);
+      } else {
+        const dur = Number.isFinite(video.duration) ? video.duration : 0;
+        setDuration((prev) => resolvePlaybackDuration(dur, durationHint, prev));
       }
       syncBuffered();
       const credits = markersRef.current.creditsStartSeconds;
-      const effectiveDur = dur > 30 ? dur : durationFallback || dur;
+      const effectiveDur = durationHintRef.current || durationHint;
       if (
         autoPlayNext &&
         next &&
         !nextStarted.current &&
-        ((credits != null && video.currentTime >= credits) ||
-          (effectiveDur > 0 && video.currentTime >= effectiveDur - 12))
+        ((credits != null && displayTime >= credits) ||
+          (effectiveDur > 0 && displayTime >= effectiveDur - 12))
       ) {
         nextStarted.current = true;
         setCountdown(AUTO_NEXT_SECONDS);
@@ -665,11 +869,9 @@ export function StreamPlayer({
       void persistProgress(true);
     };
     const onLoaded = () => {
-      const dur = Number.isFinite(video.duration) ? video.duration : 0;
-      if (dur > 30 && (durationFallback === 0 || dur >= durationFallback * 0.5 || dur >= 60)) {
-        setDuration(dur);
-      } else if (durationFallback > 0) {
-        setDuration(durationFallback);
+      if (durationHintRef.current <= 0) {
+        const dur = Number.isFinite(video.duration) ? video.duration : 0;
+        setDuration((prev) => resolvePlaybackDuration(dur, durationHint, prev));
       }
       applyResume();
     };
@@ -679,8 +881,7 @@ export function StreamPlayer({
     const onEnded = () => {
       void persistProgress(true);
       if (repeatModeRef.current === "one") {
-        video.currentTime = 0;
-        void video.play().catch(() => undefined);
+        seekPlaybackRef.current(0);
         return;
       }
       if (autoPlayNext && next) {
@@ -689,15 +890,24 @@ export function StreamPlayer({
       }
     };
     const onError = () => {
-      if (!sessionRef.current) return;
-      if (usingHls) {
-        attachProgressive(sessionRef.current, quality);
+      const info = sessionRef.current;
+      if (!info) return;
+      if (usesPackagedHls(info) && !transcodeFallbackRef.current) {
+        transcodeFallbackRef.current = true;
+        transcodeRetryRef.current?.();
         return;
       }
+      if (usingHlsRef.current && !usesPackagedHls(info)) {
+        attachProgressive(info, quality === "auto" ? undefined : quality);
+        return;
+      }
+      setLoading(false);
       setError(
-        isAppleMobileDevice()
-          ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
-          : "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
+        usesPackagedHls(info)
+          ? "Playback failed. Tap Retry — if it keeps failing, check ffmpeg and SMB access on the server."
+          : isAppleMobileDevice()
+            ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
+            : "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
       );
     };
 
@@ -725,7 +935,7 @@ export function StreamPlayer({
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
     };
-  }, [applyResume, attachProgressive, autoPlayNext, durationFallback, next, persistProgress, quality, revealControls, usingHls]);
+  }, [applyResume, attachProgressive, autoPlayNext, boot, durationHint, next, persistProgress, preferredQuality, quality, revealControls, usesPackagedHls, usingHls]);
 
   useEffect(() => {
     if (countdown == null || !next) return;
@@ -784,27 +994,146 @@ export function StreamPlayer({
     }
   }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback]);
 
+  const seekPlaybackTo = useCallback(
+    async (targetSeconds: number) => {
+      const video = videoRef.current;
+      const info = sessionRef.current;
+      if (!video || !info || seekingRef.current) return;
+      const total = durationHintRef.current || duration;
+      const target = Math.max(0, Math.min(targetSeconds, total > 0 ? total : targetSeconds));
+      const beforeSeek = displayTimelineSeconds(
+        video.currentTime,
+        mediaOriginRef.current,
+        total,
+      );
+      const previousOrigin = mediaOriginRef.current;
+
+      setCurrentTime(target);
+
+      if (!usingHlsRef.current || !usesPackagedHls(info)) {
+        seekVideoTo(video, target, total);
+        setCurrentTime(target);
+        return;
+      }
+
+      const origin = mediaOriginRef.current;
+      const localTarget = localTimelineSeconds(target, origin);
+      // A target before the current package origin cannot be represented as local time 0.
+      // Restart packaging from that movie position instead of snapping back to the origin.
+      const targetIsInCurrentPack = target >= origin - 0.35;
+      if (targetIsInCurrentPack && isLocalTimeBuffered(video, localTarget)) {
+        video.currentTime = localTarget;
+        setCurrentTime(target);
+        return;
+      }
+
+      seekingRef.current = true;
+      setBuffering(true);
+      try {
+        mediaOriginRef.current = target;
+        const nextSrc = `${variantHlsUrl(info, {
+          startSeconds: target,
+          resolution: quality === "auto" ? "auto" : quality,
+        })}&_=${Date.now()}`;
+
+        const hls = hlsRef.current;
+        if (hls) {
+          const { default: HlsLib } = await import("hls.js");
+          await new Promise<void>((resolve, reject) => {
+            const timeout = window.setTimeout(() => {
+              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
+              hls.off(HlsLib.Events.ERROR, onError);
+              reject(new Error("Seek timed out"));
+            }, 90_000);
+            const onParsed = () => {
+              window.clearTimeout(timeout);
+              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
+              hls.off(HlsLib.Events.ERROR, onError);
+              resolve();
+            };
+            const onError = (_event: string, data: { fatal?: boolean }) => {
+              if (!data.fatal) return;
+              window.clearTimeout(timeout);
+              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
+              hls.off(HlsLib.Events.ERROR, onError);
+              reject(new Error("Seek failed"));
+            };
+            hls.stopLoad();
+            hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
+            hls.on(HlsLib.Events.ERROR, onError);
+            hls.loadSource(nextSrc);
+            hls.startLoad(0);
+          });
+        } else {
+          video.src = nextSrc;
+          video.load();
+          await new Promise<void>((resolve, reject) => {
+            const timeout = window.setTimeout(() => reject(new Error("Seek timed out")), 90_000);
+            video.addEventListener(
+              "loadedmetadata",
+              () => {
+                window.clearTimeout(timeout);
+                resolve();
+              },
+              { once: true },
+            );
+            video.addEventListener(
+              "error",
+              () => {
+                window.clearTimeout(timeout);
+                reject(new Error("Seek failed"));
+              },
+              { once: true },
+            );
+          });
+        }
+
+        setCurrentTime(target);
+        void video.play().catch(() => undefined);
+      } catch {
+        mediaOriginRef.current = previousOrigin;
+        setCurrentTime(beforeSeek);
+        setError("Seek failed. Try again in a moment.");
+      } finally {
+        seekingRef.current = false;
+        setBuffering(false);
+      }
+    },
+    [duration, quality, usesPackagedHls],
+  );
+
+  seekPlaybackRef.current = (seconds) => {
+    void seekPlaybackTo(seconds);
+  };
+
   const seekBy = useCallback(
     (delta: number) => {
       const video = videoRef.current;
       if (!video) return;
-      seekVideoTo(video, video.currentTime + delta, duration);
+      const display = usingHlsRef.current
+        ? displayTimelineSeconds(
+            video.currentTime,
+            mediaOriginRef.current,
+            durationHintRef.current,
+          )
+        : video.currentTime;
+      void seekPlaybackTo(display + delta);
       revealControls();
     },
-    [duration, revealControls],
+    [revealControls, seekPlaybackTo],
   );
 
   const seekToRatio = useCallback(
     (ratio: number) => {
       const video = videoRef.current;
       if (!video) return;
-      const dur = effectiveVideoDuration(video, duration);
+      const dur = durationHintRef.current || duration;
       if (dur <= 0) return;
       const clamped = Math.min(1, Math.max(0, ratio));
-      seekVideoTo(video, dur * clamped, dur);
+      void seekPlaybackTo(dur * clamped);
       revealControls();
     },
-    [duration, revealControls],
+    [duration, revealControls, seekPlaybackTo],
   );
 
   const changeVolume = useCallback((nextVolume: number) => {
@@ -877,10 +1206,9 @@ export function StreamPlayer({
   }, [pipSupported]);
 
   const skipTo = useCallback((seconds: number | null) => {
-    const video = videoRef.current;
-    if (!video || seconds == null) return;
-    video.currentTime = seconds;
-  }, []);
+    if (seconds == null) return;
+    void seekPlaybackTo(seconds);
+  }, [seekPlaybackTo]);
 
   const applyQuality = useCallback(
     (choice: QualityChoice) => {
@@ -899,6 +1227,17 @@ export function StreamPlayer({
         }
       }
       if (info) {
+        const video = videoRef.current;
+        if (video) {
+          resumeRef.current = usingHlsRef.current
+            ? displayTimelineSeconds(
+                video.currentTime,
+                mediaOriginRef.current,
+                durationHintRef.current,
+              )
+            : video.currentTime;
+          resumeApplied.current = false;
+        }
         if (usingHls) {
           attachHls(info);
         } else {
@@ -913,6 +1252,16 @@ export function StreamPlayer({
     async (input: { audioId?: string; subtitleId?: string | null }) => {
       const id = sessionRef.current?.id;
       if (!id) return;
+      const video = videoRef.current;
+      const movieTime = video
+        ? usingHlsRef.current
+          ? displayTimelineSeconds(
+              video.currentTime,
+              mediaOriginRef.current,
+              durationHintRef.current,
+            )
+          : video.currentTime
+        : currentTime;
       try {
         const body = await streamApi.selectTracks(id, input);
         sessionRef.current = body.session;
@@ -930,12 +1279,24 @@ export function StreamPlayer({
         } else {
           setTrackNotice(null);
         }
+        if (input.audioId && audio?.embedded && usesPackagedHls(body.session)) {
+          resumeRef.current = Math.max(0, movieTime);
+          resumeApplied.current = false;
+          audioRef.current?.pause();
+          audioRef.current?.removeAttribute("src");
+          if (videoRef.current) videoRef.current.muted = muted;
+          if (isAppleMobileDevice()) {
+            attachNativeHls(body.session);
+          } else {
+            attachHls(body.session);
+          }
+        }
         await queryClient.invalidateQueries({ queryKey: ["active-profile"] });
       } catch (err) {
         setTrackNotice(err instanceof ApiError ? err.message : "Could not switch tracks.");
       }
     },
-    [queryClient],
+    [attachHls, attachNativeHls, currentTime, muted, queryClient, usesPackagedHls],
   );
 
   useEffect(() => {
@@ -996,6 +1357,9 @@ export function StreamPlayer({
     const video = videoRef.current;
     const audio = audioRef.current;
     if (!video || !audio) return;
+    const packagedEmbeddedAudio = Boolean(
+      selectedAudio?.embedded && session && usesPackagedHls(session),
+    );
 
     const enableEmbedded = (index: number | null) => {
       const list = getVideoAudioTracks(video);
@@ -1022,17 +1386,26 @@ export function StreamPlayer({
       }
     };
 
-    if (selectedAudio?.url) {
+    if (selectedAudio?.url && !packagedEmbeddedAudio) {
       const baseUrl = selectedAudio.url;
       const liveExtract = Boolean(selectedAudio.embedded);
-      loadExtracted(baseUrl, liveExtract ? video.currentTime || 0 : 0);
+      const movieTime = () =>
+        usingHlsRef.current
+          ? displayTimelineSeconds(
+              video.currentTime,
+              mediaOriginRef.current,
+              durationHintRef.current,
+            )
+          : video.currentTime;
+      loadExtracted(baseUrl, liveExtract ? movieTime() : 0);
       if (!liveExtract) {
         enableEmbedded(0);
       }
       const sync = () => {
         if (liveExtract) return;
-        if (Math.abs(audio.currentTime - video.currentTime) > 0.35) {
-          audio.currentTime = video.currentTime;
+        const target = movieTime();
+        if (Math.abs(audio.currentTime - target) > 0.35) {
+          audio.currentTime = target;
         }
       };
       const onPlay = () => {
@@ -1047,7 +1420,7 @@ export function StreamPlayer({
       };
       const onSeeked = () => {
         if (liveExtract) {
-          loadExtracted(baseUrl, video.currentTime || 0);
+          loadExtracted(baseUrl, movieTime());
           return;
         }
         sync();
@@ -1072,7 +1445,16 @@ export function StreamPlayer({
     video.muted = muted;
     enableEmbedded(selectedAudio?.embedded ? (selectedAudio.streamIndex ?? 0) : 0);
     return undefined;
-  }, [muted, selectedAudio?.embedded, selectedAudio?.id, selectedAudio?.streamIndex, selectedAudio?.url, volume]);
+  }, [
+    muted,
+    selectedAudio?.embedded,
+    selectedAudio?.id,
+    selectedAudio?.streamIndex,
+    selectedAudio?.url,
+    session,
+    usesPackagedHls,
+    volume,
+  ]);
 
   const cycleAudio = useCallback(() => {
     if (!audioTracks.length) return;
@@ -1399,8 +1781,24 @@ export function StreamPlayer({
       ) : null}
 
       {(loading || buffering) && !error ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
-          <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+        <div
+          className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="relative flex h-20 w-20 items-center justify-center">
+            <span className="absolute inset-0 animate-ping rounded-full bg-primary/15 [animation-duration:1.8s]" />
+            <span className="absolute inset-1 animate-spin rounded-full border-2 border-transparent border-r-primary/40 border-t-primary shadow-[0_0_28px_rgb(38_191_176/0.28)] [animation-duration:1.1s]" />
+            <span className="absolute inset-3 animate-spin rounded-full border border-white/10 border-b-white/70 [animation-direction:reverse] [animation-duration:1.7s]" />
+            <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[var(--brand-deep)] shadow-[0_0_24px_rgb(38_191_176/0.42)]">
+              <Play className="ml-0.5 h-5 w-5 fill-white text-white" />
+            </span>
+          </div>
+          {loading ? (
+            <span className="rounded-full bg-black/35 px-4 py-1.5 text-xs font-medium tracking-wide text-white/80 ring-1 ring-white/10">
+              Preparing your movie…
+            </span>
+          ) : null}
           <span className="sr-only">{loading ? "Loading" : "Buffering"}</span>
         </div>
       ) : null}
@@ -1466,8 +1864,9 @@ export function StreamPlayer({
             year={displayYear}
             playing={playing}
             currentTime={currentTime}
-            duration={duration}
+            duration={timelineDuration}
             bufferedEnd={bufferedEnd}
+            transcode={packagedPlayback}
             fullscreen={fullscreen}
             qualityLabel={qualityMenuValue}
             subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
@@ -1862,8 +2261,9 @@ export function StreamPlayer({
           {/* Scrubber — YouTube-style, brand teal */}
           <SeekBar
             currentTime={currentTime}
-            duration={duration}
+            duration={timelineDuration}
             bufferedEnd={bufferedEnd}
+            transcode={packagedPlayback}
             onSeek={seekToRatio}
             onScrubbingChange={(active) => {
               if (active) {
@@ -1914,7 +2314,7 @@ export function StreamPlayer({
             </div>
             <div className="shrink-0 text-right text-sm tabular-nums text-white/85">
               <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
-              <span className="text-white/45"> / {clock}</span>
+              <span className="text-white/45"> / {formatTime(duration)}</span>
               {rate !== 1 || qualityLabel ? (
                 <span className="ml-2 hidden text-xs text-white/40 lg:inline">
                   {rate !== 1 ? `${rate}x · ` : null}
@@ -2233,6 +2633,24 @@ function IconButton({
   );
 }
 
+/** HLS packaging reports a growing duration — prefer catalog/runtime when we have it. */
+function resolvePlaybackDuration(
+  videoSeconds: number,
+  hintSeconds: number,
+  previousSeconds: number,
+): number {
+  const video = Number.isFinite(videoSeconds) && videoSeconds > 0 ? videoSeconds : 0;
+  const hint = hintSeconds > 0 ? hintSeconds : 0;
+  const prev = previousSeconds > 0 ? previousSeconds : 0;
+
+  if (hint > 0) {
+    if (video >= hint * 0.95) return Math.max(hint, video);
+    return Math.max(prev, hint);
+  }
+  if (video > 30) return Math.max(prev, video);
+  return prev > 0 ? prev : video;
+}
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
@@ -2261,10 +2679,6 @@ function formatSpeedLabel(speed: number): string {
   if (Math.abs(speed - 1) < 0.001) return "Normal";
   const text = Number.isInteger(speed) ? String(speed) : String(speed);
   return `${text}x`;
-}
-
-function formatClock(date: Date): string {
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
 }
 
 type BrowserAudioTrack = { enabled: boolean; language?: string; label?: string };

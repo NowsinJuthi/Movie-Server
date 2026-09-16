@@ -15,7 +15,7 @@ export class PaymentProviderRegistry {
     const stripeKey = config.get<string>('STRIPE_SECRET_KEY') ?? '';
     const stripeWebhook = config.get<string>('STRIPE_WEBHOOK_SECRET') ?? '';
     const fakeSecret = config.get<string>('PAYMENT_WEBHOOK_SECRET') ?? 'whsec_test_cinevault_webhook_secret';
-    const appUrl = config.get<string>('APP_URL') ?? 'http://localhost:3001';
+    const appUrl = config.get<string>('APP_URL') ?? 'http://localhost:3000';
     const local =
       (() => {
         try {

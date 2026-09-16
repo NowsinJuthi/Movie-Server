@@ -43,6 +43,24 @@ export class User {
   })
   role!: UserRole;
 
+  /** Staff permission profile for admin accounts (maps to role_permissions profiles). */
+  @Prop({ type: String, trim: true, default: 'administrator' })
+  staffProfileId?: string;
+
+  /** Per-user subscription permission overrides for staff (null field = inherit profile). */
+  @Prop({
+    type: {
+      view: { type: Boolean, default: null },
+      manage: { type: Boolean, default: null },
+    },
+    _id: false,
+    default: undefined,
+  })
+  subscriptionStaffRules?: {
+    view: boolean | null;
+    manage: boolean | null;
+  };
+
   @Prop({ default: false, index: true })
   emailVerified!: boolean;
 

@@ -14,6 +14,11 @@ export type RequestUser = {
   id: string;
   email: string;
   role: UserRole;
+  staffProfileId: string | null;
+  subscriptionStaffRules: {
+    view: boolean | null;
+    manage: boolean | null;
+  } | null;
   sessionId: string;
   tokenVersion: number;
   jti: string;

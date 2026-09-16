@@ -18,6 +18,7 @@ import type {
 } from "@movie-server/shared";
 import { apiFetch } from "./api";
 import { playbackDevicePayload } from "./device";
+import { browserSupportsHevcDirectStream } from "./device-playback";
 
 export type SeriesQuery = {
   q?: string;
@@ -61,10 +62,22 @@ export const seriesApi = {
     apiFetch<EpisodeProgressResponse>(`/series/${seriesId}/episodes/${episodeId}/watched`, { method: "POST" }),
   markUnwatched: (seriesId: string, episodeId: string) =>
     apiFetch<EpisodeProgressResponse>(`/series/${seriesId}/episodes/${episodeId}/watched`, { method: "DELETE" }),
-  playback: (seriesId: string, episodeId: string, quality: VideoQuality) =>
+  playback: (
+    seriesId: string,
+    episodeId: string,
+    quality: VideoQuality,
+    options?: { forceVideoTranscode?: boolean },
+  ) =>
     apiFetch<EpisodePlaybackResponse>(`/series/${seriesId}/episodes/${episodeId}/playback`, {
       method: "POST",
-      body: JSON.stringify({ quality, ...playbackDevicePayload() }),
+      body: JSON.stringify({
+        quality,
+        hevcDirectStream: options?.forceVideoTranscode
+          ? false
+          : browserSupportsHevcDirectStream(),
+        forceVideoTranscode: options?.forceVideoTranscode ?? false,
+        ...playbackDevicePayload(),
+      }),
     }),
   updateEpisode: (seriesId: string, seasonId: string, episodeId: string, input: Record<string, unknown>) =>
     apiFetch<{ episode: PublicEpisode }>(

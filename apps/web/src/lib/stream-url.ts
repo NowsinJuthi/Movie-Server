@@ -1,3 +1,5 @@
+import type { PlaybackSessionInfo, VideoResolution } from "@movie-server/shared";
+
 /** Same-origin absolute URL for `<video src>` (Safari is picky about relative stream paths). */
 export function toAbsoluteStreamUrl(pathOrUrl: string): string {
   if (typeof window === "undefined") return pathOrUrl;
@@ -22,4 +24,23 @@ export function appendStreamQuery(
   }
   const encoded = search.toString();
   return encoded ? `${path}?${encoded}` : path;
+}
+
+/** Direct variant playlist — used for transcode titles (faster start + seek restart). */
+export function variantHlsUrl(
+  info: PlaybackSessionInfo,
+  options?: { startSeconds?: number; resolution?: VideoResolution | "auto" },
+): string {
+  const resolution =
+    options?.resolution && options.resolution !== "auto"
+      ? options.resolution
+      : info.selectedResolution ?? info.qualities.at(-1)?.resolution ?? "1080p";
+  const master = toAbsoluteStreamUrl(info.hlsUrl);
+  const url = new URL(master);
+  url.pathname = url.pathname.replace(/\/master$/, `/v/${resolution}.m3u8`);
+  const startSeconds = options?.startSeconds ?? 0;
+  if (startSeconds > 1) {
+    url.searchParams.set("t", String(Math.floor(startSeconds)));
+  }
+  return url.toString();
 }

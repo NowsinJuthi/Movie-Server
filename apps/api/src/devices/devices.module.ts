@@ -14,7 +14,7 @@ import { AdminSessionsController } from './admin-sessions.controller';
     MongooseModule.forFeature([{ name: Device.name, schema: DeviceSchema }]),
     SessionsModule,
     UsersModule,
-    SubscriptionsModule,
+    forwardRef(() => SubscriptionsModule),
     forwardRef(() => StreamModule),
   ],
   controllers: [DevicesController, AdminSessionsController],

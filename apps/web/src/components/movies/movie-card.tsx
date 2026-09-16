@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { PublicMovie } from "@movie-server/shared";
 import { MediaInfoDialog, movieToInfoTarget } from "@/components/home/media-info-dialog";
+import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 
 export function MovieCard({ movie }: { movie: PublicMovie }) {
   const [infoOpen, setInfoOpen] = useState(false);
@@ -11,9 +12,10 @@ export function MovieCard({ movie }: { movie: PublicMovie }) {
   return (
     <article className="overflow-hidden rounded-md bg-secondary">
       <Link
-        href={`/home/movies/${movie.id}/watch`}
+        href={autoplayPlayerHref(`/home/movies/${movie.id}/watch`)}
         className="group block"
         aria-label={`Play ${movie.title}`}
+        onClick={() => rememberPlayerReturn()}
       >
         <div
           className="aspect-[2/3] bg-cover bg-center transition group-hover:opacity-90"

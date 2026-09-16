@@ -14,6 +14,7 @@ import { Model, Types } from 'mongoose';
 import {
   ErrorCode,
   LibraryFileKind,
+  LibraryProbe,
   MediaAssetStatus,
   MediaKind,
   PlaybackQualityOption,
@@ -37,7 +38,7 @@ import { Episode, EpisodeDocument } from '../series/schemas/episode.schema';
 import { StorageFactory } from '../library/storage/storage.factory';
 import { PlaybackSessionStore } from './playback-session.store';
 import { StoredPlaybackSession, StoredPlaybackTrack, StoredPlaybackVariant } from './playback-session.types';
-import { variantBandwidth } from './hls-playlist';
+import { buildMediaPlaylist, variantBandwidth } from './hls-playlist';
 import { pickStoredTrack, preferredSubtitleCode, toPlaybackTrack } from './playback-tracks.util';
 import { isPlayableSubtitleFormat, subtitleFormatFromName, toSafeWebVtt } from './subtitle-text';
 import { isAudioFile, isSubtitleFile } from '../library/matching/filename-parser';
@@ -48,6 +49,14 @@ import { Readable } from 'stream';
 import { FfmpegRemuxService } from './ffmpeg-remux.service';
 import { HlsPackagerService } from './hls-packager.service';
 import { mp4FastStart } from '../library/probe/mp4-container-probe';
+import {
+  applyClientCapabilities,
+  buildTranscodePlan,
+  buildTranscodePlanFromProbe,
+  isBrowserSafeAudioCodec,
+  isHevcVideoCodec,
+  type TranscodePlan,
+} from './stream-transcode.util';
 
 const API = '/api/v1';
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
@@ -80,6 +89,8 @@ export class StreamService {
     episodeId?: string;
     seriesId?: string;
     durationSeconds: number;
+    clientHevc?: boolean;
+    forceVideoTranscode?: boolean;
   }): Promise<PlaybackSessionInfo | null> {
     await this.profiles.ensureSessionProfile(input.user);
     const profileId = input.user.activeProfileId;
@@ -154,7 +165,44 @@ export class StreamService {
         preferredSubtitleCode(profile.subtitleLanguage),
         true,
       );
+      const ext = path.extname(located.relativePath).toLowerCase();
+      if ((ext === '.mkv' || ext === '.webm') && !this.remux.available()) {
+        throw new BadRequestException({
+          error: ErrorCode.PlaybackUnavailable,
+          message: 'MKV/WebM playback requires ffmpeg on the server.',
+        });
+      }
       const videoRemux = this.needsVideoRemux(located.absPath, located.relativePath);
+      const rawPlan = this.remux.available()
+        ? await this.resolveTranscodePlan(located.absPath, selected.libraryItemId)
+        : null;
+      // HEVC direct stream is Safari-only on the web client; never honor the flag when forcing full transcode.
+      const allowHevcDirect =
+        Boolean(input.clientHevc) && !input.forceVideoTranscode;
+      let transcodePlan = rawPlan
+        ? applyClientCapabilities(rawPlan, { hevcDirectStream: allowHevcDirect })
+        : null;
+      if (input.forceVideoTranscode && transcodePlan) {
+        transcodePlan = {
+          ...transcodePlan,
+          encodeVideo: true,
+          transcode: true,
+        };
+      }
+      if (transcodePlan && selectedAudio?.embedded) {
+        const encodeAudio = !isBrowserSafeAudioCodec(selectedAudio.codec);
+        transcodePlan = {
+          ...transcodePlan,
+          encodeAudio,
+          audioOrdinal: selectedAudio.streamIndex ?? transcodePlan.audioOrdinal,
+          transcode: transcodePlan.encodeVideo || encodeAudio,
+        };
+      }
+      let videoTranscode = transcodePlan?.transcode ?? false;
+      // Emby DirectStream: MKV/WebM with browser-safe codecs still needs HLS packaging (seek + compatibility).
+      if (videoRemux && transcodePlan && !videoTranscode) {
+        videoTranscode = true;
+      }
 
       const payload = {
         userId: input.user.id,
@@ -176,17 +224,25 @@ export class StreamService {
         selectedSubtitleId: selectedSubtitle?.assetId ?? null,
         durationSeconds: input.durationSeconds,
         videoRemux,
+        videoTranscode,
+        transcodeEncodeVideo: transcodePlan?.encodeVideo ?? false,
+        transcodeEncodeAudio: transcodePlan?.encodeAudio ?? false,
+        transcodeAudioOrdinal: transcodePlan?.audioOrdinal ?? 0,
+        sourceVideoCodec: transcodePlan?.probe.videoCodec ?? null,
       };
 
       const session = existing
         ? await this.replace(existing, payload)
         : await this.sessions.create(payload);
-      return this.toPublic(await this.ensureMediaToken(session), maxQuality);
+      const ready = await this.ensureMediaToken(session);
+      void this.prefetchTranscodeHls(ready, input.user.id).catch(() => undefined);
+      return this.toPublic(ready, maxQuality);
     });
   }
 
   async revokeMedia(mediaIds: string[]): Promise<void> {
-    await this.sessions.stopForMediaIds(mediaIds);
+    const stoppedIds = await this.sessions.stopForMediaIds(mediaIds);
+    await Promise.all(stoppedIds.map((id) => this.hlsPackager.cleanup(id)));
   }
 
   async load(sessionId: string, userId: string): Promise<StoredPlaybackSession> {
@@ -239,9 +295,46 @@ export class StreamService {
     return { absPath: located.absPath, session };
   }
 
-  async ensureMobileHls(sessionId: string, userId: string, preferredResolution?: string): Promise<void> {
-    const { absPath } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
-    await this.hlsPackager.ensureFirstSegment(sessionId, absPath);
+  async ensureMobileHls(
+    sessionId: string,
+    userId: string,
+    preferredResolution?: string,
+    startSeconds = 0,
+  ): Promise<void> {
+    const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
+    if (!session.videoTranscode && !session.videoRemux) {
+      return;
+    }
+    await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
+      startSeconds: Math.max(0, startSeconds),
+      plan: this.sessionTranscodePlan(session),
+    });
+  }
+
+  async readVariantPlaylist(
+    session: StoredPlaybackSession,
+    resolution: string,
+    mediaToken: string,
+  ): Promise<string> {
+    if (!session.videoTranscode && !session.videoRemux) {
+      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+    }
+    return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
+  }
+
+  async seekHls(
+    sessionId: string,
+    userId: string,
+    seconds: number,
+    preferredResolution?: string,
+  ): Promise<void> {
+    const session = await this.sessions.requireOwned(sessionId, userId);
+    await this.ensurePlayable(session, userId);
+    if (!session.videoTranscode && !session.videoRemux) {
+      return;
+    }
+    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
+    await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped);
   }
 
   async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {
@@ -257,7 +350,9 @@ export class StreamService {
   }
 
   async stopAllForUser(userId: string): Promise<void> {
+    const active = await this.sessions.listActive(userId);
     await this.sessions.stopAllForUser(userId);
+    await Promise.all(active.map((session) => this.hlsPackager.cleanup(session.id)));
   }
 
   async listActive(userId: string) {
@@ -277,6 +372,7 @@ export class StreamService {
     }
     const session = await this.sessions.requireOwned(sessionId, userId);
     await this.ensurePlayable(session, userId);
+    let restartPackagedAudio = false;
     if (input.audioId !== undefined) {
       const audio = session.audioTracks.find((track) => track.assetId === input.audioId);
       if (!audio) {
@@ -286,6 +382,18 @@ export class StreamService {
         });
       }
       session.selectedAudioId = audio.assetId;
+      if (audio.embedded) {
+        const ordinal = audio.streamIndex ?? 0;
+        const encodeAudio = !isBrowserSafeAudioCodec(audio.codec);
+        restartPackagedAudio =
+          session.transcodeAudioOrdinal !== ordinal ||
+          session.transcodeEncodeAudio !== encodeAudio ||
+          !session.videoTranscode;
+        session.transcodeAudioOrdinal = ordinal;
+        session.transcodeEncodeAudio = encodeAudio;
+        // Selecting an embedded soundtrack requires a fresh HLS mux even for MP4.
+        session.videoTranscode = true;
+      }
     }
     if (input.subtitleId !== undefined) {
       if (input.subtitleId === null) {
@@ -303,6 +411,9 @@ export class StreamService {
     }
     session.lastHeartbeat = Date.now();
     await this.sessions.persist(session);
+    if (restartPackagedAudio) {
+      await this.hlsPackager.cleanup(session.id);
+    }
     await this.rememberPrefs(session);
     const entitlement = await this.access.assertEntitled(userId);
     return this.toPublic(await this.ensureMediaToken(session), entitlement.maxVideoQuality);
@@ -486,15 +597,16 @@ export class StreamService {
     }
     const located = await this.resolveAbsoluteMedia(asset);
     const ext = path.extname(located.relativePath).toLowerCase();
-    let remux =
+    const containerRemux =
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
-    // iOS Safari cannot play MKV/WebM remux streams; slow-start MP4 remux is still allowed
-    // (ffmpeg emits moov-first fragmented MP4 — much faster than reading moov from SMB tail).
-    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm')) {
+    const needsTranscode = session.videoTranscode;
+    const remux = containerRemux || needsTranscode;
+    // iOS Safari cannot play MKV/WebM remux streams; HLS transcode path handles mobile playback.
+    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !needsTranscode) {
       throw new BadRequestException({
         error: ErrorCode.PlaybackUnavailable,
         message:
-          'This file format is not supported on iPhone/iPad. Store MP4 (H.264 + AAC) with faststart instead.',
+          'This file format is not supported on iPhone/iPad. Use HLS playback or store MP4 (H.264 + AAC).',
       });
     }
     if (remux) {
@@ -502,7 +614,14 @@ export class StreamService {
         size: 0,
         mime: 'video/mp4',
         remux: true,
-        open: async () => this.remux.openVideoRemux(located.absPath),
+        open: async () =>
+          needsTranscode
+            ? this.remux.openVideoStream(located.absPath, this.sessionTranscodePlan(session), 0)
+            : this.remux.openVideoRemux(
+                located.absPath,
+                0,
+                session.transcodeAudioOrdinal ?? 0,
+              ),
       };
     }
 
@@ -515,7 +634,7 @@ export class StreamService {
       return false;
     }
     const ext = path.extname(relativePath).toLowerCase();
-    if (ext === '.mkv') {
+    if (ext === '.mkv' || ext === '.webm') {
       return true;
     }
     if (ext === '.mp4' || ext === '.m4v') {
@@ -605,7 +724,18 @@ export class StreamService {
       protocol: 'hls',
       hlsUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
       progressiveUrl: `${API}/stream/${session.id}/media?mt=${mt}`,
+      // Video re-encode only — audio-only AAC conversion (DTS/EAC3) is DirectStream, not transcode.
+      transcode: Boolean(session.transcodeEncodeVideo),
+      audioTranscode: Boolean(session.transcodeEncodeAudio),
+      directPlay: !session.videoTranscode && !session.videoRemux,
+      remuxStream: Boolean(session.videoTranscode && !session.transcodeEncodeVideo),
+      hevcStream: Boolean(
+        session.videoTranscode &&
+          !session.transcodeEncodeVideo &&
+          isHevcVideoCodec(session.sourceVideoCodec),
+      ),
       expiresAt: new Date(session.lastHeartbeat + this.sessions.ttlMs()).toISOString(),
+      durationSeconds: Math.max(1, session.durationSeconds ?? 0),
       qualities,
       selectedQuality: session.quality,
       selectedResolution: session.resolution,
@@ -791,6 +921,55 @@ export class StreamService {
     }
     const series = await this.series.findById(episode.seriesId).select('published').lean();
     return Boolean(series?.published);
+  }
+
+  private async prefetchTranscodeHls(session: StoredPlaybackSession, userId: string): Promise<void> {
+    if (!session.videoTranscode) {
+      return;
+    }
+    const { absPath } = await this.resolveSessionMediaPath(session.id, userId);
+    await this.hlsPackager.ensureFirstSegment(session.id, absPath, {
+      startSeconds: 0,
+      plan: this.sessionTranscodePlan(session),
+    });
+  }
+
+  private sessionTranscodePlan(session: StoredPlaybackSession): TranscodePlan {
+    const encodeVideo = session.transcodeEncodeVideo ?? false;
+    const encodeAudio = session.transcodeEncodeAudio ?? false;
+    return {
+      transcode: session.videoTranscode,
+      encodeVideo,
+      encodeAudio,
+      audioOrdinal: session.transcodeAudioOrdinal ?? 0,
+      probe: {
+        durationMs: session.durationSeconds > 0 ? session.durationSeconds * 1000 : null,
+        width: null,
+        height: null,
+        resolution: session.resolution,
+        videoCodec: session.sourceVideoCodec ?? (encodeVideo ? 'hevc' : 'h264'),
+        audioCodec: null,
+        bitrateKbps: null,
+        sizeBytes: 0,
+        videoStreams: [],
+        audioTracks: [],
+        subtitleTracks: [],
+      },
+    };
+  }
+
+  private async resolveTranscodePlan(
+    absPath: string,
+    libraryItemId?: Types.ObjectId | null,
+  ): Promise<TranscodePlan> {
+    if (libraryItemId) {
+      const item = await this.items.findById(libraryItemId).select('probe').lean();
+      const cached = item?.probe as LibraryProbe | null | undefined;
+      if (cached?.videoCodec) {
+        return buildTranscodePlanFromProbe(cached, this.config);
+      }
+    }
+    return buildTranscodePlan(absPath, this.config);
   }
 
   private async rememberPrefs(session: StoredPlaybackSession): Promise<void> {

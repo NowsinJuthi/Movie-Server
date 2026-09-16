@@ -21,14 +21,16 @@ import {
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
-import { toPublicUser } from './user.mapper';
+import { toAdminUserRow, toPublicUser } from './user.mapper';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { PatchUserDto, QueryUserSuggestDto, QueryUsersDto } from './dto/query-users.dto';
 import { SessionsService } from '../sessions/sessions.service';
+import { AdminUserSubscriptionService } from './admin-user-subscription.service';
 import { UserDocument } from './schemas/user.schema';
 import { RequestUser } from '../auth/auth.types';
+import { Permissions } from '../common/decorators/permissions.decorator';
 
 @Controller('admin/users')
 @Roles(UserRole.Admin)
@@ -36,20 +38,27 @@ export class AdminUsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly sessions: SessionsService,
+    private readonly subscriptions: AdminUserSubscriptionService,
   ) {}
 
   @Get('suggest')
+  @Permissions('view_users')
   async suggest(@Query() query: QueryUserSuggestDto) {
     const users = await this.usersService.suggestAdmin(query.q, query.limit);
     return { users };
   }
 
   @Get()
+  @Permissions('view_users')
   async list(@Query() query: QueryUsersDto) {
     const result = await this.usersService.listAdmin(query);
+    const summaries = await this.subscriptions.summariesForUsers(
+      result.items.map((user) => String(user._id)),
+    );
+    const items = result.items.map((user) => toAdminUser(user, summaries.get(String(user._id)) ?? null));
     return {
-      users: result.items.map(toAdminUser),
-      items: result.items.map(toAdminUser),
+      users: items,
+      items,
       page: result.page,
       limit: result.limit,
       total: result.total,
@@ -58,6 +67,7 @@ export class AdminUsersController {
   }
 
   @Post()
+  @Permissions('manage_users')
   async create(@CurrentUser() actor: RequestUser, @Body() dto: CreateAdminUserDto) {
     const role = dto.role ?? UserRole.User;
     if (!canAssignRole(actor.role, role)) {
@@ -87,6 +97,7 @@ export class AdminUsersController {
   }
 
   @Patch(':id')
+  @Permissions('manage_users')
   async patch(
     @CurrentUser() actor: RequestUser,
     @Param('id', ParseObjectIdPipe) id: string,
@@ -120,6 +131,8 @@ export class AdminUsersController {
       email: dto.email,
       isActive: dto.isActive,
       emailVerified: dto.emailVerified,
+      staffProfileId: dto.staffProfileId,
+      subscriptionStaffRules: dto.subscriptionStaffRules,
       password,
     });
     if (!user) {
@@ -127,7 +140,11 @@ export class AdminUsersController {
     }
 
     const shouldRevoke =
-      dto.isActive === false || Boolean(password) || (dto.role !== undefined && dto.role !== existing.role);
+      dto.isActive === false ||
+      Boolean(password) ||
+      (dto.role !== undefined && dto.role !== existing.role) ||
+      (dto.staffProfileId !== undefined &&
+        dto.staffProfileId !== (existing.staffProfileId?.trim() || 'administrator'));
     if (shouldRevoke) {
       await this.sessions.revokeAllForUser(id);
     }
@@ -136,6 +153,7 @@ export class AdminUsersController {
   }
 
   @Delete(':id')
+  @Permissions('manage_users')
   async remove(@CurrentUser() actor: RequestUser, @Param('id', ParseObjectIdPipe) id: string) {
     const existing = await this.usersService.findById(id);
     if (!existing) {
@@ -152,6 +170,7 @@ export class AdminUsersController {
   }
 
   @Patch(':id/role')
+  @Permissions('manage_users')
   async updateRole(
     @CurrentUser() actor: RequestUser,
     @Param('id', ParseObjectIdPipe) id: string,
@@ -199,9 +218,12 @@ export class AdminUsersController {
   }
 }
 
-function toAdminUser(user: UserDocument): AdminUserRow {
+function toAdminUser(
+  user: UserDocument,
+  subscription: AdminUserRow['subscription'] = null,
+): AdminUserRow {
   return {
-    ...toPublicUser(user),
-    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    ...toAdminUserRow(user),
+    subscription,
   };
 }

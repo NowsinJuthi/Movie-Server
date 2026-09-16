@@ -140,7 +140,7 @@ export function AddUserDialog({
             >
               {roleOptions.map((role) => (
                 <option key={role} value={role}>
-                  {role.replaceAll("_", " ")}
+                  {role === UserRole.Vip ? "VIP" : role.replaceAll("_", " ")}
                 </option>
               ))}
             </select>

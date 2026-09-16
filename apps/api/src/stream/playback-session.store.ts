@@ -210,11 +210,12 @@ export class PlaybackSessionStore {
     return null;
   }
 
-  async stopForMediaIds(mediaIds: string[]): Promise<void> {
+  async stopForMediaIds(mediaIds: string[]): Promise<string[]> {
     const unique = [...new Set(mediaIds.filter(Boolean))];
     if (unique.length === 0) {
-      return;
+      return [];
     }
+    const stoppedIds: string[] = [];
     const rows = await this.records
       .find({ mediaId: { $in: unique }, endedAt: null })
       .limit(2000)
@@ -223,12 +224,14 @@ export class PlaybackSessionStore {
       const session = await this.get(row.redisSessionId);
       if (session) {
         await this.stop(session.id, session.userId);
+        stoppedIds.push(session.id);
       } else {
         row.endedAt = new Date();
         row.endReason = 'revoked';
         await row.save();
       }
     }
+    return stoppedIds;
   }
 
   async registerDevice(userId: string, deviceId: string, label: string, maxDevices: number): Promise<void> {

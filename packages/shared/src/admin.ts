@@ -137,14 +137,33 @@ export type AdminTrackRow = {
   createdAt: string;
 };
 
+export type AdminUserSubscriptionSummary = {
+  id: string;
+  status: string;
+  planSlug: string;
+  planName: string;
+  billingCycle: string;
+  entitled: boolean;
+  currentPeriodEnd: string;
+};
+
+/** Per-user subscription admin rule overrides (null = inherit staff profile). */
+export type AdminUserSubscriptionRules = {
+  view: boolean | null;
+  manage: boolean | null;
+};
+
 export type AdminUserRow = {
   id: string;
   email: string;
   displayName: string;
   role: UserRole;
+  staffProfileId: string | null;
   emailVerified: boolean;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
+  subscription: AdminUserSubscriptionSummary | null;
+  subscriptionRules: AdminUserSubscriptionRules | null;
 };

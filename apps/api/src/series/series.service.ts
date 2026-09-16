@@ -547,7 +547,13 @@ export class SeriesService {
     episodeId: string,
     user: RequestUser,
     quality: VideoQuality,
-    extras?: { currentStreamCount?: number; deviceId?: string; deviceLabel?: string },
+    extras?: {
+      currentStreamCount?: number;
+      deviceId?: string;
+      deviceLabel?: string;
+      hevcDirectStream?: boolean;
+      forceVideoTranscode?: boolean;
+    },
   ): Promise<EpisodePlaybackResponse> {
     const viewer = await this.resolveViewer(user);
     const entitlement = await this.access.assertPlayback(user.id, {
@@ -572,6 +578,8 @@ export class SeriesService {
       quality,
       deviceId: extras?.deviceId,
       deviceLabel: extras?.deviceLabel,
+      clientHevc: extras?.hevcDirectStream,
+      forceVideoTranscode: extras?.forceVideoTranscode,
       episodeId,
       seriesId: detail.series.id,
       durationSeconds: Math.max(detail.episode.durationSeconds, 1),

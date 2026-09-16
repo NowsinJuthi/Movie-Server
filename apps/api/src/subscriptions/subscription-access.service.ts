@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, forwardRef } from '@nestjs/common';
 import {
   ErrorCode,
   PlanFeature,
@@ -16,6 +16,9 @@ import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { entitlementCacheKey } from '../common/cache-keys';
 import { staffEntitlement } from './staff-entitlement';
+import { vipEntitlement } from './vip-entitlement';
+import { DevicesService } from '../devices/devices.service';
+import { PlaybackSessionStore } from '../stream/playback-session.store';
 
 @Injectable()
 export class SubscriptionAccessService {
@@ -24,6 +27,8 @@ export class SubscriptionAccessService {
     private readonly plans: PlansService,
     private readonly users: UsersService,
     private readonly redis: RedisService,
+    @Inject(forwardRef(() => DevicesService)) private readonly devices: DevicesService,
+    @Inject(forwardRef(() => PlaybackSessionStore)) private readonly sessions: PlaybackSessionStore,
   ) {}
 
   async getEntitlement(userId: string): Promise<SubscriptionEntitlement> {
@@ -43,6 +48,12 @@ export class SubscriptionAccessService {
         await this.redis.client.set(entitlementCacheKey(userId), JSON.stringify(entitlement), 'EX', 15);
         return entitlement;
       }
+    }
+    const account = await this.users.findById(userId);
+    if (account?.role === UserRole.Vip) {
+      const complimentary = vipEntitlement();
+      await this.redis.client.set(entitlementCacheKey(userId), JSON.stringify(complimentary), 'EX', 15);
+      return complimentary;
     }
     if (await this.isStaff(userId)) {
       const complimentary = staffEntitlement();
@@ -100,8 +111,25 @@ export class SubscriptionAccessService {
     userId: string,
     input: { quality: VideoQuality; currentStreamCount?: number; registeredDeviceCount?: number },
   ) {
-    void input.currentStreamCount;
-    void input.registeredDeviceCount;
-    return this.assertQuality(userId, input.quality);
+    const entitlement = await this.assertQuality(userId, input.quality);
+    const [deviceCount, streamCount] = await Promise.all([
+      this.devices.countingDevices(userId),
+      this.sessions.listActive(userId).then((rows) => rows.length),
+    ]);
+    const streams = input.currentStreamCount ?? streamCount;
+    const devices = input.registeredDeviceCount ?? deviceCount;
+    if (streams >= entitlement.maxStreams) {
+      throw new ForbiddenException({
+        error: ErrorCode.StreamLimitReached,
+        message: `This plan allows ${entitlement.maxStreams} simultaneous stream(s).`,
+      });
+    }
+    if (devices >= entitlement.maxDevices) {
+      throw new ForbiddenException({
+        error: ErrorCode.DeviceLimitReached,
+        message: `This plan allows ${entitlement.maxDevices} registered device(s).`,
+      });
+    }
+    return entitlement;
   }
 }

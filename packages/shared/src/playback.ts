@@ -54,6 +54,18 @@ export type PlaybackSessionInfo = {
   hlsUrl: string;
   progressiveUrl: string;
   expiresAt: string;
+  /** True when the server re-encodes video (HEVC on Chrome, etc.). Audio-only conversion is not transcode. */
+  transcode: boolean;
+  /** True when the selected soundtrack is converted to browser-safe AAC. */
+  audioTranscode: boolean;
+  /** MP4 H.264/AAC with fast-start — byte-range direct play (Emby DirectPlay). */
+  directPlay: boolean;
+  /** MKV/WebM with video stream-copy to HLS — Emby DirectStream (audio may convert if DTS/EAC3). */
+  remuxStream: boolean;
+  /** HEVC video stream-copied; only audio converted — smooth like Emby DirectStream. */
+  hevcStream: boolean;
+  /** Known catalog/runtime duration — stable while HLS segments are still packaging. */
+  durationSeconds: number;
   qualities: PlaybackQualityOption[];
   selectedQuality: VideoQuality;
   selectedResolution: VideoResolution | null;

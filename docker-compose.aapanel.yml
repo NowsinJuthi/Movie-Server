@@ -1,7 +1,7 @@
 # AmarPin — aaPanel / Ubuntu VPS production stack
 # aaPanel owns ports 80/443 (Nginx + SSL). App ports are published on localhost only:
-#   host 4001 → container API 4000
-#   host 3001 → container Web 3000
+#   host 4000 → container API 4000
+#   host 3000 → container Web 3000
 #
 # Usage:
 #   cp deploy/aapanel/.env.aapanel.example .env
@@ -61,7 +61,7 @@ services:
       - ${CINEVAULT_MEDIA_HOST:-/data/movies.amarpin.com/media}:/data/media
       - ${CINEVAULT_SMB_HOST:-/data/movies.amarpin.com/smb-mounts}:/data/smb-mounts
     ports:
-      - "127.0.0.1:4001:4000"
+      - "127.0.0.1:4000:4000"
     cap_add:
       - SYS_ADMIN
     security_opt:
@@ -101,7 +101,7 @@ services:
       API_INTERNAL_URL: http://api:4000
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-AmarPin}
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_healthy

@@ -3,10 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import type { VideoQuality } from "@movie-server/shared";
 import { movieApi } from "@/lib/movie-api";
 import { subscriptionApi } from "@/lib/subscription-api";
-import { cachePlayback } from "@/lib/playback-cache";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -17,7 +15,7 @@ import { PersonalizationControls } from "@/components/home/personalization-contr
 import { SimilarTitles } from "@/components/search/similar-titles";
 import { invalidatePersonalization } from "@/components/home/use-personalization";
 import { toast } from "sonner";
-import { rememberPlayerReturn } from "@/lib/player-return";
+import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 
 export default function MovieDetailPage() {
   const params = useParams<{ id: string }>();
@@ -119,18 +117,7 @@ export default function MovieDetailPage() {
               <Button
                 onClick={() => {
                   rememberPlayerReturn();
-                  const quality = (entitlement.data?.entitlement.maxVideoQuality ?? "hd") as VideoQuality;
-                  void movieApi
-                    .playback(movie.id, quality)
-                    .then((body) => {
-                      cachePlayback(movie.id, {
-                        session: body.session,
-                        markers: body.markers,
-                        resumeSeconds: body.resumeSeconds,
-                      });
-                    })
-                    .catch(() => undefined);
-                  router.push(`/home/movies/${movie.id}/watch`);
+                  router.push(autoplayPlayerHref(`/home/movies/${movie.id}/watch`));
                 }}
               >
                 {movie.progressSeconds && movie.progressSeconds > 0 && !movie.watched

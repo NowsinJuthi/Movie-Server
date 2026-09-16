@@ -28,3 +28,11 @@ export function clearPlayerReturn(): void {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(STORAGE_KEY);
 }
+
+/** Mark an internal watch URL as an explicit user-requested autoplay navigation. */
+export function autoplayPlayerHref(href: string): string {
+  if (!isSafeAppPath(href)) return href;
+  const [withoutHash, hash = ""] = href.split("#", 2);
+  const separator = withoutHash.includes("?") ? "&" : "?";
+  return `${withoutHash}${separator}autoplay=1${hash ? `#${hash}` : ""}`;
+}

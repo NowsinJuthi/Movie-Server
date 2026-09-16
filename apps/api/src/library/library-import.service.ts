@@ -352,7 +352,7 @@ export class LibraryImportService {
     const needsPeople =
       !(movie.cast?.length || movie.directors?.length || movie.writers?.length) ||
       Boolean(movie.cast?.some((member) => !member.imageUrl));
-    const needsArtwork = !(movie.posterKey || movie.posterUrl);
+    const needsArtwork = await this.needsMovieArtwork(movie);
     if (needsPeople || needsArtwork) {
       const meta = await this.tmdb.searchMovie(movie.title, movie.releaseYear);
       if (needsPeople && meta) {
@@ -397,7 +397,7 @@ export class LibraryImportService {
 
   private async enrichSeries(series: SeriesDocument, relativePath: string, context: ImportContext): Promise<void> {
     const needsPeople = !(series.cast?.length || series.directors?.length);
-    const needsArtwork = !(series.posterKey || series.posterUrl);
+    const needsArtwork = await this.needsSeriesArtwork(series);
     if (!needsPeople && !needsArtwork) {
       return;
     }
@@ -424,6 +424,38 @@ export class LibraryImportService {
     if (needsArtwork) {
       await this.applyArtwork(String(series._id), 'series', relativePath, context.libraryRoot, meta);
     }
+  }
+
+  private async needsMovieArtwork(movie: MovieDocument): Promise<boolean> {
+    if (movie.posterUrl) {
+      return false;
+    }
+    if (!movie.posterKey && !movie.backdropKey) {
+      return true;
+    }
+    if (movie.posterKey && !(await this.artwork.exists(movie.posterKey))) {
+      return true;
+    }
+    if (movie.backdropKey && !(await this.artwork.exists(movie.backdropKey))) {
+      return true;
+    }
+    return false;
+  }
+
+  private async needsSeriesArtwork(series: SeriesDocument): Promise<boolean> {
+    if (series.posterUrl) {
+      return false;
+    }
+    if (!series.posterKey && !series.backdropKey) {
+      return true;
+    }
+    if (series.posterKey && !(await this.artwork.exists(series.posterKey))) {
+      return true;
+    }
+    if (series.backdropKey && !(await this.artwork.exists(series.backdropKey))) {
+      return true;
+    }
+    return false;
   }
 
   private async applyArtwork(

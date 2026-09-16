@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Shield } from "lucide-react";
 import type { AdminSiteSettings } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { Alert } from "@/components/ui/alert";
@@ -48,6 +50,21 @@ export default function AdminSettingsPage() {
     setFromEmail(settings.smtp.fromEmail);
   }
 
+  function smtpSettingsInput(enabled = smtpEnabled) {
+    return {
+      smtp: {
+        enabled,
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        user: smtpUser,
+        password: smtpPassword || undefined,
+        fromName,
+        fromEmail,
+      },
+    };
+  }
+
   const saveBrandingMutation = useMutation({
     mutationFn: () => settingsApi.update({ siteName }),
     onSuccess: async (data) => {
@@ -64,19 +81,7 @@ export default function AdminSettingsPage() {
   });
 
   const saveSmtpMutation = useMutation({
-    mutationFn: () =>
-      settingsApi.update({
-        smtp: {
-          enabled: smtpEnabled,
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpSecure,
-          user: smtpUser,
-          password: smtpPassword || undefined,
-          fromName,
-          fromEmail,
-        },
-      }),
+    mutationFn: () => settingsApi.update(smtpSettingsInput()),
     onSuccess: async (data) => {
       setError(null);
       setSuccess("SMTP settings saved.");
@@ -136,14 +141,23 @@ export default function AdminSettingsPage() {
   });
 
   const testMutation = useMutation({
-    mutationFn: () => settingsApi.testSmtp(testTo.trim()),
-    onSuccess: (result) => {
+    mutationFn: async () => {
+      // Testing the values currently visible in the form must not depend on a
+      // separate Save click. Persist them first so mail workers use the same
+      // encrypted MongoDB configuration immediately.
+      const saved = await settingsApi.update(smtpSettingsInput(true));
+      const result = await settingsApi.testSmtp(testTo.trim());
+      return { result, settings: saved.settings };
+    },
+    onSuccess: async ({ result, settings }) => {
+      applySettings(settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       if (result.ok) {
         setError(null);
         setSuccess(result.message);
       } else {
         setSuccess(null);
-        setError(result.message);
+        setError(`SMTP settings were saved, but the test failed: ${result.message}`);
       }
     },
     onError: (err: unknown) => {
@@ -166,6 +180,24 @@ export default function AdminSettingsPage() {
         <p className="text-sm text-muted-foreground">Loading settings...</p>
       ) : (
         <div className="space-y-6">
+          <Link
+            href="/admin/settings/roles"
+            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/50 px-4 py-3 transition hover:border-primary/35 hover:bg-primary/5"
+          >
+            <span className="flex items-center gap-3">
+              <span className="grid h-9 w-9 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                <Shield className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-foreground">Roles & permissions</span>
+                <span className="block text-xs text-muted-foreground">
+                  Configure staff access to movies, billing, libraries, and settings.
+                </span>
+              </span>
+            </span>
+            <span className="text-xs font-medium text-primary">Manage →</span>
+          </Link>
+
           {error ? <Alert>{error}</Alert> : null}
           {success ? (
             <Alert className="border-emerald-500/40 text-emerald-300">{success}</Alert>
@@ -278,8 +310,8 @@ export default function AdminSettingsPage() {
                 <div>
                   <h2 className="text-base font-semibold">Email / SMTP</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Used for verification and password-reset emails. If disabled here, the API falls
-                    back to <code className="text-xs">SMTP_*</code> environment variables.
+                    Used for verification and password-reset emails. Settings are saved in MongoDB;
+                    the password is encrypted and never returned to the browser.
                   </p>
                 </div>
                 <span
@@ -394,7 +426,7 @@ export default function AdminSettingsPage() {
                     disabled={testMutation.isPending || !testTo.trim()}
                     onClick={() => testMutation.mutate()}
                   >
-                    {testMutation.isPending ? "Sending..." : "Send test"}
+                    {testMutation.isPending ? "Saving & sending..." : "Save & send test"}
                   </Button>
                 </div>
                 <Button

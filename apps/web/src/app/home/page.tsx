@@ -3,10 +3,12 @@
 import { hasMinimumRole, UserRole } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { homeApi } from "@/lib/home-api";
+import { profileApi } from "@/lib/profile-api";
 import { Button } from "@/components/ui/button";
 import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { HeroBanner } from "@/components/home/hero-banner";
@@ -18,25 +20,68 @@ export default function AppHomePage() {
   const router = useRouter();
   const { user, status } = useAuthStore();
   const profile = useProfileStore((state) => state.activeProfile);
+  const setActiveProfile = useProfileStore((state) => state.setActiveProfile);
+
+  useEffect(() => {
+    if (status === "anonymous") {
+      router.replace("/login?next=/home");
+    }
+  }, [status, router]);
+
+  const activeProfileQuery = useQuery({
+    queryKey: ["active-profile"],
+    queryFn: profileApi.active,
+    enabled: Boolean(user),
+  });
+
+  useEffect(() => {
+    if (activeProfileQuery.data?.profile) {
+      setActiveProfile(activeProfileQuery.data.profile);
+    }
+    if (activeProfileQuery.isSuccess && !activeProfileQuery.data?.profile) {
+      router.replace("/profiles");
+    }
+  }, [activeProfileQuery.data, activeProfileQuery.isSuccess, router, setActiveProfile]);
+
+  const effectiveProfile = profile ?? activeProfileQuery.data?.profile ?? null;
 
   const entitlementQuery = useQuery({
     queryKey: ["subscription-entitlement"],
     queryFn: subscriptionApi.entitlement,
-    enabled: status === "authenticated",
+    enabled: Boolean(user),
   });
   const entitled = Boolean(entitlementQuery.data?.entitlement.entitled);
   const staff = Boolean(user && hasMinimumRole(user.role, UserRole.Admin));
   const canBrowse = entitled || staff;
   const homeQuery = useQuery({
-    queryKey: ["home", profile?.id],
+    queryKey: ["home", effectiveProfile?.id],
     queryFn: homeApi.browse,
-    enabled: canBrowse && Boolean(profile),
+    enabled: canBrowse && Boolean(effectiveProfile),
     staleTime: 45_000,
   });
-  const listToggle = useMyListToggle(profile?.id);
+  const listToggle = useMyListToggle(effectiveProfile?.id);
 
-  if (status === "loading" || status === "idle" || !user || !profile) {
+  if (status === "loading") {
     return <ScreenMessage>Loading your library...</ScreenMessage>;
+  }
+
+  if (status === "anonymous" || !user) {
+    return <ScreenMessage>Redirecting to sign in...</ScreenMessage>;
+  }
+
+  if (activeProfileQuery.isError) {
+    return (
+      <main className="mx-auto max-w-lg px-6 py-24 text-center">
+        <p className="text-muted-foreground">Could not load your profile.</p>
+        <Button className="mt-4" variant="outline" onClick={() => void activeProfileQuery.refetch()}>
+          Retry
+        </Button>
+      </main>
+    );
+  }
+
+  if (activeProfileQuery.isLoading || !effectiveProfile) {
+    return <ScreenMessage>Loading your profile...</ScreenMessage>;
   }
 
   return (
@@ -73,7 +118,7 @@ export default function AppHomePage() {
             />
           ) : (
             <section className="px-3 pb-10 pt-28 sm:px-4 md:px-5 lg:px-6">
-              <h1 className="text-3xl font-semibold">Welcome back, {profile.name}</h1>
+              <h1 className="text-3xl font-semibold">Welcome back, {effectiveProfile.name}</h1>
               {(homeQuery.data?.rows.length ?? 0) === 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">
                   {hasMinimumRole(user.role, UserRole.Admin)

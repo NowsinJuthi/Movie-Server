@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/providers/app-providers";
+import { brandingIcons, loadPublicBranding } from "@/lib/branding-head";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,24 +15,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "AmarPin",
-  description: "Private media streaming with subscription access.",
-  applicationName: "AmarPin",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "AmarPin",
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  icons: {
-    icon: [{ url: "/icon", sizes: "512x512", type: "image/png" }],
-    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const branding = await loadPublicBranding();
+
+  return {
+    title: branding.siteName,
+    description: "Private media streaming with subscription access.",
+    applicationName: branding.siteName,
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: branding.siteName,
+    },
+    formatDetection: {
+      telephone: false,
+    },
+    icons: brandingIcons(branding),
+  };
+}
 
 export const viewport = {
   width: "device-width",

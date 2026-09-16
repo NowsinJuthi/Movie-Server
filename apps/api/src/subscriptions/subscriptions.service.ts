@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -18,6 +20,8 @@ import { Subscription, SubscriptionDocument } from './schemas/subscription.schem
 import { SubscriptionEvent, SubscriptionEventDocument } from './schemas/subscription-event.schema';
 import { PlansService } from './plans.service';
 import { UsersService } from '../users/users.service';
+import { DevicesService } from '../devices/devices.service';
+import { PlaybackSessionStore } from '../stream/playback-session.store';
 import { RedisService } from '../redis/redis.service';
 import { entitlementCacheKey } from '../common/cache-keys';
 import { addBillingCycle, addDays, priceForCycle } from './period';
@@ -46,6 +50,8 @@ export class SubscriptionsService {
     private readonly users: UsersService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
+    @Inject(forwardRef(() => DevicesService)) private readonly devices: DevicesService,
+    @Inject(forwardRef(() => PlaybackSessionStore)) private readonly sessions: PlaybackSessionStore,
   ) {}
 
   requirePayment(): boolean {
@@ -85,6 +91,25 @@ export class SubscriptionsService {
     const planDoc = await this.plans.findById(String(sub.planId));
     const plan = planDoc ? toPublicPlan(planDoc) : fallbackPlan(sub);
     return toPublicSubscription(sub, plan);
+  }
+
+  async toAdminResponse(sub: SubscriptionDocument) {
+    const base = await this.toResponse(sub);
+    const userId = String(sub.userId);
+    const [user, deviceCount, streamCount] = await Promise.all([
+      this.users.findById(userId),
+      this.devices.countingDevices(userId),
+      this.sessions.listActive(userId).then((rows) => rows.length),
+    ]);
+    return {
+      ...base,
+      userEmail: user?.email ?? '',
+      userDisplayName: user?.displayName ?? '',
+      deviceCount,
+      streamCount,
+      maxDevices: sub.maxDevices,
+      maxStreams: sub.maxStreams,
+    };
   }
 
   async start(
@@ -572,6 +597,42 @@ export class SubscriptionsService {
     if (userId) filter.userId = userId;
     if (status) filter.status = status;
     return this.subModel.find(filter).sort({ createdAt: -1 }).limit(200).exec();
+  }
+
+  async getCurrentSummariesForUsers(userIds: string[]) {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    if (unique.length === 0) {
+      return new Map<
+        string,
+        {
+          userId: string;
+          status: SubscriptionStatus;
+          planSlug: string;
+          planName: string;
+          entitled: boolean;
+          currentPeriodEnd: string;
+        }
+      >();
+    }
+    const rows = await this.subModel
+      .find({ userId: { $in: unique }, isCurrent: true })
+      .exec();
+    const summaries = await Promise.all(rows.map((row) => this.summarizeForUser(row)));
+    return new Map(summaries.map((item) => [item.userId, item]));
+  }
+
+  private async summarizeForUser(sub: SubscriptionDocument) {
+    const planDoc = await this.plans.findById(String(sub.planId));
+    const plan = planDoc ? toPublicPlan(planDoc) : fallbackPlan(sub);
+    const publicSub = toPublicSubscription(sub, plan);
+    return {
+      userId: String(sub.userId),
+      status: publicSub.status,
+      planSlug: publicSub.plan.slug,
+      planName: publicSub.plan.name,
+      entitled: publicSub.entitled,
+      currentPeriodEnd: publicSub.currentPeriodEnd,
+    };
   }
 
   async history(userId: string) {

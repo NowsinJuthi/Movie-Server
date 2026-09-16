@@ -4,9 +4,10 @@ Emby-style private media platform with Netflix-style profiles, subscriptions, an
 
 | | |
 |---|---|
-| **Web** | http://localhost:3001 (dev) |
-| **API** | http://localhost:4001/api/v1 |
-| **Health** | `GET /api/v1/health` |
+| **Web** | http://localhost:3000 (PC + VPS localhost) |
+| **API** | http://localhost:4000/api/v1 |
+| **Public** | https://movies.amarpin.com · https://movies.api.amarpin.com |
+| **Health** | `GET http://127.0.0.1:4000/api/v1/health` |
 | **Admin** | `/admin` (admin / super_admin) |
 | **License** | `/license` · Admin → System → License |
 | **Settings** | Admin → System → Settings (SMTP, name, logo, favicon) |
@@ -74,8 +75,8 @@ SMTP password is encrypted at rest. If panel SMTP is disabled, the API falls bac
 | Web | Next.js 16, React 19, TypeScript, Tailwind CSS 4, TanStack Query, Zustand |
 | API | NestJS 11, Mongoose 9, BullMQ, Socket.IO, Nodemailer |
 | Data | MongoDB 8, Redis 7 |
-| Media | FFmpeg / FFprobe in API image |
-| Deploy | Docker Compose + Nginx (aaPanel or included compose) |
+| Media | FFmpeg / FFprobe on API host |
+| Deploy | **systemd + aaPanel Nginx** (movies.amarpin.com) · Docker optional |
 
 ```
 apps/api          NestJS API (/api/v1)
@@ -99,8 +100,8 @@ docker compose -f docker-compose.dev.yml up -d
 
 npm install
 npm run build -w @movie-server/shared
-npm run dev:api    # :4001
-npm run dev:web    # :3001
+npm run dev:api    # :4000
+npm run dev:web    # :3000
 ```
 
 Optional: `REDIS_HOST=memory` for API without Redis (dev only).
@@ -123,41 +124,51 @@ npm run license:generate -- --days 365 --edition pro
 
 ---
 
-## Production on aaPanel (Ubuntu VPS)
+## Production on aaPanel (Ubuntu VPS — movies.amarpin.com)
 
-**Full deploy guide (Nginx, SSL, MongoDB Atlas, Samba, troubleshooting):**
+Live stack: **systemd** (`amarpin-api` + `amarpin-web`) · **aaPanel Nginx** · **MongoDB Atlas** · **local Redis** · files under **`storage/`** · Samba via one-time mount helper.
 
-→ **[deploy/aapanel/README.md](deploy/aapanel/README.md)**
+| | |
+|---|---|
+| **Project root** | `/www/wwwroot/movies.amarpin.com/` |
+| **Web** | systemd → localhost **3000** |
+| **API** | systemd (`www` user) → localhost **4000** |
+| **Public** | Nginx 443 → 3000 / 4000 |
+| **Env template** | [`.env.ready`](.env.ready) |
 
-Quick start on the VPS:
+### Deploy guides
+
+| Guide | Use |
+|-------|-----|
+| **[deploy/aapanel/README.md](deploy/aapanel/README.md)** | Full production doc (storage, Samba, nginx, updates) |
+| **[deploy/aapanel/VPS-SYSTEMD-DEPLOY.md](deploy/aapanel/VPS-SYSTEMD-DEPLOY.md)** | Short step-by-step checklist |
+| **[deploy/aapanel/PORTS.md](deploy/aapanel/PORTS.md)** | Port map (PC = VPS) |
+
+### Quick verify (VPS)
 
 ```bash
-mkdir -p /www/wwwroot/movies.amarpin.com
-cd /www/wwwroot/movies.amarpin.com
-git clone https://github.com/NowsinJuthi/Movie-Server.git .
-cp deploy/aapanel/.env.aapanel.example .env
-nano .env   # JWT secret, admin password, MONGODB_URI, domains
-chmod +x deploy/aapanel/deploy.sh
-./deploy/aapanel/deploy.sh
+curl -sS http://127.0.0.1:4000/api/v1/health
+curl -I http://127.0.0.1:3000
+curl -sS https://movies.api.amarpin.com/api/v1/health
+sudo systemctl is-active amarpin-api amarpin-web
 ```
 
-Then aaPanel: two sites + SSL → `nginx-web.conf` + `nginx-api.conf`.
+### Samba (website-only)
 
-| Check | Command |
-|-------|---------|
-| API health | `curl -sS http://127.0.0.1:4001/api/v1/health` |
-| Web | `curl -I http://127.0.0.1:3001` |
-| Public | `https://movies.amarpin.com` |
+One-time on VPS, then add shares only in Admin → File manager:
+
+```bash
+sudo bash deploy/aapanel/install-smb-mount-helper.sh
+sudo systemctl restart amarpin-api
+```
 
 ### aaPanel tips (বাংলা সংক্ষেপ)
 
-1. aaPanel-এ Nginx + Docker; firewall-এ শুধু `80/443` পাবলিক রাখুন (`3001`/`4001` নয়)।
-2. প্রজেক্ট `/www/wwwroot/movies.amarpin.com`-এ clone, `.env` সেট করুন (Atlas MongoDB URI, JWT, admin password)।
-3. `./deploy/aapanel/deploy.sh` চালান।
-4. দুইটা site + SSL: `movies.amarpin.com` (web) ও `movies.api.amarpin.com` (API) — config `deploy/aapanel/` থেকে।
-5. Nginx-এ `location ^~ /api/v1/` অবশ্যই `127.0.0.1:4001`-এ proxy করবে।
-6. Samba library add-এ CIFS mount লাগে — API `privileged: true` অথবা `deploy/aapanel/mount-smb-share.sh` host-এ চালান।
-7. বিস্তারিত: [deploy/aapanel/README.md](deploy/aapanel/README.md)
+1. PC ar VPS **same port**: web **3000**, API **4000**।
+2. Firewall-এ শুধু `80/443` পাবলিক — `3000`/`4000` localhost-এ রাখুন।
+3. সব upload/HLS/Samba mount → `storage/` folder (`.env.ready` দেখুন)।
+4. MongoDB reset হলে: `npm run bootstrap:admin` → libraries/Samba আবার add।
+5. Full guide: [deploy/aapanel/README.md](deploy/aapanel/README.md)
 
 ---
 

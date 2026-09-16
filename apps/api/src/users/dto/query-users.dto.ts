@@ -100,6 +100,17 @@ export class PatchUserDto {
   @IsIn([...USER_ROLES])
   role?: UserRole;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  staffProfileId?: string;
+
+  @IsOptional()
+  subscriptionStaffRules?: {
+    view?: boolean | null;
+    manage?: boolean | null;
+  };
+
   /** Leave empty / omit to keep the current password. */
   @IsOptional()
   @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')

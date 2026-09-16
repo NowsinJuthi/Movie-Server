@@ -20,7 +20,7 @@ export class AvatarsService {
 
   rootDir(): string {
     if (this.config.get('NODE_ENV') === 'test') {
-      return path.join(os.tmpdir(), 'cinevault-avatars');
+      return path.join(os.tmpdir(), 'amarpin-avatars');
     }
     return (
       this.config.get<string>('AVATAR_UPLOAD_DIR') ||

@@ -30,7 +30,7 @@ function detectType(lower: string): DeviceType {
   if (/iphone|android.+mobile|windows phone|mobile/.test(lower)) {
     return DeviceType.Mobile;
   }
-  if (/electron|cinevault-app|okhttp|dart/.test(lower)) {
+  if (/electron|amarpin-app|cinevault-app|okhttp|dart/.test(lower)) {
     return DeviceType.App;
   }
   if (/windows|macintosh|linux|x11/.test(lower)) {

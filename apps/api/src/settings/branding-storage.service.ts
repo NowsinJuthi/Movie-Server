@@ -58,7 +58,7 @@ export class BrandingStorageService {
 
   rootDir(): string {
     if (this.config.get('NODE_ENV') === 'test') {
-      return path.join(os.tmpdir(), 'cinevault-branding');
+      return path.join(os.tmpdir(), 'amarpin-branding');
     }
     return (
       this.config.get<string>('BRANDING_UPLOAD_DIR') ||

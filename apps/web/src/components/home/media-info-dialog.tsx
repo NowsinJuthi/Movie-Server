@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DragSlider } from "@/components/ui/drag-slider";
 import { movieApi } from "@/lib/movie-api";
 import { seriesApi } from "@/lib/series-api";
-import { rememberPlayerReturn } from "@/lib/player-return";
+import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 import { MyListButton } from "./my-list-button";
 import { PersonalizationControls } from "./personalization-controls";
 import { invalidatePersonalization } from "./use-personalization";
@@ -136,7 +136,7 @@ export function MediaInfoDialog({
 
   const play = () => {
     rememberPlayerReturn();
-    router.push(watchHref);
+    router.push(autoplayPlayerHref(watchHref));
     onClose();
   };
 

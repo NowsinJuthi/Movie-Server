@@ -24,6 +24,7 @@ export function SeekBar({
   onSeek,
   onScrubbingChange,
   variant = "default",
+  transcode = false,
 }: {
   currentTime: number;
   duration: number;
@@ -33,6 +34,8 @@ export function SeekBar({
   onScrubbingChange?: (scrubbing: boolean) => void;
   /** Larger thumb on mobile transport bar */
   variant?: "default" | "emby";
+  /** Live HLS transcode — hide misleading full-buffer bar from Safari */
+  transcode?: boolean;
 }) {
   const accentClass = "bg-primary";
   const trackRef = useRef<HTMLDivElement>(null);
@@ -42,10 +45,14 @@ export function SeekBar({
   const [previewRatio, setPreviewRatio] = useState<number | null>(null);
   const scrubbingRef = useRef(false);
 
-  const playedRatio = duration > 0 ? clamp01(currentTime / duration) : 0;
-  const displayRatio = previewRatio ?? playedRatio;
-  const bufferedRatio =
-    duration > 0 && bufferedEnd != null ? clamp01(bufferedEnd / duration) : 0;
+  const timeline = duration > 0 ? duration : 0;
+  const playedRatio = timeline > 0 ? clamp01(currentTime / timeline) : 0;
+  const displayRatio = scrubbing ? (previewRatio ?? playedRatio) : playedRatio;
+  const rawBufferedRatio =
+    timeline > 0 && bufferedEnd != null ? clamp01(bufferedEnd / timeline) : 0;
+  const bufferedRatio = transcode
+    ? Math.min(rawBufferedRatio, playedRatio + 0.06)
+    : rawBufferedRatio;
   const tipRatio = scrubbing ? displayRatio : (hoverRatio ?? displayRatio);
   const active = hovering || scrubbing;
 
@@ -65,6 +72,9 @@ export function SeekBar({
     scrubbingRef.current = false;
     setScrubbing(false);
     onScrubbingChange?.(false);
+    setPreviewRatio(null);
+    previewRatioRef.current = null;
+    setHoverRatio(null);
     if (finalRatio != null) {
       onSeek(finalRatio);
     }
@@ -86,13 +96,11 @@ export function SeekBar({
   );
 
   useEffect(() => {
-    if (previewRatio == null || duration <= 0) return;
-    const target = previewRatio * duration;
-    if (Math.abs(currentTime - target) < 1.5) {
-      setPreviewRatio(null);
-      previewRatioRef.current = null;
-    }
-  }, [currentTime, previewRatio, duration]);
+    if (scrubbing) return;
+    if (previewRatio == null) return;
+    setPreviewRatio(null);
+    previewRatioRef.current = null;
+  }, [scrubbing, currentTime, previewRatio]);
 
   useEffect(() => {
     if (!scrubbing) return;
@@ -216,11 +224,13 @@ export function SeekBar({
             active ? "h-[5px]" : "h-[3px]",
           )}
         >
-          {/* Buffered */}
-          <div
-            className="absolute inset-y-0 left-0 rounded-full bg-white/35"
-            style={{ width: `${bufferedRatio * 100}%` }}
-          />
+          {/* Buffered — hidden for transcode (Safari reports fantasy ranges) */}
+          {!transcode ? (
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-white/35"
+              style={{ width: `${bufferedRatio * 100}%` }}
+            />
+          ) : null}
           {/* Played */}
           <div
             className={cn("absolute inset-y-0 left-0 rounded-full", accentClass)}

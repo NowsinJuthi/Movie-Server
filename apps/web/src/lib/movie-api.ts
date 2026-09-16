@@ -14,6 +14,7 @@ import type {
 } from "@movie-server/shared";
 import { apiFetch } from "./api";
 import { playbackDevicePayload } from "./device";
+import { browserSupportsHevcDirectStream } from "./device-playback";
 
 export type MovieQuery = {
   q?: string;
@@ -45,10 +46,21 @@ export const movieApi = {
   catalog: () => apiFetch<MovieCatalogResponse>("/movies/catalog"),
   continueWatching: () => apiFetch<{ items: MovieContinueItem[] }>("/movies/continue-watching"),
   one: (id: string) => apiFetch<MovieDetailResponse>(`/movies/${id}`),
-  playback: (id: string, quality: VideoQuality) =>
+  playback: (
+    id: string,
+    quality: VideoQuality,
+    options?: { forceVideoTranscode?: boolean },
+  ) =>
     apiFetch<MoviePlaybackResponse>(`/movies/${id}/playback`, {
       method: "POST",
-      body: JSON.stringify({ quality, ...playbackDevicePayload() }),
+      body: JSON.stringify({
+        quality,
+        hevcDirectStream: options?.forceVideoTranscode
+          ? false
+          : browserSupportsHevcDirectStream(),
+        forceVideoTranscode: options?.forceVideoTranscode ?? false,
+        ...playbackDevicePayload(),
+      }),
     }),
   progress: (id: string, progressSeconds: number, durationSeconds: number) =>
     apiFetch<MovieProgressResponse>(`/movies/${id}/progress`, {

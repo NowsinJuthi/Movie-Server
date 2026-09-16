@@ -1,4 +1,4 @@
-import { VIDEO_RESOLUTIONS, type HomeCard, type VideoResolution } from "@movie-server/shared";
+import type { HomeCard } from "@movie-server/shared";
 
 export const LibraryBrowseSort = {
   Title: "title",
@@ -29,15 +29,7 @@ export type LibraryBrowseFilters = {
   genre?: string;
   year?: number;
   minRating?: number;
-  quality?: VideoResolution;
   sort?: LibraryBrowseSort;
-};
-
-const RESOLUTION_RANK: Record<VideoResolution, number> = {
-  "480p": 1,
-  "720p": 2,
-  "1080p": 3,
-  "4k": 4,
 };
 
 export function genreLabel(genre: string): string {
@@ -71,14 +63,12 @@ export function sortLabel(sort: LibraryBrowseSort): string {
 export function readLibraryBrowseFilters(params: URLSearchParams): LibraryBrowseFilters {
   const year = params.get("year");
   const minRating = params.get("minRating");
-  const quality = params.get("quality");
   const sort = params.get("sort");
   return {
     q: params.get("q")?.trim() || undefined,
     genre: params.get("genre") || undefined,
     year: year ? Number(year) : undefined,
     minRating: minRating ? Number(minRating) : undefined,
-    quality: quality && VIDEO_RESOLUTIONS.includes(quality as VideoResolution) ? (quality as VideoResolution) : undefined,
     sort:
       sort && LIBRARY_BROWSE_SORTS.includes(sort as LibraryBrowseSort)
         ? (sort as LibraryBrowseSort)
@@ -88,11 +78,9 @@ export function readLibraryBrowseFilters(params: URLSearchParams): LibraryBrowse
 
 export function libraryBrowseFiltersActive(filters: LibraryBrowseFilters): boolean {
   return Boolean(
-    filters.q ||
-      filters.genre ||
+    filters.genre ||
       filters.year ||
       filters.minRating ||
-      filters.quality ||
       (filters.sort && filters.sort !== LibraryBrowseSort.Title),
   );
 }
@@ -119,11 +107,6 @@ function cardRating(card: HomeCard): number {
   return card.ratings.imdb ?? card.ratings.tmdb ?? card.ratings.audience ?? card.ratings.critics ?? 0;
 }
 
-function resolutionRank(resolution: VideoResolution | null | undefined): number {
-  if (!resolution) return 0;
-  return RESOLUTION_RANK[resolution] ?? 0;
-}
-
 export function filterAndSortLibraryItems(items: HomeCard[], filters: LibraryBrowseFilters): HomeCard[] {
   const q = filters.q?.trim().toLowerCase() ?? "";
   let result = items.filter((item) => {
@@ -131,10 +114,6 @@ export function filterAndSortLibraryItems(items: HomeCard[], filters: LibraryBro
     if (filters.genre && !item.genres.includes(filters.genre)) return false;
     if (filters.year && item.year !== filters.year) return false;
     if (filters.minRating != null && cardRating(item) < filters.minRating) return false;
-    if (filters.quality) {
-      const minRank = RESOLUTION_RANK[filters.quality];
-      if (resolutionRank(item.maxResolution) < minRank) return false;
-    }
     return true;
   });
 

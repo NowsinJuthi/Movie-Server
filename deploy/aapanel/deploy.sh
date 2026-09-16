@@ -38,10 +38,10 @@ docker compose -f "$COMPOSE_FILE" ps
 
 echo
 echo "Local checks (from this VPS):"
-echo "  curl -sS http://127.0.0.1:4001/api/v1/health"
-echo "  curl -I  http://127.0.0.1:3001"
+echo "  curl -sS http://127.0.0.1:4000/api/v1/health"
+echo "  curl -I  http://127.0.0.1:3000"
 echo
 echo "Next: aaPanel → two sites + SSL:"
-echo "  movies.amarpin.com     → deploy/aapanel/nginx-web.conf  (127.0.0.1:3001)"
-echo "  movies.api.amarpin.com → deploy/aapanel/nginx-api.conf (127.0.0.1:4001)"
+echo "  movies.amarpin.com     → deploy/aapanel/nginx-web.conf  (127.0.0.1:3000)"
+echo "  movies.api.amarpin.com → deploy/aapanel/nginx-api.conf (127.0.0.1:4000)"
 echo "Done."

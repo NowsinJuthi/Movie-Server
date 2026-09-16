@@ -26,6 +26,8 @@ import { SearchModule } from './search/search.module';
 import { AdminModule } from './admin/admin.module';
 import { LicenseModule } from './license/license.module';
 import { SettingsModule } from './settings/settings.module';
+import { RolePermissionsModule } from './role-permissions/role-permissions.module';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 import { HealthController } from './health/health.controller';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -98,6 +100,7 @@ const useQueue = process.env.NODE_ENV !== 'test' && process.env.REDIS_HOST !== '
     AdminModule,
     LicenseModule,
     SettingsModule,
+    RolePermissionsModule,
     RealtimeModule,
   ],
   controllers: [HealthController],
@@ -106,6 +109,7 @@ const useQueue = process.env.NODE_ENV !== 'test' && process.env.REDIS_HOST !== '
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_PIPE, useClass: SanitizePipe },
     {

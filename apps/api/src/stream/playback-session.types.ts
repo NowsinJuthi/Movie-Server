@@ -44,6 +44,16 @@ export type StoredPlaybackSession = {
   durationSeconds: number;
   /** Cached at session open — avoids re-probing the file on every byte-range request. */
   videoRemux: boolean;
+  /** Cached at session open — HEVC/EAC3 titles need live HLS transcode + seek restart. */
+  videoTranscode: boolean;
+  /** Re-encode video stream (HEVC). False when only audio needs conversion. */
+  transcodeEncodeVideo: boolean;
+  /** Re-encode audio stream (EAC3/DTS). */
+  transcodeEncodeAudio: boolean;
+  /** Preferred embedded audio stream for live transcode (cached from ffprobe). */
+  transcodeAudioOrdinal: number;
+  /** Cached video codec from library probe (h264, hevc, …). */
+  sourceVideoCodec: string | null;
   /** Query token for <video src> on iOS Safari (cookies are not sent on media requests). */
   mediaToken: string;
   createdAt: number;

@@ -108,7 +108,7 @@ export class SessionsService {
       `auth:refresh-grace:${previousHash}`,
       JSON.stringify({ sessionId: String(session._id), refreshToken }),
       'PX',
-      15_000,
+      30_000,
     );
 
     session.tokenHash = tokenHash;

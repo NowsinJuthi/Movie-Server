@@ -130,6 +130,7 @@ export type EmbyMobileChromeProps = {
   currentTime: number;
   duration: number;
   bufferedEnd: number;
+  transcode?: boolean;
   fullscreen: boolean;
   qualityLabel: string;
   subtitlesOn: boolean;
@@ -162,6 +163,7 @@ export function EmbyMobileChrome({
   currentTime,
   duration,
   bufferedEnd,
+  transcode = false,
   fullscreen,
   qualityLabel,
   subtitlesOn,
@@ -272,6 +274,7 @@ export function EmbyMobileChrome({
           currentTime={currentTime}
           duration={duration}
           bufferedEnd={bufferedEnd}
+          transcode={transcode}
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />

@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Info, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { rememberPlayerReturn } from "@/lib/player-return";
+import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 import { cn } from "@/lib/utils";
 import { PosterImage } from "./poster-image";
 
@@ -43,7 +43,7 @@ export function HeroBanner({
 
   const play = () => {
     rememberPlayerReturn();
-    router.push(active.watchHref ?? active.href);
+    router.push(autoplayPlayerHref(active.watchHref ?? active.href));
   };
 
   return (

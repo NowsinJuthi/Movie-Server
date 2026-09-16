@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import {
   USER_ROLES,
@@ -23,16 +24,39 @@ import { Button } from "@/components/ui/button";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { cn } from "@/lib/utils";
 
 function roleLabel(role: string) {
+  if (role === UserRole.Vip) return "VIP";
   return role.replaceAll("_", " ");
+}
+
+function subscriptionStatusClass(status: string) {
+  switch (status) {
+    case "active":
+    case "trial":
+      return "text-emerald-400";
+    case "pending":
+      return "text-amber-400";
+    case "suspended":
+      return "text-red-400";
+    case "cancelled":
+      return "text-orange-400";
+    default:
+      return "text-muted-foreground";
+  }
 }
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const { can } = useAdminPermissions();
   const isAdmin = Boolean(user && hasMinimumRole(user.role, UserRole.Admin));
   const isSuper = Boolean(user && hasMinimumRole(user.role, UserRole.SuperAdmin));
+  const canManageUsers = can("manage_users");
+  const canViewSubscriptions = can("view_subscriptions") || can("manage_subscriptions");
+  const canManageSubscriptions = can("manage_subscriptions");
   const [q, setQ] = useState("");
   const qDebounced = useDebouncedValue(q.trim(), 250);
   const [role, setRole] = useState("");
@@ -88,6 +112,7 @@ export default function AdminUsersPage() {
         displayName: string;
         email: string;
         role: UserRole;
+        staffProfileId: string;
         emailVerified: boolean;
         isActive: boolean;
         password?: string;
@@ -129,14 +154,16 @@ export default function AdminUsersPage() {
       description="Add, edit, delete, and change roles. Staff accounts require Super Admin."
       error={error}
       actions={
-        <Button
-          onClick={() => {
-            setFormError(null);
-            setAddOpen(true);
-          }}
-        >
-          Add user
-        </Button>
+        canManageUsers ? (
+          <Button
+            onClick={() => {
+              setFormError(null);
+              setAddOpen(true);
+            }}
+          >
+            Add user
+          </Button>
+        ) : null
       }
     >
       <div className="mb-4 flex flex-wrap gap-3">
@@ -161,7 +188,18 @@ export default function AdminUsersPage() {
           ]}
         />
       </div>
-      <AdminTable columns={["Name", "Email", "Role", "Verified", "Active", "Last login", ""]}>
+      <AdminTable
+        columns={[
+          "Name",
+          "Email",
+          "Role",
+          ...(canViewSubscriptions ? (["Subscription"] as const) : []),
+          "Verified",
+          "Active",
+          "Last login",
+          "",
+        ]}
+      >
         {(query.data?.items ?? []).map((item) => {
           const manageable = canManage(item);
           const isSelf = user?.id === item.id;
@@ -171,12 +209,35 @@ export default function AdminUsersPage() {
               <AdminTd>{item.displayName}</AdminTd>
               <AdminTd>{item.email}</AdminTd>
               <AdminTd className="capitalize">{roleLabel(item.role)}</AdminTd>
+              {canViewSubscriptions ? (
+                <AdminTd>
+                  {item.subscription ? (
+                    <div className="min-w-[140px] space-y-1">
+                      <p className="font-medium">{item.subscription.planName}</p>
+                      <p className={cn("text-xs capitalize", subscriptionStatusClass(item.subscription.status))}>
+                        {item.subscription.status}
+                        {!item.subscription.entitled ? " · not entitled" : ""}
+                      </p>
+                      {canManageSubscriptions ? (
+                        <Link
+                          href={`/admin/subscriptions?userId=${encodeURIComponent(item.id)}`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Manage
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">None</span>
+                  )}
+                </AdminTd>
+              ) : null}
               <AdminTd>{item.emailVerified ? "Yes" : "No"}</AdminTd>
               <AdminTd>{item.isActive ? "Yes" : "No"}</AdminTd>
               <AdminTd>{item.lastLoginAt ? new Date(item.lastLoginAt).toLocaleString() : "—"}</AdminTd>
               <AdminTd>
                 <div className="flex flex-wrap gap-2">
-                  {manageable ? (
+                  {manageable && canManageUsers ? (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -188,7 +249,14 @@ export default function AdminUsersPage() {
                       Edit
                     </Button>
                   ) : null}
-                  {manageable ? (
+                  {canViewSubscriptions && item.subscription && canManageSubscriptions ? (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/admin/subscriptions?userId=${encodeURIComponent(item.id)}`}>
+                        Subscription
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {manageable && canManageUsers ? (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -197,7 +265,7 @@ export default function AdminUsersPage() {
                       {item.isActive ? "Deactivate" : "Activate"}
                     </Button>
                   ) : null}
-                  {manageable && !isSelf ? (
+                  {manageable && canManageUsers && !isSelf ? (
                     <Button size="sm" variant="destructive" onClick={() => setPendingDelete(item)}>
                       Delete
                     </Button>
@@ -285,6 +353,7 @@ export default function AdminUsersPage() {
               displayName: values.displayName.trim(),
               email: values.email.trim(),
               role: values.role,
+              staffProfileId: values.staffProfileId,
               emailVerified: values.emailVerified,
               isActive: values.isActive,
               ...(password ? { password } : {}),

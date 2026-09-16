@@ -141,6 +141,15 @@ export type PublicSubscription = {
   entitled: boolean;
 };
 
+export type AdminSubscriptionRow = PublicSubscription & {
+  userEmail: string;
+  userDisplayName: string;
+  deviceCount: number;
+  streamCount: number;
+  maxDevices: number;
+  maxStreams: number;
+};
+
 export type SubscriptionEntitlement = {
   entitled: boolean;
   status: SubscriptionStatus | null;

@@ -1,346 +1,318 @@
-# AmarPin — aaPanel VPS full deploy guide
+# AmarPin — movies.amarpin.com production (aaPanel + systemd)
 
-Production setup used for **movies.amarpin.com** (Ubuntu VPS + aaPanel + Docker + Nginx + SSL).
+Production stack used on the live VPS: **Ubuntu + aaPanel + Nginx + systemd + Node.js** (no Docker required).
 
 | URL | Role |
 |-----|------|
-| `https://movies.amarpin.com` | Next.js web (port **3001** on localhost) |
-| `https://movies.api.amarpin.com` | NestJS API (port **4001** on localhost) |
+| `https://movies.amarpin.com` | Next.js web → localhost **3000** |
+| `https://movies.api.amarpin.com` | NestJS API → localhost **4000** |
 
-aaPanel Nginx owns **80/443**. Docker ports **3001** and **4001** must stay on `127.0.0.1` only — do not open them in the firewall.
+**Project root:** `/www/wwwroot/movies.amarpin.com/`  
+**API runs as:** `www` user (systemd)  
+**MongoDB:** Atlas (cloud) · **Redis:** local on VPS
+
+PC dev and VPS use the **same ports** (3000 / 4000). aaPanel Nginx owns **80/443** — do not expose 3000/4000 publicly.
+
+→ **Full step-by-step:** [VPS-SYSTEMD-DEPLOY.md](./VPS-SYSTEMD-DEPLOY.md)  
+→ **Port map:** [PORTS.md](./PORTS.md)
+
+---
+
+## Architecture
+
+```
+Browser (HTTPS :443)
+    ↓ aaPanel Nginx
+    ├─ movies.amarpin.com  → 127.0.0.1:3000  (amarpin-web)
+    └─ movies.api.amarpin.com → 127.0.0.1:4000  (amarpin-api)
+                                    ↓
+                    MongoDB Atlas (metadata)
+                    Redis 127.0.0.1:6379 (sessions, rate limits)
+                    storage/ (uploads, HLS temp, Samba mounts)
+                    Samba NAS (via CIFS mount)
+```
 
 ---
 
 ## 1. VPS requirements
 
-1. Ubuntu 22/24 with **aaPanel** installed.
-2. **Nginx** + **Docker** (Docker Manager or Docker CE).
-3. Firewall: allow `22`, `80`, `443`, aaPanel port. Block public `3001` / `4001`.
+1. Ubuntu 22/24 with **aaPanel**
+2. **Node.js ≥ 20**, **npm**, **FFmpeg**, **Redis**, **cifs-utils**, **smbclient**
+3. Firewall: allow `22`, `80`, `443`, aaPanel port. Block public `3000` / `4000`.
 4. DNS A records → VPS IP:
    - `movies.amarpin.com`
    - `movies.api.amarpin.com`
 
 ---
 
-## 2. Clone project
+## 2. Project & storage layout
+
+All on-disk files (except MongoDB text data) live under **`storage/`**:
+
+| Path | Purpose |
+|------|---------|
+| `storage/uploads/artwork` | Movie/series posters & backdrops |
+| `storage/uploads/avatars` | Profile pictures |
+| `storage/uploads/branding` | Site logo & favicon |
+| `storage/hls-pack` | Streaming transcode temp segments |
+| `storage/smb-mounts` | Samba/NAS CIFS mount points |
+
+One-time setup:
 
 ```bash
-mkdir -p /www/wwwroot/movies.amarpin.com
-cd /www/wwwroot/movies.amarpin.com
-git clone https://github.com/NowsinJuthi/Movie-Server.git .
+sudo mkdir -p /www/wwwroot/movies.amarpin.com/storage/uploads/{artwork,avatars,branding} \
+  /www/wwwroot/movies.amarpin.com/storage/hls-pack \
+  /www/wwwroot/movies.amarpin.com/storage/smb-mounts
+sudo chown -R www:www /www/wwwroot/movies.amarpin.com/storage
+sudo chmod -R 755 /www/wwwroot/movies.amarpin.com/storage
 ```
 
 ---
 
 ## 3. Environment (`.env`)
 
+Copy template from repo root:
+
 ```bash
-cp deploy/aapanel/.env.aapanel.example .env
+cp .env.ready .env
 nano .env
 ```
 
-### Required changes
+Or upload `.env.ready` from PC → `/www/wwwroot/movies.amarpin.com/.env`
+
+### Required variables
 
 | Variable | Example / notes |
 |----------|-----------------|
+| `PORT` | `4000` |
+| `APP_URL` | `https://movies.amarpin.com` |
+| `API_URL` | `https://movies.api.amarpin.com` |
+| `API_INTERNAL_URL` | `http://127.0.0.1:4000` |
+| `NEXT_PUBLIC_API_URL` | `https://movies.api.amarpin.com/api/v1` |
+| `MONGODB_URI` | MongoDB Atlas `mongodb+srv://...` |
+| `REDIS_HOST` | `127.0.0.1` |
 | `JWT_ACCESS_SECRET` | `openssl rand -hex 32` |
 | `LICENSE_MASTER_SECRET` | Separate HMAC secret for license keys |
 | `BOOTSTRAP_SUPERADMIN_EMAIL` | First admin email |
 | `BOOTSTRAP_SUPERADMIN_PASSWORD` | Strong password |
-| `MONGODB_URI` | Local `mongodb://mongo:27017/cinevault` **or** MongoDB Atlas `mongodb+srv://...` |
-| `CORS_ORIGINS` | `https://movies.amarpin.com` |
-| `COOKIE_DOMAIN` | `.amarpin.com` (share cookies across subdomains) |
+| `COOKIE_DOMAIN` | `.amarpin.com` |
 | `COOKIE_SECURE` | `true` |
-| `COOKIE_SAME_SITE` | `lax` |
-| `APP_URL` | `https://movies.amarpin.com` |
-| `API_URL` | `https://movies.api.amarpin.com` |
-| `NEXT_PUBLIC_API_URL` | `https://movies.api.amarpin.com/api/v1` (baked into web Docker build) |
-| `PAYMENT_PROVIDER` | `stripe` on public HTTPS (not `fake`) |
+| `CORS_ORIGINS` | `https://movies.amarpin.com` |
+| `ARTWORK_UPLOAD_DIR` | `.../storage/uploads/artwork` |
+| `AVATAR_UPLOAD_DIR` | `.../storage/uploads/avatars` |
+| `BRANDING_UPLOAD_DIR` | `.../storage/uploads/branding` |
+| `HLS_PACK_DIR` | `.../storage/hls-pack` |
+| `SMB_MOUNT_ROOT` | `.../storage/smb-mounts` |
+| `SMB_MOUNT_USE_SUDO` | `true` (after helper install) |
 
-### MongoDB Atlas (recommended for production)
+Full annotated template: **`.env.ready`** in repo root.
 
-In `.env`:
+### MongoDB Atlas
 
-```env
-MONGODB_URI=mongodb+srv://USER:PASS@cluster.mongodb.net/Movie-Server?retryWrites=true&w=majority
-```
+- Whitelist VPS IP in Atlas → Network Access.
+- After wiping/recreating the database, re-bootstrap admin:
 
-- Whitelist the VPS IP in Atlas → Network Access.
-- API reads `MONGODB_URI` from `.env` via `env_file` — do not hardcode Atlas URI in `docker-compose.aapanel.yml`.
-- You can stop/remove the local `mongo` container if you only use Atlas (optional).
-
-### Host media folders
-
-Created automatically by `deploy.sh`:
-
-```text
-/data/movies.amarpin.com/media/movies
-/data/movies.amarpin.com/media/tv
-/data/movies.amarpin.com/smb-mounts
+```bash
+cd /www/wwwroot/movies.amarpin.com
+npm run bootstrap:admin
+sudo systemctl restart amarpin-api
 ```
 
 ---
 
-## 4. Start Docker stack
+## 4. Build & systemd
 
 ```bash
-chmod +x deploy/aapanel/deploy.sh
-./deploy/aapanel/deploy.sh
+cd /www/wwwroot/movies.amarpin.com
+npm install
+npm run build -w @movie-server/shared
+npm run build -w @movie-server/api
+npm run build -w @movie-server/web
+
+sudo cp deploy/aapanel/amarpin-api.service /etc/systemd/system/
+sudo cp deploy/aapanel/amarpin-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable amarpin-api amarpin-web
+sudo systemctl restart amarpin-api amarpin-web
 ```
 
-Or manually:
+### Verify
 
 ```bash
-mkdir -p /data/movies.amarpin.com/media/movies /data/movies.amarpin.com/media/tv /data/movies.amarpin.com/smb-mounts
-docker compose -f docker-compose.aapanel.yml up -d --build
+curl -sS http://127.0.0.1:4000/api/v1/health
+curl -I http://127.0.0.1:3000
+curl -sS https://movies.api.amarpin.com/api/v1/health
 ```
 
-### Verify (on VPS)
+Expected: `{"status":"ok","mongo":"up","redis":"up"}`
+
+### Useful commands
 
 ```bash
-docker compose -f docker-compose.aapanel.yml ps
-curl -sS http://127.0.0.1:4001/api/v1/health
-# {"status":"ok","mongo":"up","redis":"up"}
-
-curl -I http://127.0.0.1:3001
-```
-
-### API container notes (Samba / CIFS)
-
-The API image includes `smbclient`, `cifs-utils`, `ffmpeg`. For Samba library scanning the API service has:
-
-- `cap_add: SYS_ADMIN`
-- `privileged: true`
-- `security_opt: apparmor:unconfined`
-
-Recreate API after compose changes:
-
-```bash
-docker compose -f docker-compose.aapanel.yml up -d --build --force-recreate api
+sudo systemctl status amarpin-api amarpin-web
+sudo systemctl restart amarpin-api
+sudo journalctl -u amarpin-api -n 50 --no-pager
+sudo journalctl -u amarpin-web -n 50 --no-pager
+ss -tlnp | grep -E '3000|4000'
 ```
 
 ---
 
 ## 5. aaPanel Nginx + SSL
 
-Create **two** websites in aaPanel. Enable **Let's Encrypt** on both (Force HTTPS).
+Create **two** websites. Enable **Let's Encrypt** (Force HTTPS).
 
-### A) Web — `movies.amarpin.com`
+| Site | Config file | Proxy |
+|------|-------------|-------|
+| `movies.amarpin.com` | `nginx-web.conf` | `/` → `:3000`, `^~ /api/v1/` → `:4000` |
+| `movies.api.amarpin.com` | `nginx-api.conf` | `/` → `:4000` |
 
-1. **Website → Add site**
-2. **SSL → Let's Encrypt**
-3. **Config** → merge `deploy/aapanel/nginx-web.conf` with aaPanel SSL paths
+**Critical:** `location ^~ /api/v1/` must appear **before** `location /` on the web site.
 
-**Critical Nginx rules:**
-
-- `location ^~ /api/v1/` → `proxy_pass http://127.0.0.1:4001;` (**must be before** `location /`)
-- `location /` → `proxy_pass http://127.0.0.1:3001;`
-- Remove `include extension/movies.amarpin.com/*.conf` if aaPanel added it — it can steal `POST /api/v1/*` and return HTML 502/404.
-- CSP `connect-src` must allow the API origin if the browser calls `movies.api.amarpin.com` directly.
-
-Example API proxy block:
-
-```nginx
-location ^~ /api/v1/ {
-    proxy_pass http://127.0.0.1:4001;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-Reload:
+Remove aaPanel `include extension/movies.amarpin.com/*.conf` if it steals API routes (HTML 502 on POST).
 
 ```bash
 nginx -t && nginx -s reload
 ```
 
-### B) API — `movies.api.amarpin.com`
-
-1. **Website → Add site**
-2. **SSL → Let's Encrypt**
-3. **Config** → paste `deploy/aapanel/nginx-api.conf`
-
-Verify:
-
-```bash
-curl -sS https://movies.api.amarpin.com/api/v1/health
-curl -sS https://movies.amarpin.com/api/v1/health
-```
-
 ---
 
-## 6. First login
-
-Admin is created from `.env` on first API boot (if no admin exists):
-
-- Email: `BOOTSTRAP_SUPERADMIN_EMAIL`
-- Password: `BOOTSTRAP_SUPERADMIN_PASSWORD`
-
-Test login from VPS:
-
-```bash
-curl -c /tmp/cv2.txt -sS -X POST https://movies.amarpin.com/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_PASSWORD"}'
-```
-
-Then:
-
-1. **Admin → System → Settings** — site name, logo, SMTP
-2. **Admin → System → License** — activate key (30-day trial otherwise)
-3. **Admin → Libraries / Samba** — attach media
-
----
-
-## 7. Samba / SMB file manager
-
-### How it works
+## 6. Samba / SMB (website-only)
 
 | Step | Tool | Notes |
 |------|------|-------|
-| Add server (test connection) | `smbclient` inside API | Safe in Docker (no Node crash) |
-| Browse folders | `smbclient ls` | Human-readable output parsed by API |
-| Add library + scan | CIFS **mount** | Needs mounted path for FFmpeg / filesystem scan |
+| Add server (test) | `smbclient` | Works as `www` user |
+| Browse folders | `smbclient ls` | Admin → File manager |
+| Library scan + playback | CIFS mount | Needs root — handled automatically |
 
-### Add Samba server (Admin → File manager)
+### One-time mount helper (required)
 
-- **Host:** Samba server IP (e.g. `103.114.38.211`)
-- **Port:** `445`
-- **Share:** share name (e.g. `12TB-Storage`)
-- **User / password:** Samba account (`pdbedit -L` / `smbpasswd`), not necessarily your PC login
-- **Domain:** leave blank unless domain-joined
-
-### If “Add current folder” fails with mount error
-
-**Option A — recreate API with privileged mode (after `git pull`):**
+API runs as `www` and cannot call `mount.cifs` directly. Install once:
 
 ```bash
 cd /www/wwwroot/movies.amarpin.com
-git checkout -- docker-compose.aapanel.yml
-git pull
-docker compose -f docker-compose.aapanel.yml up -d --build --force-recreate api
+sudo bash deploy/aapanel/install-smb-mount-helper.sh
+sudo systemctl restart amarpin-api
 ```
 
-**Option B — pre-mount on the VPS host** (bind-mount is shared with container):
+This installs `/usr/local/bin/amarpin-mount-smb` and grants `www` passwordless sudo **only** for that script.
 
-```bash
-chmod +x deploy/aapanel/mount-smb-share.sh
-./deploy/aapanel/mount-smb-share.sh SERVER_ID HOST SHARE USER 'PASSWORD'
-```
+After that, add Samba servers and libraries **only in Admin → File manager** — no SSH per share, no manual mount.
 
-Example:
+### Add Samba server (Admin → File manager)
 
-```bash
-./deploy/aapanel/mount-smb-share.sh \
-  6aa46905f1680d12ad62aac1 \
-  103.114.38.211 \
-  12TB-Storage \
-  sohelonlineit \
-  'your-samba-password'
-```
-
-Then retry **Add current folder** in the admin UI.
+- **Host:** Samba server IP (e.g. `103.114.38.210`)
+- **Port:** `445`
+- **Share:** share name (e.g. `Data-Storage`)
+- **User / password:** Samba account — not necessarily your PC login
+- **Domain:** blank unless domain-joined
 
 ### Samba troubleshooting
 
 ```bash
-# Port open from API container?
-docker compose -f docker-compose.aapanel.yml exec api smbclient --version
+# Helper installed?
+ls -l /usr/local/bin/amarpin-mount-smb
+sudo cat /etc/sudoers.d/amarpin-smb-mount
 
-# Test browse API (replace SERVER_ID, use login cookie)
-curl -b /tmp/cv2.txt -sS "https://movies.amarpin.com/api/v1/admin/smb-servers/SERVER_ID/browse" | head -c 500
+# API logs after failed mount
+sudo journalctl -u amarpin-api -n 80 --no-pager | grep -i smb
 
-# API logs after failed add
-docker compose -f docker-compose.aapanel.yml logs api --tail 40
+# Manual fallback (one share)
+chmod +x deploy/aapanel/mount-smb-share.sh
+sudo ./deploy/aapanel/mount-smb-share.sh SERVER_ID HOST SHARE USER 'PASSWORD' \
+  /www/wwwroot/movies.amarpin.com/storage/smb-mounts
 ```
 
 ---
 
-## 8. Media libraries
+## 7. Media libraries
 
-Create libraries manually in **Admin → Media libraries** (local folder or Samba). The API no longer auto-creates “Movies” / “TV” entries on deploy or restart.
+Create libraries in **Admin → Media libraries** (local path or Samba). The API does **not** auto-create Movies/TV folders on boot.
 
-Host media folders (`/data/media/movies`, `/data/media/tv`) are still bind-mounted for when you add a local library yourself.
+Library scan downloads posters to `storage/uploads/artwork/` when `TMDB_API_KEY` is set.
 
 ---
 
-## 9. Updates from GitHub
+## 8. Updates (code deploy)
+
+Upload changed files or `git pull`, then rebuild what changed:
 
 ```bash
 cd /www/wwwroot/movies.amarpin.com
-git pull
+
+# API only
+npm run build -w @movie-server/api
+sudo systemctl restart amarpin-api
+
+# Web only (use helper script)
+bash deploy/aapanel/rebuild-web.sh
+
+# Both
+npm run build -w @movie-server/shared
+npm run build -w @movie-server/api
+npm run build -w @movie-server/web
+sudo systemctl restart amarpin-api amarpin-web
 ```
 
-If pull fails on local edits:
+After changing `NEXT_PUBLIC_*`, always rebuild **web**.
+
+If build fails with permission errors:
 
 ```bash
-git checkout -- docker-compose.aapanel.yml docker/api.Dockerfile
-git pull
-./deploy/aapanel/deploy.sh
-```
-
-After changing `NEXT_PUBLIC_API_URL`, rebuild **web** too:
-
-```bash
-docker compose -f docker-compose.aapanel.yml up -d --build web
+sudo rm -rf apps/api/dist apps/web/.next
+sudo chown -R sohelonlineit:www /www/wwwroot/movies.amarpin.com
+npm run build -w @movie-server/api
+sudo chown -R www:www apps/web/.next/standalone
 ```
 
 ---
 
-## 10. Useful commands
-
-```bash
-# Status
-docker compose -f docker-compose.aapanel.yml ps
-
-# Logs
-docker compose -f docker-compose.aapanel.yml logs -f api
-docker compose -f docker-compose.aapanel.yml logs -f web
-
-# Restart
-docker compose -f docker-compose.aapanel.yml restart api web
-
-# Nginx
-nginx -t && nginx -s reload
-```
-
----
-
-## 11. Common errors
+## 9. Common errors
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Cannot reach the API server` in browser | Wrong API URL / Nginx routing / CSP | Use `nginx-web.conf`; ensure `^~ /api/v1/` proxies to `:4001` |
-| `POST /api/v1/*` returns HTML 502 | aaPanel extension config steals API routes | Remove `include extension/.../*.conf` |
-| Samba add crashes API (HTTP 000) | Old `@marsaud/smb2` in Docker | Pull latest — uses `smbclient` |
-| Browse shows “Empty folder” but files exist | Wrong `smbclient -g` parser | Pull latest — parses `ls` output |
-| `Could not mount //host/share` | CIFS needs privileged or host mount | `privileged: true` in compose or `mount-smb-share.sh` |
-| `401` on curl with cookie | Session expired | Login again → `/tmp/cv2.txt` |
-| `git pull` blocked on compose | Local server edits | `git checkout -- docker-compose.aapanel.yml && git pull` |
+| `Cannot reach the API server` | Wrong Nginx / CSP / API URL | Check `nginx-web.conf`; `NEXT_PUBLIC_API_URL` |
+| `POST /api/v1/*` returns HTML 502 | aaPanel extension steals routes | Remove `include extension/.../*.conf` |
+| Samba `permission denied` on mount | Helper not installed | `install-smb-mount-helper.sh` + restart API |
+| `raw.trim is not a function` | Old API build | Pull latest `smb-mount.service.ts`, rebuild API |
+| Posters missing after path change | `posterKey` in DB but file gone | Library rescan; or copy old artwork to `storage/uploads/artwork` |
+| MongoDB empty after reset | Atlas DB recreated | `npm run bootstrap:admin`, re-add libraries & Samba |
+| API crash `ECONNREFUSED 6379` | Redis not running | `sudo systemctl start redis` or install Redis |
+| `Too many authentication attempts` | Rate limit (production) | Wait 15 min; or dev: `REDIS_HOST=memory` locally |
 
 ---
 
-## 12. File reference
+## 10. File reference
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.aapanel.yml` | Production stack (api, web, redis, optional mongo) |
-| `deploy/aapanel/.env.aapanel.example` | Env template |
+| `.env.ready` | Full production `.env` template |
+| `deploy/aapanel/amarpin-api.service` | API systemd unit (`www`, port 4000) |
+| `deploy/aapanel/amarpin-web.service` | Web systemd unit (standalone Next.js, port 3000) |
+| `deploy/aapanel/install-smb-mount-helper.sh` | One-time Samba sudo helper |
+| `deploy/aapanel/amarpin-mount-smb.sh` | Root CIFS mount script (called via sudo) |
+| `deploy/aapanel/mount-smb-share.sh` | Manual single-share mount fallback |
+| `deploy/aapanel/rebuild-web.sh` | Fast web rebuild on VPS |
 | `deploy/aapanel/nginx-web.conf` | Web site + `/api/v1` proxy |
 | `deploy/aapanel/nginx-api.conf` | API subdomain |
-| `deploy/aapanel/deploy.sh` | Build & up helper |
-| `deploy/aapanel/mount-smb-share.sh` | Host-side Samba mount for library scan |
-| `docker/api.Dockerfile` | API image (`smbclient`, `cifs-utils`, ffmpeg) |
-| `docker/web.Dockerfile` | Web image (Next.js standalone) |
+| `deploy/aapanel/VPS-SYSTEMD-DEPLOY.md` | Short deploy checklist |
 
 ---
 
-## 13. Stripe webhook (optional)
+## Alternate: Docker Compose
 
-Webhook URL:
+If you prefer Docker instead of systemd, see `docker-compose.aapanel.yml` and section 4 of the old Docker flow:
+
+```bash
+chmod +x deploy/aapanel/deploy.sh
+./deploy/aapanel/deploy.sh
+```
+
+Docker API needs `privileged: true` for Samba CIFS mounts. **The live movies.amarpin.com VPS uses systemd, not Docker.**
+
+---
+
+## Stripe webhook (optional)
 
 ```text
 https://movies.api.amarpin.com/api/v1/billing/webhooks/stripe

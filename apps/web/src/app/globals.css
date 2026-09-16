@@ -151,3 +151,17 @@ body {
     linear-gradient(180deg, #01131a, #000f15);
 }
 
+[data-sonner-toaster][data-theme="dark"] {
+  --normal-bg: rgb(3 26 34 / 0.96);
+  --normal-border: rgb(38 191 176 / 0.22);
+  --normal-text: #f8fafc;
+}
+
+[data-sonner-toast][data-styled="true"] {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+[data-sonner-toast] [data-icon] {
+  color: #26bfb0;
+}
+

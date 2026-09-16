@@ -346,6 +346,8 @@ export class ProfilesService {
   }
 
   async getActive(userId: string, sessionId: string): Promise<PublicProfile | null> {
+    const user = await this.users.findById(userId);
+    await this.ensureDefault(userId, user?.displayName);
     const session = await this.sessions.findById(sessionId);
     if (session?.activeProfileId) {
       const profile = await this.profileModel.findOne({

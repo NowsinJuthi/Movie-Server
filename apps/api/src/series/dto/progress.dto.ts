@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { VIDEO_QUALITIES, VideoQuality } from '@movie-server/shared';
 import { Trim } from '../../common/decorators/transform.decorators';
 
@@ -39,4 +39,12 @@ export class EpisodePlaybackDto {
   @IsString()
   @MaxLength(80)
   deviceLabel?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hevcDirectStream?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  forceVideoTranscode?: boolean;
 }

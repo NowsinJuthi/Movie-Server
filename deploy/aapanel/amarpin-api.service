@@ -1,0 +1,17 @@
+[Unit]
+Description=AmarPin API
+After=network.target
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/movies.amarpin.com
+Environment=NODE_ENV=production
+# API listens on PORT from .env (4000 — same as local dev)
+ExecStart=/usr/bin/npm run start:api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

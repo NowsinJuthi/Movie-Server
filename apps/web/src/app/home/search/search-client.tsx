@@ -198,14 +198,15 @@ export function SearchPageClient() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <section className="px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
-        <div className="mx-auto max-w-[1400px] space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold sm:text-3xl">{q ? `Results for “${q}”` : "Search & Discover"}</h1>
-            <p className="text-sm text-muted-foreground">Filter by genre, year, quality, and more.</p>
-          </div>
-          <SearchFilters query={filters} onChange={applyFilters} />
+    <main className="min-h-screen w-full bg-background">
+      <section className="px-3 pb-4 pt-24 sm:px-4 md:px-5 lg:px-6">
+        <h1 className="text-xl font-semibold text-[#f8fafc] md:text-2xl">
+          {q ? `Results for “${q}”` : "Search & Discover"}
+        </h1>
+      </section>
+
+      <section className="w-full space-y-6 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
+        <SearchFilters query={filters} onChange={applyFilters} />
 
         {emptyDiscovery ? (
           <div className="space-y-8">
@@ -282,7 +283,6 @@ export function SearchPageClient() {
             <SearchGroupGrid title="TV Series" group={merged.series} onToggleList={listToggle.mutate} listPending={listToggle.isPending} />
           </div>
         ) : null}
-        </div>
       </section>
     </main>
   );

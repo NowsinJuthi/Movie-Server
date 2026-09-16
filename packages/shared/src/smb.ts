@@ -42,3 +42,15 @@ export type AdminSmbTestResponse = {
   message: string;
   server: AdminSmbServer;
 };
+
+export type AdminSmbUploadResponse = {
+  ok: boolean;
+  serverId: string;
+  path: string;
+  filename: string;
+  remotePath: string;
+  sizeBytes: number;
+  libraryId: string | null;
+  libraryName: string | null;
+  scan: { id: string } | null;
+};

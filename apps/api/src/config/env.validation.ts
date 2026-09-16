@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isLocalUrl } from '../common/is-local-url';
 
 const booleanish = z
   .union([z.boolean(), z.string()])
@@ -11,7 +12,7 @@ const booleanish = z
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(4001),
+  PORT: z.coerce.number().int().positive().default(4000),
   APP_NAME: z.string().min(1).default('AmarPin'),
   APP_URL: z.string().url(),
   API_URL: z.string().url(),
@@ -22,7 +23,7 @@ export const envSchema = z.object({
   REDIS_PASSWORD: z.string().optional().default(''),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRES: z.string().min(2).default('15m'),
-  JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().positive().default(7),
+  JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().min(1).max(365).default(90),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
   COOKIE_SECURE: booleanish.default(false),
   COOKIE_DOMAIN: z.string().optional().default(''),
@@ -64,10 +65,45 @@ export const envSchema = z.object({
   FFPROBE_PATH: z.string().optional().default('ffprobe'),
   FFMPEG_PATH: z.string().optional().default('ffmpeg'),
   MEDIA_PROBE: z.enum(['auto', 'ffprobe', 'fake']).optional().default('auto'),
+  /** Linux cifs mount root for Samba libraries (aaPanel: /data/.../smb-mounts). */
+  SMB_MOUNT_ROOT: z.string().optional().default(''),
+  /** Root mount helper installed by deploy/aapanel/install-smb-mount-helper.sh */
+  SMB_MOUNT_HELPER: z.string().optional().default('/usr/local/bin/amarpin-mount-smb'),
+  /** Retry failed direct mounts via sudo helper (disable for local dev without sudo). */
+  SMB_MOUNT_USE_SUDO: booleanish.optional().default(true),
+  /** Temp HLS segment pack directory (must be writable by the API user). */
+  HLS_PACK_DIR: z.string().optional().default(''),
   TMDB_API_KEY: z.string().optional().default(''),
   LIBRARY_AUTO_IMPORT: booleanish.default(true),
   LIBRARY_AUTO_PUBLISH: booleanish.default(true),
   STREAM_SESSION_TTL_MS: z.coerce.number().int().positive().default(90_000),
+  /** auto = transcode HEVC/EAC3/DTS for browser playback; always | never override detection */
+  STREAM_TRANSCODE: z.enum(['auto', 'always', 'never']).optional().default('auto'),
+  HLS_TRANSCODE_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
+  HLS_TRANSCODE_SEGMENT_SECONDS: z.coerce.number().int().min(1).max(6).default(4),
+  HLS_TRANSCODE_INITIAL_SEGMENTS: z.coerce.number().int().min(1).max(6).default(2),
+  HLS_SEGMENT_SECONDS: z.coerce.number().int().min(1).max(6).default(4),
+  /** Shorter package segments reduce visible delay after timeline seeks. */
+  HLS_SEEK_SEGMENT_SECONDS: z.coerce.number().int().min(1).max(4).default(2),
+  STREAM_TRANSCODE_PRESET: z
+    .enum(['ultrafast', 'superfast', 'veryfast', 'faster', 'fast'])
+    .optional()
+    .default('ultrafast'),
+  STREAM_TRANSCODE_CRF: z.coerce.number().int().min(18).max(28).default(26),
+  /** Cap transcode output height. 1080 = HD; 0 = source resolution (Emby-style). */
+  STREAM_TRANSCODE_MAX_HEIGHT: z.coerce.number().int().min(0).max(2160).default(1080),
+  /** Cap output fps. 0 = source fps. */
+  STREAM_TRANSCODE_MAX_FPS: z.coerce.number().int().min(0).max(60).default(0),
+  /** libx264 | h264_nvenc | h264_qsv | h264_vaapi */
+  STREAM_TRANSCODE_ENCODER: z
+    .enum(['libx264', 'h264_nvenc', 'h264_qsv', 'h264_vaapi'])
+    .optional()
+    .default('libx264'),
+  /** auto | none | cuda | vaapi | qsv — hardware decode before software encode */
+  STREAM_TRANSCODE_HWACCEL: z
+    .enum(['auto', 'none', 'cuda', 'vaapi', 'qsv'])
+    .optional()
+    .default('auto'),
   /** HMAC secret for signing license keys. Falls back to JWT_ACCESS_SECRET when empty. */
   LICENSE_MASTER_SECRET: z.string().optional().default(''),
   /** Optional pre-activated key applied on API boot. */
@@ -90,15 +126,6 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
   }
   assertProductionSecrets(parsed.data);
   return parsed.data;
-}
-
-function isLocalUrl(value: string): boolean {
-  try {
-    const { hostname } = new URL(value);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-  } catch {
-    return false;
-  }
 }
 
 function assertProductionSecrets(env: AppEnv): void {

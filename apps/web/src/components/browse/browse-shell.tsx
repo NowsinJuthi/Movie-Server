@@ -25,12 +25,20 @@ export function BrowseShell({
   const entitlementQuery = useQuery({
     queryKey: ["subscription-entitlement"],
     queryFn: subscriptionApi.entitlement,
-    enabled: status === "authenticated",
+    enabled: Boolean(user),
   });
   const entitled = Boolean(entitlementQuery.data?.entitlement.entitled);
 
-  if (status === "loading" || status === "idle" || !user || !profile) {
+  if (status === "loading") {
     return <ScreenMessage>Loading your library...</ScreenMessage>;
+  }
+
+  if (!user) {
+    return <ScreenMessage>Redirecting to sign in...</ScreenMessage>;
+  }
+
+  if (!profile) {
+    return <ScreenMessage>Loading your profile...</ScreenMessage>;
   }
 
   return (

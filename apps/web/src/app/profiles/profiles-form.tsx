@@ -3,7 +3,7 @@
 import { ErrorCode, type PublicProfile } from "@movie-server/shared";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { ProfileAvatar } from "@/components/profiles/profile-avatar";
 import { PinDialog, ScreenMessage } from "@/components/profiles/pin-dialog";
@@ -22,6 +22,7 @@ export default function ProfilesForm() {
   const setActiveProfile = useProfileStore((state) => state.setActiveProfile);
   const [pinProfile, setPinProfile] = useState<PublicProfile | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const autoSelectedRef = useRef(false);
 
   const query = useQuery({
     queryKey: ["profiles"],
@@ -33,6 +34,23 @@ export default function ProfilesForm() {
     queryKey: ["active-profile"],
     queryFn: profileApi.active,
     enabled: status === "authenticated",
+  });
+
+  const selectMutation = useMutation({
+    mutationFn: ({ id, pin }: { id: string; pin?: string }) => profileApi.select(id, pin),
+    onSuccess: (data) => {
+      setActiveProfile(data.profile);
+      const destination =
+        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/home";
+      router.push(destination);
+    },
+    onError: (error: unknown) => {
+      if (error instanceof ApiError && error.error === ErrorCode.ProfilePinRequired && pinProfile) {
+        return;
+      }
+      setPinError(error instanceof ApiError ? error.message : "Could not switch profile.");
+      autoSelectedRef.current = false;
+    },
   });
 
   useEffect(() => {
@@ -56,32 +74,31 @@ export default function ProfilesForm() {
   }, [activeQuery.data, nextPath, router, setActiveProfile]);
 
   useEffect(() => {
-    if (activeQuery.isLoading || activeQuery.data?.profile || pinProfile) return;
+    if (activeQuery.isLoading || activeQuery.data?.profile || pinProfile || autoSelectedRef.current) {
+      return;
+    }
     const profiles = query.data?.profiles ?? [];
     if (profiles.length === 0) return;
+
+    if (profiles.length === 1 && !profiles[0]?.hasPin) {
+      autoSelectedRef.current = true;
+      selectMutation.mutate({ id: profiles[0].id });
+      return;
+    }
+
     const lastSelected = [...profiles].sort((a, b) =>
       (b.lastSelectedAt ?? "").localeCompare(a.lastSelectedAt ?? ""),
     )[0];
     if (lastSelected?.hasPin && lastSelected.lastSelectedAt) {
       setPinProfile(lastSelected);
     }
-  }, [activeQuery.data?.profile, activeQuery.isLoading, pinProfile, query.data?.profiles]);
-
-  const selectMutation = useMutation({
-    mutationFn: ({ id, pin }: { id: string; pin?: string }) => profileApi.select(id, pin),
-    onSuccess: (data) => {
-      setActiveProfile(data.profile);
-      const destination =
-        nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/home";
-      router.push(destination);
-    },
-    onError: (error: unknown) => {
-      if (error instanceof ApiError && error.error === ErrorCode.ProfilePinRequired && pinProfile) {
-        return;
-      }
-      setPinError(error instanceof ApiError ? error.message : "Could not switch profile.");
-    },
-  });
+  }, [
+    activeQuery.data?.profile,
+    activeQuery.isLoading,
+    pinProfile,
+    query.data?.profiles,
+    selectMutation,
+  ]);
 
   if (status === "loading" || status === "idle" || !user) {
     return <ScreenMessage>Loading profiles...</ScreenMessage>;

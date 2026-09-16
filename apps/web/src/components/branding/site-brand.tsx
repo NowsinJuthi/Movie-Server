@@ -3,13 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 import type { PublicBranding } from "@movie-server/shared";
+import { DEFAULT_PUBLIC_BRANDING, brandingHeadLinks } from "@/lib/branding-head";
 import { brandingAssetSrc, settingsApi } from "@/lib/settings-api";
 
-const DEFAULT: PublicBranding = {
-  siteName: "AmarPin",
-  logoUrl: null,
-  faviconUrl: null,
-};
+const DEFAULT = DEFAULT_PUBLIC_BRANDING;
 
 const BrandingContext = createContext<PublicBranding>(DEFAULT);
 
@@ -19,11 +16,13 @@ export function useBranding() {
 
 /** React-owned head nodes only — never mutate document.head imperatively (breaks React 19 hoistables). */
 function FaviconAndTitle({ branding }: { branding: PublicBranding }) {
-  const href = brandingAssetSrc(branding.faviconUrl, branding.siteName);
+  const head = brandingHeadLinks(branding);
   return (
     <>
-      <title>{branding.siteName}</title>
-      {href ? <link rel="icon" href={href} key={href} /> : null}
+      <title>{head.title}</title>
+      {head.icons.map((icon) => (
+        <link key={icon.key} rel={icon.rel} href={icon.href} sizes={icon.sizes} type={icon.type} />
+      ))}
     </>
   );
 }

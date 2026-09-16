@@ -10,6 +10,7 @@ import type {
   AdminProfileRow,
   AdminTrackRow,
   AdminUserRow,
+  AdminSubscriptionRow,
   PublicInvoice,
   PublicPlan,
   PublicSubscription,
@@ -65,6 +66,7 @@ export const adminApi = {
       isActive?: boolean;
       emailVerified?: boolean;
       role?: UserRole;
+      staffProfileId?: string;
       password?: string;
     },
   ) =>
@@ -86,11 +88,36 @@ export const adminApi = {
     }>(`/admin/profiles/suggest${qs(query)}`),
   deleteProfile: (id: string) => apiFetch<{ message: string }>(`/admin/profiles/${id}`, { method: "DELETE" }),
   subscriptions: (query: { userId?: string; status?: string } = {}) =>
-    apiFetch<{ subscriptions: PublicSubscription[] }>(`/admin/subscriptions${qs(query)}`),
-  grantSubscription: (input: { userId: string; planSlug: string; billingCycle: string }) =>
+    apiFetch<{ subscriptions: AdminSubscriptionRow[] }>(`/admin/subscriptions${qs(query)}`),
+  grantSubscription: (input: {
+    userId: string;
+    planSlug: string;
+    billingCycle: string;
+    status?: string;
+  }) =>
     apiFetch<{ subscription: PublicSubscription }>("/admin/subscriptions", {
       method: "POST",
       body: JSON.stringify(input),
+    }),
+  patchSubscription: (
+    id: string,
+    input: {
+      status?: string;
+      currentPeriodEnd?: string;
+      trialEnd?: string;
+      gracePeriodEndsAt?: string;
+      autoRenew?: boolean;
+      reason?: string;
+    },
+  ) =>
+    apiFetch<{ subscription: PublicSubscription }>(`/admin/subscriptions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  activateSubscription: (id: string, input?: { provider?: string; externalRef?: string }) =>
+    apiFetch<{ subscription: PublicSubscription }>(`/admin/subscriptions/${id}/activate`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
     }),
   suspendSubscription: (id: string, reason?: string) =>
     apiFetch<{ subscription: PublicSubscription }>(`/admin/subscriptions/${id}/suspend`, {

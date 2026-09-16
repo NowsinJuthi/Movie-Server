@@ -40,7 +40,7 @@ export function AuthShell({
             <Link href="/" className={styles.brand}>
               {logoSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoSrc} alt={siteName} className="mx-auto h-8 w-auto max-w-[180px] object-contain" />
+                <img src={logoSrc} alt={siteName} className={styles.brandLogo} />
               ) : (
                 siteName
               )}

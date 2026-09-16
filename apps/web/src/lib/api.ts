@@ -1,6 +1,6 @@
 import { AUTH_ROUTES, ErrorCode, type ApiErrorBody, type PublicUser } from "@movie-server/shared";
 
-/** Same-origin proxy (aaPanel Nginx /api/v1/ → API :4001). */
+/** Same-origin proxy (aaPanel Nginx /api/v1/ → API :4000). */
 const API_BASE = "/api/v1";
 
 const LICENSE_ERROR_CODES = new Set<string>([
@@ -51,7 +51,7 @@ async function parseError(res: Response): Promise<ApiError> {
       statusCode: res.status,
       error: ErrorCode.Internal,
       message: unreachable
-        ? "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4001 (npm run dev:api), then retry."
+        ? "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4000 (npm run dev:api), then retry."
         : `Request failed (HTTP ${res.status}).`,
     });
   }
@@ -107,7 +107,7 @@ async function rawFetch(path: string, init: RequestInit = {}): Promise<Response>
       statusCode: 503,
       error: ErrorCode.Internal,
       message:
-        "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4001 (npm run dev:api), then retry.",
+        "Cannot reach the API server. Start it with REDIS_HOST=memory and PORT=4000 (npm run dev:api), then retry.",
     });
   }
 }

@@ -849,7 +849,13 @@ export class MoviesService {
     idOrSlug: string,
     user: RequestUser,
     quality: VideoQuality,
-    extras?: { currentStreamCount?: number; deviceId?: string; deviceLabel?: string },
+    extras?: {
+      currentStreamCount?: number;
+      deviceId?: string;
+      deviceLabel?: string;
+      hevcDirectStream?: boolean;
+      forceVideoTranscode?: boolean;
+    },
   ): Promise<MoviePlaybackResponse> {
     await this.profiles.ensureSessionProfile(user);
     const [viewer, entitlement, movie] = await Promise.all([
@@ -882,6 +888,8 @@ export class MoviesService {
         quality,
         deviceId: extras?.deviceId,
         deviceLabel: extras?.deviceLabel,
+        clientHevc: extras?.hevcDirectStream,
+        forceVideoTranscode: extras?.forceVideoTranscode,
         movieId: String(movie._id),
         durationSeconds: Math.max(movie.runtimeMinutes * 60, 1),
       }),

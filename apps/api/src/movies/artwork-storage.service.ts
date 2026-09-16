@@ -23,7 +23,7 @@ export class ArtworkStorageService {
 
   rootDir(): string {
     if (this.config.get('NODE_ENV') === 'test') {
-      return path.join(os.tmpdir(), 'cinevault-artwork');
+      return path.join(os.tmpdir(), 'amarpin-artwork');
     }
     return (
       this.config.get<string>('ARTWORK_UPLOAD_DIR') ||
@@ -66,6 +66,18 @@ export class ArtworkStorageService {
   resolve(key: string): string {
     const safe = path.basename(key);
     return path.join(this.rootDir(), safe);
+  }
+
+  async exists(key?: string | null): Promise<boolean> {
+    if (!key || !isArtworkKey(key)) {
+      return false;
+    }
+    try {
+      const stat = await fs.stat(this.resolve(key));
+      return stat.isFile() && stat.size > 0;
+    } catch {
+      return false;
+    }
   }
 
   async open(key: string): Promise<{ stream: ReturnType<typeof createReadStream>; mime: string }> {

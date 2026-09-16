@@ -101,8 +101,8 @@ export default function EpisodeWatchPage() {
             }
           : null
       }
-      startPlayback={(requested) =>
-        seriesApi.playback(params.id, params.episodeId, requested).then((body) => ({
+      startPlayback={(requested, options) =>
+        seriesApi.playback(params.id, params.episodeId, requested, options).then((body) => ({
           session: body.session,
           markers: body.markers,
           resumeSeconds: body.resumeSeconds,

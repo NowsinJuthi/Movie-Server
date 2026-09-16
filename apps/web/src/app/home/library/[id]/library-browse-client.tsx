@@ -38,7 +38,6 @@ export function LibraryBrowseClient() {
       if (merged.genre) params.set("genre", merged.genre);
       if (merged.year) params.set("year", String(merged.year));
       if (merged.minRating != null) params.set("minRating", String(merged.minRating));
-      if (merged.quality) params.set("quality", merged.quality);
       if (merged.sort) params.set("sort", merged.sort);
       const query = params.toString();
       router.replace(query ? `/home/library/${id}?${query}` : `/home/library/${id}`, { scroll: false });
@@ -70,7 +69,6 @@ export function LibraryBrowseClient() {
 
   const library = browseQuery.data?.library;
   const items = browseQuery.data?.items ?? [];
-  const isTvLibrary = library?.kind === "tv";
   const filteredItems = useMemo(() => filterAndSortLibraryItems(items, filters), [items, filters]);
 
   if (status === "loading" || status === "idle" || !user || !profile) {
@@ -78,26 +76,24 @@ export function LibraryBrowseClient() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <section className="px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
-        {!canBrowse ? (
-          <div className="mx-auto max-w-xl space-y-4 pt-8">
-            <h1 className="text-2xl font-semibold sm:text-3xl">{library?.name ?? "Library"}</h1>
+    <main className="min-h-screen w-full bg-background">
+      {!canBrowse ? (
+        <section className="flex min-h-[calc(100vh-4rem)] flex-col justify-center px-3 pb-24 pt-24 sm:px-4 md:px-5 lg:px-6">
+          <div className="mx-auto w-full max-w-xl space-y-4">
+            <h1 className="text-3xl font-semibold sm:text-4xl">{library?.name ?? "Library"}</h1>
             <p className="text-sm text-muted-foreground">Subscribe to browse this media library.</p>
             <Button onClick={() => router.push("/subscribe")}>See plans</Button>
           </div>
-        ) : (
-          <div className="mx-auto max-w-[1400px] space-y-6">
-            <div>
-              <p className="text-sm uppercase tracking-wide text-muted-foreground">
-                {isTvLibrary ? "TV Shows" : "Movies"}
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">{library?.name ?? "Library"}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Browse titles from this media library. Use filters to narrow the list.
-              </p>
-            </div>
+        </section>
+      ) : (
+        <>
+          <section className="px-3 pb-4 pt-24 sm:px-4 md:px-5 lg:px-6">
+            <h1 className="text-xl font-semibold text-[#f8fafc] md:text-2xl">
+              {library?.name ?? "Library"}
+            </h1>
+          </section>
 
+          <section className="w-full space-y-6 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             {!browseQuery.data && !error ? (
@@ -110,23 +106,20 @@ export function LibraryBrowseClient() {
               <>
                 <LibraryBrowseFilters
                   items={items}
-                  isTvLibrary={isTvLibrary}
                   filters={filters}
                   onChange={updateFilters}
                   onClear={clearFilters}
-                  filteredCount={filteredItems.length}
-                  totalCount={items.length}
                 />
 
                 {filteredItems.length === 0 ? (
-                  <div className="rounded-xl border border-border/80 bg-card/30 px-4 py-10 text-center">
-                    <p className="text-sm text-muted-foreground">No titles match your filters.</p>
+                  <div className="rounded-xl border border-[rgb(14_40_50/0.72)] bg-[linear-gradient(180deg,rgb(3_26_34/0.98)_0%,rgb(1_19_26/0.99)_100%)] px-4 py-10 text-center">
+                    <p className="text-sm text-[rgb(148_163_184/0.85)]">No titles match your filters.</p>
                     <Button className="mt-4" variant="outline" onClick={clearFilters}>
                       Clear filters
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
                     {filteredItems.map((card) => (
                       <div key={`${card.kind}-${card.id}`} className="w-full min-w-0 [&_article]:w-full">
                         <MediaCard
@@ -140,9 +133,9 @@ export function LibraryBrowseClient() {
                 )}
               </>
             )}
-          </div>
-        )}
-      </section>
+          </section>
+        </>
+      )}
     </main>
   );
 }

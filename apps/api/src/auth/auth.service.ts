@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AUTH_COOKIE, ErrorCode, PublicUser } from '@movie-server/shared';
+import { AUTH_COOKIE, ErrorCode, PublicUser, UserRole } from '@movie-server/shared';
 import { Request, Response } from 'express';
 import { generateOpaqueToken, hashToken, parseExpiryToMs } from '../common/security/tokens';
 import { MailService } from '../mail/mail.service';
@@ -185,7 +185,6 @@ export class AuthService {
   }
 
   async refresh(req: Request, res: Response): Promise<{ user: PublicUser }> {
-    await this.enforceAuthRateLimit(req.ip, 'refresh');
     const refreshToken = req.cookies?.[AUTH_COOKIE.Refresh] as string | undefined;
     if (!refreshToken) {
       throw new UnauthorizedException({
@@ -193,6 +192,7 @@ export class AuthService {
         message: 'Refresh token missing.',
       });
     }
+    await this.enforceAuthRateLimit(req.ip, 'refresh');
 
     const reused = await this.sessions.findReusedRefreshToken(refreshToken);
     if (reused) {
@@ -204,6 +204,13 @@ export class AuthService {
           this.cookies.setAuthCookies(res, accessToken, grace.refreshToken);
           return { user: toPublicUser(user) };
         }
+      }
+      if (this.redis.isMemory) {
+        this.cookies.clearAuthCookies(res);
+        throw new UnauthorizedException({
+          error: ErrorCode.InvalidToken,
+          message: 'Invalid refresh token.',
+        });
       }
       await this.sessions.markRefreshReuse(String(reused.userId));
       await this.playback.stopAllForUser(String(reused.userId));
@@ -400,10 +407,19 @@ export class AuthService {
       await this.devices.touch(String(user._id), session.deviceKey);
     }
 
+    const rules = user.subscriptionStaffRules;
     return {
       id: String(user._id),
       email: user.email,
       role: user.role,
+      staffProfileId: user.staffProfileId?.trim() || null,
+      subscriptionStaffRules:
+        user.role === UserRole.Admin || user.role === UserRole.SuperAdmin
+          ? {
+              view: rules?.view ?? null,
+              manage: rules?.manage ?? null,
+            }
+          : null,
       sessionId: payload.sid,
       tokenVersion: user.tokenVersion,
       jti: payload.jti,
@@ -413,6 +429,14 @@ export class AuthService {
   }
 
   private async enforceAuthRateLimit(ip: string | undefined, action: string): Promise<void> {
+    // Local dev uses in-memory Redis; production VPS keeps IP throttling enabled.
+    if (this.redis.isMemory) {
+      return;
+    }
+    const nodeEnv = this.config.get<string>('NODE_ENV') ?? 'development';
+    if (nodeEnv !== 'production') {
+      return;
+    }
     const limit = this.config.get<number>('AUTH_THROTTLE_LIMIT') ?? 8;
     const ttl = this.config.get<number>('AUTH_THROTTLE_TTL_MS') ?? 900_000;
     const key = `auth:rl:${action}:${ip || 'unknown'}`;

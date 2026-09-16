@@ -27,14 +27,15 @@ export function SearchGroupGrid({
       <h2 className="text-xl font-semibold">
         {title} <span className="text-sm font-normal text-muted-foreground">{group.total}</span>
       </h2>
-      <div className="flex flex-wrap gap-3">
+      <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
         {group.items.map((card) => (
-          <MediaCard
-            key={`${card.kind}-${card.id}`}
-            card={card}
-            onToggleList={onToggleList}
-            listPending={listPending}
-          />
+          <div key={`${card.kind}-${card.id}`} className="w-full min-w-0 [&_article]:w-full">
+            <MediaCard
+              card={card}
+              onToggleList={onToggleList}
+              listPending={listPending}
+            />
+          </div>
         ))}
       </div>
       {group.nextPage ? (

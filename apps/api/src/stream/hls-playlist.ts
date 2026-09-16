@@ -37,9 +37,16 @@ export function buildMasterPlaylist(
   return `${lines.join('\n')}\n`;
 }
 
-export function buildMediaPlaylist(durationSeconds: number, resolution?: string): string {
+export function buildMediaPlaylist(
+  durationSeconds: number,
+  resolution?: string,
+  mediaToken?: string,
+): string {
   const duration = Math.max(1, Math.round(durationSeconds));
-  const segment = resolution ? `../media?quality=${encodeURIComponent(resolution)}` : '../media';
+  const mt = mediaToken ? `&mt=${encodeURIComponent(mediaToken)}` : '';
+  const segment = resolution
+    ? `../media?quality=${encodeURIComponent(resolution)}${mt}`
+    : `../media${mediaToken ? `?mt=${encodeURIComponent(mediaToken)}` : ''}`;
   return [
     '#EXTM3U',
     '#EXT-X-VERSION:3',

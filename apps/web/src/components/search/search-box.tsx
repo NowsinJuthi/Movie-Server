@@ -9,7 +9,13 @@ import { PosterImage } from "@/components/home/poster-image";
 import { searchApi } from "@/lib/search-api";
 import { cn } from "@/lib/utils";
 
-export function SearchBox({ className }: { className?: string }) {
+export function SearchBox({
+  className,
+  triggerClassName,
+}: {
+  className?: string;
+  triggerClassName?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -93,7 +99,10 @@ export function SearchBox({ className }: { className?: string }) {
         <button
           type="button"
           aria-label="Search"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70 text-foreground transition hover:border-primary/40 hover:bg-primary/15 hover:text-primary"
+          className={cn(
+            "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70 text-foreground transition hover:border-primary/40 hover:bg-primary/15 hover:text-primary",
+            triggerClassName,
+          )}
           onClick={() => setExpanded(true)}
         >
           <Search className="h-4 w-4" />

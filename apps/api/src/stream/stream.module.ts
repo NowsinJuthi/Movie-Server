@@ -29,7 +29,7 @@ import { HlsPackagerService } from './hls-packager.service';
       }),
     }),
     ProfilesModule,
-    SubscriptionsModule,
+    forwardRef(() => SubscriptionsModule),
     forwardRef(() => DevicesModule),
     MongooseModule.forFeature([
       { name: MediaAsset.name, schema: MediaAssetSchema },

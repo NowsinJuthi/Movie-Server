@@ -11,4 +11,9 @@ export const streamApi = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  seekHls: (sessionId: string, seconds: number, quality?: string) =>
+    apiFetch<{ ok: boolean; seconds: number }>(`/stream/${sessionId}/seek`, {
+      method: "POST",
+      body: JSON.stringify({ seconds, quality }),
+    }),
 };

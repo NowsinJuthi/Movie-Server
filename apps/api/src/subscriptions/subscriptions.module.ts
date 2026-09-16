@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
+import { DevicesModule } from '../devices/devices.module';
+import { StreamModule } from '../stream/stream.module';
 import { Plan, PlanSchema } from './schemas/plan.schema';
 import { Subscription, SubscriptionSchema } from './schemas/subscription.schema';
 import { SubscriptionEvent, SubscriptionEventSchema } from './schemas/subscription-event.schema';
@@ -19,6 +21,8 @@ import { ContentController } from './content.controller';
 @Module({
   imports: [
     UsersModule,
+    forwardRef(() => DevicesModule),
+    forwardRef(() => StreamModule),
     MongooseModule.forFeature([
       { name: Plan.name, schema: PlanSchema },
       { name: Subscription.name, schema: SubscriptionSchema },

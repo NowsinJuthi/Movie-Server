@@ -137,6 +137,26 @@ export class BrowseSmbDto {
   path?: string;
 }
 
+export class UpdateSmbCredentialsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(256)
+  password!: string;
+}
+
+export class UploadSmbMediaDto {
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(1024)
+  path?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  scan?: boolean;
+}
+
 export class AddSmbLibraryDto {
   @IsMongoId()
   serverId!: string;

@@ -107,6 +107,8 @@ export class SeriesController {
       currentStreamCount: dto.currentStreamCount,
       deviceId: dto.deviceId,
       deviceLabel: dto.deviceLabel,
+      hevcDirectStream: dto.hevcDirectStream,
+      forceVideoTranscode: dto.forceVideoTranscode,
     });
   }
 }

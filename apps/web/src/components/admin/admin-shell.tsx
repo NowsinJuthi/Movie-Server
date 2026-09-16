@@ -27,15 +27,18 @@ import {
   Menu,
   MonitorPlay,
   Settings2,
+  Shield,
   Tags,
   Tv,
   Users,
   Wallet,
 } from "lucide-react";
-import { hasMinimumRole, UserRole } from "@movie-server/shared";
+import { hasMinimumRole, UserRole, type PermissionKey } from "@movie-server/shared";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { libraryApi } from "@/lib/library-api";
+import { canAccessAdminRoute } from "@/lib/admin-nav-permissions";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { AppHeader } from "@/components/layout/app-header";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import styles from "./admin-shell.module.css";
@@ -81,6 +84,7 @@ const NAV: NavSection[] = [
           { href: "/admin/license", label: "License", icon: KeyRound },
           { href: "/admin/jobs", label: "Jobs", icon: Settings2 },
           { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
+          { href: "/admin/settings/roles", label: "Roles & permissions", icon: Shield },
           { href: "/admin/slider", label: "Home slider", icon: MonitorPlay },
         ],
       },
@@ -182,7 +186,7 @@ const SECTION_CLASS: Record<NavSection["id"], string> = {
   operations: styles["section--operations"]!,
 };
 
-const EXPANDED_KEY = "cinevault-admin-nav-expanded";
+const EXPANDED_KEY = "amarpin-admin-nav-expanded";
 
 function isLinkActive(pathname: string | null, href: string) {
   if (!pathname) return false;
@@ -284,10 +288,34 @@ function useGroupOpenState(pathname: string | null) {
   return { isGroupOpen, toggleGroup, expandGroup };
 }
 
+function filterNavByPermissions(
+  sections: NavSection[],
+  can: (key: PermissionKey) => boolean,
+): NavSection[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .map((item) => {
+          if (item.children !== undefined) {
+            const children = item.children.filter((child) => canAccessAdminRoute(child.href, can));
+            if (children.length === 0 && !canAccessAdminRoute(item.href, can)) {
+              return null;
+            }
+            return { ...item, children };
+          }
+          return canAccessAdminRoute(item.href, can) ? item : null;
+        })
+        .filter((item): item is NavItem => item !== null),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, status } = useAuthStore();
+  const { can, canAccessAdminPanel, isLoading: permissionsLoading } = useAdminPermissions();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { isGroupOpen, toggleGroup, expandGroup } = useGroupOpenState(pathname);
   const librariesQuery = useQuery({
@@ -320,13 +348,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     });
   }, [librariesQuery.data?.libraries]);
 
+  const filteredNav = useMemo(
+    () => filterNavByPermissions(nav, can),
+    [nav, can],
+  );
+
   useEffect(() => {
     if (status === "anonymous") {
       router.replace(`/login?next=${pathname || "/admin"}`);
     } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
       router.replace("/unauthorized");
+    } else if (
+      user &&
+      hasMinimumRole(user.role, UserRole.Admin) &&
+      !permissionsLoading &&
+      !canAccessAdminPanel
+    ) {
+      router.replace("/unauthorized");
     }
-  }, [status, user, router, pathname]);
+  }, [status, user, router, pathname, permissionsLoading, canAccessAdminPanel]);
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -341,7 +381,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     };
   }, [mobileNavOpen]);
 
-  if (status === "loading" || status === "idle") {
+  if (status === "loading") {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Checking access...
@@ -358,11 +398,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(styles.adminPanel, "admin-panel")}>
-      <AppHeader
-        variant="admin"
-        scrolled
-        onMobileMenuClick={() => setMobileNavOpen(true)}
-      />
+      <AppHeader variant="admin" scrolled />
       {mobileNavOpen ? (
         <button
           type="button"
@@ -377,7 +413,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <div className={styles.menuPanel}>
                   <div className={cn(styles.menuScroll, "brand-scrollbar")}>
                 <div className={styles.menuScrollInner}>
-                  {nav.map((section) => {
+                  {filteredNav.map((section) => {
                     const SectionIcon = section.icon;
                     return (
                       <div

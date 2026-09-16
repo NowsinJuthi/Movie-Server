@@ -1,0 +1,109 @@
+.panel {
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  background: linear-gradient(180deg, rgb(38 191 176 / 0.06), transparent);
+  padding: 1rem 1.1rem;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c5d5d9;
+}
+
+.path {
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  color: #8aa3aa;
+}
+
+.dropZone {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px dashed rgb(38 191 176 / 0.35);
+  background: rgb(0 0 0 / 0.22);
+  padding: 0.85rem 1rem;
+}
+
+.fileInput {
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.82rem;
+}
+
+.fileInput::file-selector-button {
+  margin-right: 0.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: rgb(38 191 176 / 0.18);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #26bfb0;
+  cursor: pointer;
+}
+
+.fileInput::file-selector-button:hover {
+  background: rgb(38 191 176 / 0.28);
+}
+
+.fileMeta {
+  font-size: 0.78rem;
+  color: #8aa3aa;
+}
+
+.progressTrack {
+  margin-top: 0.85rem;
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1a9e92, #26bfb0);
+  transition: width 0.2s ease;
+}
+
+.success {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(38 191 176 / 0.4);
+  background: rgb(38 191 176 / 0.12);
+  padding: 0.75rem 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.successIcon {
+  flex-shrink: 0;
+  color: #26bfb0;
+}
+
+.error {
+  margin-top: 0.85rem;
+}

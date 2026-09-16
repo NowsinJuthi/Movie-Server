@@ -33,7 +33,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   transpilePackages: ["@movie-server/shared"],
+  experimental: {
+    // Default 10MB truncates Samba video uploads when proxy/rewrite buffers the body.
+    proxyClientMaxBodySize: "50gb",
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
@@ -50,7 +55,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    const api = process.env.API_INTERNAL_URL || "http://127.0.0.1:4001";
+    const api = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
     return [
       {
         source: "/api/v1/:path*",

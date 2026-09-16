@@ -41,19 +41,30 @@ export default function LoginForm() {
         router.push(next);
         return;
       }
+      const destination =
+        next && next.startsWith("/") && !next.startsWith("//") ? next : "/home";
       try {
         const active = await profileApi.active();
         if (active.profile) {
           useProfileStore.getState().setActiveProfile(active.profile);
-          const destination =
-            next && next.startsWith("/") && !next.startsWith("//") ? next : "/home";
+          router.push(destination);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      try {
+        const listed = await profileApi.list();
+        if (listed.profiles.length === 1 && !listed.profiles[0]?.hasPin) {
+          const selected = await profileApi.select(listed.profiles[0].id);
+          useProfileStore.getState().setActiveProfile(selected.profile);
           router.push(destination);
           return;
         }
       } catch {
         /* fall through to profile picker */
       }
-      router.push("/profiles");
+      router.push(next ? `/profiles?next=${encodeURIComponent(next)}` : "/profiles");
     },
     onError: (error: unknown) => {
       setFormError(error instanceof ApiError ? error.message : "Unable to sign in.");

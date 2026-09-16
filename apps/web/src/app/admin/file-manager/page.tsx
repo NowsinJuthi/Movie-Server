@@ -10,22 +10,45 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Folder, Film, HardDrive, Server } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronRight,
+  Film,
+  Folder,
+  FolderPlus,
+  HardDrive,
+  Home,
+  Loader2,
+  PlugZap,
+  Plus,
+  RefreshCw,
+  Server,
+  Trash2,
+  X,
+} from "lucide-react";
+import { AdminPage } from "@/components/admin/admin-page";
+import styles from "@/components/admin/file-manager-page.module.css";
+import { SmbUploadPanel } from "@/components/admin/smb-upload-panel";
+import {
+  SmbUploadStatusCard,
+  type SmbUploadStatus,
+} from "@/components/admin/smb-upload-toast";
+import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert } from "@/components/ui/alert";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api";
 import { smbApi } from "@/lib/smb-api";
 import { libraryApi } from "@/lib/library-api";
-import { ScreenMessage } from "@/components/profiles/pin-dialog";
+import { cn } from "@/lib/utils";
 
 export default function AdminFileManagerPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, status } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
+  const [showConnectForm, setShowConnectForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [browsePath, setBrowsePath] = useState("");
   const [name, setName] = useState("");
@@ -38,6 +61,9 @@ export default function AdminFileManagerPage() {
   const [libraryName, setLibraryName] = useState("");
   const [libraryKind, setLibraryKind] = useState<LibraryKind>("movies");
   const [pendingDir, setPendingDir] = useState<AdminSmbBrowseEntry | null>(null);
+  const [updatePassword, setUpdatePassword] = useState("");
+  const [credentialsSaved, setCredentialsSaved] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<SmbUploadStatus | null>(null);
 
   const serversQuery = useQuery({
     queryKey: ["admin-smb-servers"],
@@ -74,6 +100,7 @@ export default function AdminFileManagerPage() {
       setPassword("");
       setSelectedId(data.server.id);
       setBrowsePath("");
+      setShowConnectForm(false);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-smb-servers"] });
     },
@@ -85,8 +112,37 @@ export default function AdminFileManagerPage() {
     onSuccess: () => {
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-smb-servers"] });
+      void browseQuery.refetch();
     },
     onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Connection test failed."),
+  });
+
+  const updateCredentials = useMutation({
+    mutationFn: async () => {
+      if (!selectedId || !updatePassword.trim()) throw new Error("Password required");
+      await smbApi.saveCredentials(selectedId, updatePassword);
+    },
+    onSuccess: async () => {
+      setUpdatePassword("");
+      setCredentialsSaved(true);
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-smb-servers"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-smb-browse", selectedId, browsePath] });
+      if (!selectedId) return;
+      try {
+        await smbApi.test(selectedId);
+        await browseQuery.refetch();
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? `Password saved, but connection failed: ${err.message}`
+            : "Password saved, but connection test failed.",
+        );
+        await browseQuery.refetch();
+      }
+    },
+    onError: (err: unknown) =>
+      setError(err instanceof ApiError ? err.message : "Could not save Samba password."),
   });
 
   const remove = useMutation({
@@ -130,191 +186,315 @@ export default function AdminFileManagerPage() {
   );
   const entries = browseQuery.data?.entries ?? [];
   const parentPath = browseQuery.data?.parentPath;
+  const pathSegments = browsePath ? browsePath.split("/").filter(Boolean) : [];
+  const showCredentialsPanel =
+    Boolean(selected) && (Boolean(selected?.lastError) || browseQuery.isError);
+
+  const uncPath = selected
+    ? `\\\\${selected.host}\\${selected.share}${browsePath ? `\\${browsePath.replace(/\//g, "\\")}` : ""}`
+    : "";
 
   if (!user || !hasMinimumRole(user.role, UserRole.Admin)) {
     return <ScreenMessage>Checking access...</ScreenMessage>;
   }
 
-  return (
-    <main className="flex h-full min-h-dvh w-full flex-col overflow-hidden bg-background p-3 sm:p-4 md:p-5 lg:p-6 lg:min-h-0">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card/40">
-        <header className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
-          <h1 className="text-xl font-semibold">Samba file manager</h1>
-          <p className="text-sm text-muted-foreground">
-            Connect a Samba/Windows share with IP, share name, and Samba username/password, browse
-            folders, then add a directory as a movie or TV library. Use the Samba account (e.g. from{" "}
-            <code className="text-xs">pdbedit -L</code>), not your PC login, unless they are the same.
-          </p>
-        </header>
+  const pageError =
+    error ??
+    (serversQuery.error instanceof ApiError
+      ? serversQuery.error.message
+      : serversQuery.error
+        ? "Could not load Samba servers."
+        : null);
 
-        {error ? (
-          <div className="shrink-0 border-b border-border px-4 py-2 sm:px-5">
-            <Alert>{error}</Alert>
-          </div>
-        ) : serversQuery.error ? (
-          <div className="shrink-0 border-b border-border px-4 py-2 sm:px-5">
-            <Alert>
-              {serversQuery.error instanceof ApiError
-                ? serversQuery.error.message
-                : "Could not load Samba servers."}
-            </Alert>
-          </div>
+  return (
+    <AdminPage
+      title="Samba file manager"
+      description="Connect network storage, browse shares, upload videos, and link folders to media libraries."
+      error={pageError}
+      actions={
+        <Button
+          type="button"
+          size="sm"
+          variant={showConnectForm ? "ghost" : "outline"}
+          onClick={() => setShowConnectForm((open) => !open)}
+        >
+          {showConnectForm ? (
+            <>
+              <X className="mr-2 h-4 w-4" />
+              Close
+            </>
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Connect server
+            </>
+          )}
+        </Button>
+      }
+    >
+      <div className={styles.layout}>
+        {showConnectForm ? (
+          <section className={styles.connectPanel}>
+            <div className={styles.connectHead}>
+              <div>
+                <h2 className={styles.connectTitle}>Connect Samba server</h2>
+                <p className={styles.connectHint}>
+                  Use the Samba account from your server (<code className="text-xs">pdbedit -L</code>), not your
+                  Windows login unless they match. Leave domain blank for WORKGROUP.
+                </p>
+              </div>
+            </div>
+            <form
+              className={styles.connectBody}
+              onSubmit={(event) => {
+                event.preventDefault();
+                setError(null);
+                create.mutate();
+              }}
+            >
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-name">Display name</Label>
+                  <Input id="smb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Data-Storage" />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-host">Server IP / host</Label>
+                  <Input
+                    id="smb-host"
+                    value={host}
+                    onChange={(e) => setHost(e.target.value)}
+                    placeholder="192.168.0.10"
+                    required
+                  />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-port">Port</Label>
+                  <Input id="smb-port" value={port} onChange={(e) => setPort(e.target.value)} />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-share">Share name</Label>
+                  <Input
+                    id="smb-share"
+                    value={share}
+                    onChange={(e) => setShare(e.target.value)}
+                    placeholder="Data-Storage"
+                    required
+                  />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-user">Username</Label>
+                  <Input
+                    id="smb-user"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="samba-user"
+                    required
+                  />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-pass">Password</Label>
+                  <Input
+                    id="smb-pass"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="smb-domain">Domain (optional)</Label>
+                  <Input
+                    id="smb-domain"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    placeholder="WORKGROUP"
+                  />
+                </div>
+                <div className={styles.field} style={{ display: "flex", alignItems: "flex-end" }}>
+                  <Button type="submit" disabled={create.isPending} className="w-full sm:w-auto">
+                    {create.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting…
+                      </>
+                    ) : (
+                      <>
+                        <PlugZap className="mr-2 h-4 w-4" />
+                        Save & connect
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </section>
         ) : null}
 
-        <form
-          className="grid shrink-0 gap-3 border-b border-border px-4 py-3 sm:px-5 md:grid-cols-3 lg:grid-cols-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setError(null);
-            create.mutate();
-          }}
-        >
-          <div>
-            <Label htmlFor="smb-name">Display name</Label>
-            <Input id="smb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Home NAS" />
-          </div>
-          <div>
-            <Label htmlFor="smb-host">Server IP / host</Label>
-            <Input
-              id="smb-host"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              placeholder="192.168.0.10"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="smb-port">Port</Label>
-            <Input id="smb-port" value={port} onChange={(e) => setPort(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="smb-share">Share name</Label>
-            <Input
-              id="smb-share"
-              value={share}
-              onChange={(e) => setShare(e.target.value)}
-              placeholder="movies"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="smb-user">Username</Label>
-            <Input
-              id="smb-user"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="samba-user"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="smb-pass">Password</Label>
-            <Input
-              id="smb-pass"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="smb-domain">Domain (optional)</Label>
-            <Input
-              id="smb-domain"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="blank / WORKGROUP / PC name"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? "Connecting..." : "Add Samba server"}
-            </Button>
-          </div>
-        </form>
-
-        <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[16rem_1fr]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background/60">
-            <h2 className="shrink-0 border-b border-border px-3 py-2 text-sm font-medium text-muted-foreground">
-              Servers
-            </h2>
-            <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+        <div className={styles.workspace}>
+          <aside className={styles.sidebar}>
+            <div className={styles.sidebarHead}>
+              <h2 className={styles.sidebarTitle}>Servers</h2>
+              <span className="text-xs text-muted-foreground">{servers.length}</span>
+            </div>
+            <ul className={styles.serverList}>
               {servers.map((server: AdminSmbServer) => (
                 <li key={server.id}>
                   <button
                     type="button"
-                    className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${
-                      selectedId === server.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border hover:bg-secondary"
-                    }`}
+                    className={cn(styles.serverBtn, selectedId === server.id && styles.serverBtnActive)}
                     onClick={() => {
                       setSelectedId(server.id);
                       setBrowsePath("");
                       setPendingDir(null);
+                      setUploadStatus(null);
                       setError(null);
+                      setCredentialsSaved(false);
+                      setUpdatePassword("");
                     }}
                   >
-                    <Server className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{server.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
+                    <span className={styles.serverIcon}>
+                      <Server className="h-4 w-4" />
+                    </span>
+                    <span className={styles.serverMeta}>
+                      <span className={styles.serverName}>{server.name}</span>
+                      <span className={styles.serverHost}>
                         {server.host}/{server.share}
+                      </span>
+                      <span className="mt-1.5 inline-flex">
+                        <ServerStatusBadge server={server} />
                       </span>
                     </span>
                   </button>
                 </li>
               ))}
               {servers.length === 0 ? (
-                <li className="px-2 py-6 text-center text-xs text-muted-foreground">No Samba servers yet</li>
+                <li className="px-3 py-8 text-center text-xs text-muted-foreground">
+                  No servers yet. Click <strong>Connect server</strong> above.
+                </li>
               ) : null}
             </ul>
-          </section>
+          </aside>
 
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background/60">
+          <section className={styles.main}>
             {!selected ? (
-              <div className="flex min-h-[16rem] flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground lg:min-h-0">
-                <HardDrive className="h-8 w-8 opacity-50" />
-                Select or add a Samba server to browse folders
+              <div className={styles.mainEmpty}>
+                <HardDrive className="h-10 w-10 opacity-40" />
+                <p className="text-sm font-medium text-foreground">Select a Samba server</p>
+                <p className="max-w-sm text-xs">
+                  Choose a server from the sidebar to browse folders, upload videos, or create a media library.
+                </p>
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-medium">{selected.name}</h2>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {`\\\\${selected.host}\\${selected.share}${
-                        browsePath ? `\\${browsePath.replace(/\//g, "\\")}` : ""
-                      }`}
+              <>
+                <header className={styles.mainHead}>
+                  <div className="min-w-0 flex-1">
+                    <h2 className={styles.mainTitle}>{selected.name}</h2>
+                    <p className={styles.uncPath} title={uncPath}>
+                      {uncPath}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => test.mutate(selected.id)} disabled={test.isPending}>
-                      Test
+                  <div className={styles.toolbar}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => test.mutate(selected.id)}
+                      disabled={test.isPending}
+                    >
+                      {test.isPending ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <PlugZap className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Test connection
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => {
-                        if (confirm(`Remove ${selected.name}?`)) remove.mutate(selected.id);
+                        if (confirm(`Remove "${selected.name}" from AmarPin? Linked libraries must be deleted first.`)) {
+                          remove.mutate(selected.id);
+                        }
                       }}
                     >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                       Remove
                     </Button>
                   </div>
-                </div>
+                </header>
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+                {showCredentialsPanel ? (
+                  <div className={styles.credPanel}>
+                    <h3 className={styles.credTitle}>Connection required</h3>
+                    {credentialsSaved ? (
+                      <p className="mb-2 text-sm text-primary">Password saved. Test the connection or browse again.</p>
+                    ) : null}
+                    <p className={styles.credMessage}>
+                      {browseQuery.error instanceof ApiError
+                        ? browseQuery.error.message
+                        : selected.lastError ||
+                          "Could not reach this share. Re-enter the Samba password or verify host and share name."}
+                    </p>
+                    <form
+                      className="flex flex-wrap items-end gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        setError(null);
+                        setCredentialsSaved(false);
+                        updateCredentials.mutate();
+                      }}
+                    >
+                      <div className="min-w-[12rem] flex-1">
+                        <Label htmlFor="smb-update-pass">Samba password</Label>
+                        <Input
+                          id="smb-update-pass"
+                          type="password"
+                          value={updatePassword}
+                          onChange={(e) => setUpdatePassword(e.target.value)}
+                          placeholder="Share password"
+                          required
+                        />
+                      </div>
+                      <Button type="submit" size="sm" disabled={updateCredentials.isPending || !updatePassword}>
+                        {updateCredentials.isPending ? "Saving…" : "Save password"}
+                      </Button>
+                    </form>
+                  </div>
+                ) : null}
+
+                <nav className={styles.breadcrumb} aria-label="Folder path">
+                  <button type="button" className={styles.crumb} onClick={() => setBrowsePath("")}>
+                    <Home className="h-3.5 w-3.5" />
+                    Share root
+                  </button>
+                  {pathSegments.map((segment, index) => {
+                    const path = pathSegments.slice(0, index + 1).join("/");
+                    const isLast = index === pathSegments.length - 1;
+                    return (
+                      <span key={path} className="inline-flex items-center">
+                        <ChevronRight className={styles.crumbSep} aria-hidden />
+                        <button
+                          type="button"
+                          className={cn(styles.crumb, isLast && styles.crumbActive)}
+                          onClick={() => !isLast && setBrowsePath(path)}
+                          disabled={isLast}
+                        >
+                          {segment}
+                        </button>
+                      </span>
+                    );
+                  })}
+                </nav>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:px-4">
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={browsePath === ""}
                     onClick={() => setBrowsePath(parentPath ?? "")}
                   >
+                    <ArrowUp className="mr-1.5 h-3.5 w-3.5" />
                     Up
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setBrowsePath("")}>
-                    Share root
                   </Button>
                   <Button
                     size="sm"
@@ -322,6 +502,11 @@ export default function AdminFileManagerPage() {
                     onClick={() => browseQuery.refetch()}
                     disabled={browseQuery.isFetching}
                   >
+                    {browseQuery.isFetching ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                    )}
                     Refresh
                   </Button>
                   <Button
@@ -340,140 +525,187 @@ export default function AdminFileManagerPage() {
                       );
                     }}
                   >
-                    Add current folder
+                    <FolderPlus className="mr-1.5 h-3.5 w-3.5" />
+                    Library from current folder
                   </Button>
                 </div>
 
-                {browseQuery.isError ? (
-                  <div className="shrink-0 px-3 py-2">
-                    <Alert>
-                      {browseQuery.error instanceof ApiError
-                        ? browseQuery.error.message
-                        : "Could not browse this share."}
-                    </Alert>
+                <SmbUploadPanel
+                  serverId={selected.id}
+                  directoryPath={browsePath}
+                  directoryLabel={uncPath}
+                  onStatusChange={setUploadStatus}
+                  onUploaded={() => {
+                    void browseQuery.refetch();
+                  }}
+                />
+
+                <div className={styles.fileTableWrap}>
+                  {browseQuery.isLoading ? (
+                    <div className={styles.emptyFolder}>
+                      <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin opacity-60" />
+                      Loading folder…
+                    </div>
+                  ) : (
+                    <table className={styles.fileTable}>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Size</th>
+                          <th style={{ width: "8.5rem" }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {entries.map((entry) => (
+                          <tr key={entry.path} className={styles.fileRow}>
+                            <td>
+                              <button
+                                type="button"
+                                className={styles.fileNameBtn}
+                                onClick={() => {
+                                  if (entry.kind === "directory") {
+                                    setBrowsePath(entry.path);
+                                    setPendingDir(null);
+                                    setUploadStatus(null);
+                                  }
+                                }}
+                                disabled={entry.kind !== "directory"}
+                              >
+                                {entry.kind === "directory" ? (
+                                  <Folder className="h-4 w-4 shrink-0 text-primary" />
+                                ) : (
+                                  <Film className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                                <span>{entry.name}</span>
+                              </button>
+                            </td>
+                            <td className="text-muted-foreground">
+                              {entry.kind === "directory" ? "Folder" : entry.isVideo ? "Video" : "File"}
+                            </td>
+                            <td className="text-muted-foreground">
+                              {entry.sizeBytes != null ? formatBytes(entry.sizeBytes) : "—"}
+                            </td>
+                            <td className="text-right">
+                              {entry.kind === "directory" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setPendingDir(entry);
+                                    setLibraryName(entry.name);
+                                  }}
+                                >
+                                  Add library
+                                </Button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                        {entries.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className={styles.emptyFolder}>
+                              <p className={styles.emptyFolderLabel}>This folder is empty</p>
+                              {uploadStatus ? (
+                                <div className={styles.uploadStatusInline}>
+                                  <SmbUploadStatusCard {...uploadStatus} inline />
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  )}
+                  {uploadStatus && entries.length > 0 ? (
+                    <div className={styles.uploadStatusFooter}>
+                      <SmbUploadStatusCard {...uploadStatus} inline />
+                    </div>
+                  ) : null}
+                </div>
+
+                {pendingDir ? (
+                  <div className={styles.librarySheet}>
+                    <h3 className={styles.librarySheetTitle}>Create media library</h3>
+                    <p className={styles.librarySheetPath}>
+                      {`\\\\${selected.host}\\${selected.share}${
+                        pendingDir.path ? `\\${pendingDir.path.replace(/\//g, "\\")}` : ""
+                      }`}
+                    </p>
+                    <form
+                      className={styles.libraryForm}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        setError(null);
+                        addLibrary.mutate();
+                      }}
+                    >
+                      <div className={styles.field}>
+                        <Label htmlFor="lib-name">Library name</Label>
+                        <Input
+                          id="lib-name"
+                          value={libraryName}
+                          onChange={(e) => setLibraryName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className={styles.field}>
+                        <Label htmlFor="lib-kind">Content type</Label>
+                        <select
+                          id="lib-kind"
+                          className={styles.select}
+                          value={libraryKind}
+                          onChange={(e) => setLibraryKind(e.target.value as LibraryKind)}
+                        >
+                          <option value="movies">Movies</option>
+                          <option value="tv">TV series</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="submit" disabled={addLibrary.isPending}>
+                          {addLibrary.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creating…
+                            </>
+                          ) : (
+                            "Create & scan"
+                          )}
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => setPendingDir(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
                   </div>
                 ) : null}
-
-                <div className="min-h-0 flex-1 overflow-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-secondary text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2">Name</th>
-                        <th className="px-3 py-2">Type</th>
-                        <th className="px-3 py-2">Size</th>
-                        <th className="px-3 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((entry) => (
-                        <tr key={entry.path} className="border-t border-border">
-                          <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-2 hover:text-primary"
-                              onClick={() => {
-                                if (entry.kind === "directory") {
-                                  setBrowsePath(entry.path);
-                                  setPendingDir(null);
-                                }
-                              }}
-                            >
-                              {entry.kind === "directory" ? (
-                                <Folder className="h-4 w-4 text-primary" />
-                              ) : (
-                                <Film className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              {entry.name}
-                            </button>
-                          </td>
-                          <td className="px-3 py-2 capitalize text-muted-foreground">
-                            {entry.kind === "directory" ? "Folder" : entry.isVideo ? "Video" : "File"}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">
-                            {entry.sizeBytes != null ? formatBytes(entry.sizeBytes) : "—"}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            {entry.kind === "directory" ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setPendingDir(entry);
-                                  setLibraryName(entry.name);
-                                }}
-                              >
-                                Add to library
-                              </Button>
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                      {!browseQuery.isLoading && entries.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                            Empty folder
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </>
             )}
           </section>
         </div>
-
-        {pendingDir && selected ? (
-          <section className="shrink-0 border-t border-primary/30 bg-primary/5 px-4 py-3 sm:px-5">
-            <h2 className="text-base font-medium">Add folder as media library</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {`\\\\${selected.host}\\${selected.share}${
-                pendingDir.path ? `\\${pendingDir.path.replace(/\//g, "\\")}` : ""
-              }`}
-            </p>
-            <form
-              className="mt-3 grid gap-3 md:grid-cols-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setError(null);
-                addLibrary.mutate();
-              }}
-            >
-              <div>
-                <Label htmlFor="lib-name">Library name</Label>
-                <Input
-                  id="lib-name"
-                  value={libraryName}
-                  onChange={(e) => setLibraryName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="lib-kind">Kind</Label>
-                <select
-                  id="lib-kind"
-                  className="flex h-10 w-full rounded-md border border-input bg-background/60 px-3 text-sm"
-                  value={libraryKind}
-                  onChange={(e) => setLibraryKind(e.target.value as LibraryKind)}
-                >
-                  <option value="movies">Movies</option>
-                  <option value="tv">TV</option>
-                </select>
-              </div>
-              <div className="flex items-end gap-2">
-                <Button type="submit" disabled={addLibrary.isPending}>
-                  {addLibrary.isPending ? "Adding..." : "Create library & scan"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setPendingDir(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </section>
-        ) : null}
       </div>
-    </main>
+    </AdminPage>
   );
+}
+
+function ServerStatusBadge({ server }: { server: AdminSmbServer }) {
+  if (server.lastError) {
+    return (
+      <span className={cn(styles.badge, styles.badgeOffline)}>
+        <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+        Offline
+      </span>
+    );
+  }
+  if (server.lastOkAt) {
+    return (
+      <span className={cn(styles.badge, styles.badgeOnline)}>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        Connected
+      </span>
+    );
+  }
+  return <span className={cn(styles.badge, styles.badgeIdle)}>Not tested</span>;
 }
 
 function formatBytes(value: number): string {

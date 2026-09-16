@@ -188,6 +188,11 @@ export class UsersService {
       email?: string;
       isActive?: boolean;
       emailVerified?: boolean;
+      staffProfileId?: string;
+      subscriptionStaffRules?: {
+        view?: boolean | null;
+        manage?: boolean | null;
+      };
       password?: string;
     },
   ) {
@@ -239,6 +244,38 @@ export class UsersService {
       user.isActive = input.isActive;
       if (!input.isActive) {
         user.tokenVersion += 1;
+      }
+    }
+
+    if (input.staffProfileId !== undefined) {
+      const next = input.staffProfileId.trim() || 'administrator';
+      if (next !== (user.staffProfileId?.trim() || 'administrator')) {
+        user.staffProfileId = next;
+        if (user.role === UserRole.Admin) {
+          user.tokenVersion += 1;
+        }
+      }
+    }
+
+    if (input.subscriptionStaffRules !== undefined) {
+      const current = user.subscriptionStaffRules ?? { view: null, manage: null };
+      const next = {
+        view:
+          input.subscriptionStaffRules.view === undefined
+            ? current.view ?? null
+            : input.subscriptionStaffRules.view,
+        manage:
+          input.subscriptionStaffRules.manage === undefined
+            ? current.manage ?? null
+            : input.subscriptionStaffRules.manage,
+      };
+      const changed =
+        next.view !== (current.view ?? null) || next.manage !== (current.manage ?? null);
+      if (changed) {
+        user.subscriptionStaffRules = next;
+        if (user.role === UserRole.Admin) {
+          user.tokenVersion += 1;
+        }
       }
     }
 

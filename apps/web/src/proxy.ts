@@ -9,6 +9,11 @@ export function proxy(request: NextRequest) {
   // so AuthHydrator can rotate tokens without kicking the user to /login.
   const hasSession = Boolean(accessToken || refreshToken);
 
+  if (pathname === "/") {
+    const destination = hasSession ? "/home" : "/login";
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
+
   // Legacy /app routes → /home
   if (pathname === "/app" || pathname.startsWith("/app/")) {
     const url = request.nextUrl.clone();
@@ -16,7 +21,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if ((pathname === "/login" || pathname === "/register") && hasSession) {
+  // Only skip login when the access token is present. A stale refresh cookie alone
+  // must not bounce /login → /home while the client is clearing invalid sessions.
+  if ((pathname === "/login" || pathname === "/register") && accessToken) {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 
@@ -60,6 +67,7 @@ function roleFromAccessToken(token?: string): UserRole | null {
 
 export const config = {
   matcher: [
+    "/",
     "/app",
     "/app/:path*",
     "/home",

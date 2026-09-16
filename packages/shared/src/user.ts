@@ -1,6 +1,7 @@
 export const UserRole = {
   User: 'user',
   Customer: 'customer',
+  Vip: 'vip',
   Admin: 'admin',
   SuperAdmin: 'super_admin',
 } as const;
@@ -10,18 +11,20 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 export const USER_ROLES = [
   UserRole.User,
   UserRole.Customer,
+  UserRole.Vip,
   UserRole.Admin,
   UserRole.SuperAdmin,
 ] as const;
 
 /** End-user roles (not staff). Admins may create / assign these. */
-export const END_USER_ROLES = [UserRole.User, UserRole.Customer] as const;
+export const END_USER_ROLES = [UserRole.User, UserRole.Customer, UserRole.Vip] as const;
 
 export const ROLE_RANK: Record<UserRole, number> = {
   [UserRole.User]: 1,
   [UserRole.Customer]: 2,
-  [UserRole.Admin]: 3,
-  [UserRole.SuperAdmin]: 4,
+  [UserRole.Vip]: 3,
+  [UserRole.Admin]: 4,
+  [UserRole.SuperAdmin]: 5,
 };
 
 export function hasMinimumRole(current: UserRole, required: UserRole): boolean {

@@ -16,7 +16,7 @@ import { useProfileStore } from "@/stores/profile-store";
 export function HomeChrome({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status } = useAuthStore();
+  const { status, user } = useAuthStore();
   const { activeProfile, setActiveProfile } = useProfileStore();
   const [scrolled, setScrolled] = useState(true);
 
@@ -26,13 +26,13 @@ export function HomeChrome({ children }: { children: ReactNode }) {
   const activeQuery = useQuery({
     queryKey: ["active-profile"],
     queryFn: profileApi.active,
-    enabled: status === "authenticated",
+    enabled: Boolean(user),
   });
 
   const entitlementQuery = useQuery({
     queryKey: ["subscription-entitlement"],
     queryFn: subscriptionApi.entitlement,
-    enabled: status === "authenticated",
+    enabled: Boolean(user),
   });
 
   useEffect(() => {

@@ -27,6 +27,7 @@ import { toPublicPlayback } from './playback-public';
 import { buildMasterPlaylist } from './hls-playlist';
 import { HlsPackagerService } from './hls-packager.service';
 import { SelectPlaybackTracksDto } from './dto/select-tracks.dto';
+import { SeekPlaybackDto } from './dto/seek-playback.dto';
 
 @Controller('stream')
 @RequireSubscription()
@@ -75,6 +76,7 @@ export class StreamController {
     @Param('sessionId') sessionId: string,
     @Param('quality') quality: string,
     @Query('mt') mediaToken: string | undefined,
+    @Query('t') startParam: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -85,8 +87,23 @@ export class StreamController {
     if (!session.variants.some((variant) => variant.resolution === resolution)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Variant not found.' });
     }
-    await this.streams.ensureMobileHls(sid, userId, resolution);
-    const body = await this.streams.readMobileHlsPlaylist(sid, mediaToken ?? session.mediaToken);
+    const requestedStart = startParam ? Number(startParam) : 0;
+    const startSeconds = Number.isFinite(requestedStart)
+      ? Math.max(0, Math.min(requestedStart, session.durationSeconds || requestedStart))
+      : 0;
+    if (session.videoTranscode || session.videoRemux) {
+      await this.streams.ensureMobileHls(
+        sid,
+        userId,
+        resolution,
+        startSeconds,
+      );
+    }
+    const body = await this.streams.readVariantPlaylist(
+      session,
+      resolution,
+      mediaToken ?? session.mediaToken,
+    );
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(body);
@@ -217,6 +234,17 @@ export class StreamController {
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(body);
+  }
+
+  @Post(':sessionId/seek')
+  @HttpCode(HttpStatus.OK)
+  async seek(
+    @CurrentUser() user: RequestUser,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: SeekPlaybackDto,
+  ) {
+    await this.streams.seekHls(this.id(sessionId), user.id, dto.seconds, dto.quality);
+    return { ok: true, seconds: dto.seconds };
   }
 
   @Post(':sessionId/tracks')

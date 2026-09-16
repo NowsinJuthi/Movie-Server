@@ -1,19 +1,36 @@
 import { AUTH_COOKIE } from '@movie-server/shared';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Response } from 'express';
+import { isLocalDevOrigin } from '../common/is-local-url';
 import { parseExpiryToMs } from '../common/security/tokens';
 
 export class AuthCookies {
   constructor(private readonly config: ConfigService) {}
 
+  private isLocalDev(): boolean {
+    if (this.config.get<string>('REDIS_HOST') === 'memory') {
+      return true;
+    }
+    const nodeEnv = this.config.get<string>('NODE_ENV') ?? 'development';
+    if (nodeEnv !== 'production') {
+      return true;
+    }
+    return isLocalDevOrigin(
+      this.config.get<string>('APP_URL'),
+      this.config.get<string>('API_URL'),
+    );
+  }
+
   private base(): CookieOptions {
-    const domain = this.config.get<string>('COOKIE_DOMAIN') || undefined;
+    const localDev = this.isLocalDev();
+    const domain = localDev ? undefined : this.config.get<string>('COOKIE_DOMAIN') || undefined;
     const sameSite = this.config.get<'lax' | 'strict' | 'none'>('COOKIE_SAME_SITE') ?? 'lax';
     return {
       httpOnly: true,
-      secure:
-        this.config.get<boolean>('COOKIE_SECURE') ||
-        this.config.get('NODE_ENV') === 'production',
+      secure: localDev
+        ? false
+        : this.config.get<boolean>('COOKIE_SECURE') ||
+          this.config.get('NODE_ENV') === 'production',
       sameSite,
       domain,
       path: '/',

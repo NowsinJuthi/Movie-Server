@@ -7,7 +7,7 @@ import {
   type PublicProfile,
 } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Home, Menu, X } from "lucide-react";
+import { ChevronDown, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,21 +20,19 @@ import { brandingAssetSrc } from "@/lib/settings-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { cn } from "@/lib/utils";
+import styles from "./app-header.module.css";
 
 export function AppHeader({
   profile,
   planLabel,
   scrolled = true,
   variant = "browse",
-  onMobileMenuClick,
 }: {
   profile?: PublicProfile | null;
   planLabel?: string | null;
   scrolled?: boolean;
-  /** browse = Netflix-style; admin = solid bar over admin pages */
+  /** browse = storefront; admin = solid bar over admin pages */
   variant?: "browse" | "admin";
-  /** Opens the admin sidebar drawer on small screens */
-  onMobileMenuClick?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -74,26 +72,26 @@ export function AppHeader({
   }, [browseMenuOpen]);
 
   const openMobileMenu = () => {
-    if (variant === "admin" && onMobileMenuClick) {
-      onMobileMenuClick();
-      return;
-    }
     setBrowseMenuOpen(true);
   };
+
+  const homeActive = pathname === "/home";
+  const discoverActive = pathname === "/home/welcome";
+  const activeLibraryId = pathname?.startsWith("/home/library/")
+    ? pathname.split("/")[3]
+    : null;
+  const moviesActive = movieLibraries.some((library) => library.id === activeLibraryId);
+  const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
   const logoButton = (
     <button
       type="button"
-      className="min-w-0 shrink text-xl font-bold text-primary"
+      className={styles.logoBtn}
       onClick={() => router.push(variant === "admin" ? "/admin" : "/home")}
     >
       {logoSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoSrc}
-          alt={siteName}
-          className="h-8 w-auto max-w-[140px] object-contain sm:h-9 sm:max-w-[160px] lg:h-10 lg:max-w-[200px]"
-        />
+        <img src={logoSrc} alt={siteName} className={styles.logoImg} />
       ) : (
         <>
           {siteName}
@@ -106,13 +104,13 @@ export function AppHeader({
   );
 
   const headerActions = (
-    <>
+    <div className={styles.actions}>
       <Suspense
         fallback={
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70" />
+          <div className={cn(styles.iconBtn, "opacity-70")} aria-hidden />
         }
       >
-        <SearchBox />
+        <SearchBox triggerClassName={styles.iconBtn} />
       </Suspense>
       {planLabel && variant !== "admin" && !/^staff$/i.test(planLabel) && !/^admin$/i.test(planLabel) ? (
         <Button
@@ -145,168 +143,249 @@ export function AppHeader({
           router.push("/login");
         }}
       />
-    </>
+    </div>
   );
 
   return (
     <>
-    <header
-      className={cn(
-        "fixed inset-x-0 top-0 z-50 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-colors sm:px-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-3 lg:px-6",
-        solid ? "border-b border-white/10 bg-background/95 backdrop-blur" : "bg-gradient-to-b from-black/80 to-transparent",
-      )}
-    >
-      <div className="relative flex min-h-10 items-center lg:hidden">
-        <button
-          type="button"
-          aria-label={variant === "admin" ? "Open admin menu" : "Open browse menu"}
-          className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg text-white/85 active:bg-white/10"
-          onClick={openMobileMenu}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      <header
+        className={cn(
+          styles.siteHeader,
+          !solid && variant === "browse" && styles.siteHeaderTransparent,
+        )}
+      >
+        <div className={styles.siteHeaderInner}>
+          {/* Left — mobile browse menu + logo */}
+          <div className="flex min-w-0 items-center gap-1 justify-self-start sm:gap-2">
+            {variant === "browse" ? (
+              <button
+                type="button"
+                aria-label="Open browse menu"
+                className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
+                onClick={openMobileMenu}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            ) : null}
+            <div className={cn(variant === "admin" ? "block" : "hidden lg:block")}>{logoButton}</div>
+          </div>
 
-        <div className="pointer-events-none absolute inset-x-12 flex items-center justify-center">
-          <div className="pointer-events-auto">{logoButton}</div>
+          {/* Center — mobile browse logo + desktop nav */}
+          <div className="flex min-w-0 items-center justify-center justify-self-stretch overflow-visible lg:justify-self-center">
+            {variant === "browse" ? (
+              <div className={cn(styles.mobileLogoWrap, styles.mobileBrowseLogo)}>{logoButton}</div>
+            ) : null}
+
+            {variant === "browse" ? (
+              <nav className={styles.desktopNav} aria-label="Main">
+                <HeaderLink href="/home" active={homeActive}>
+                  Home
+                </HeaderLink>
+                <HeaderLink href="/home/welcome" active={discoverActive}>
+                  Discover
+                </HeaderLink>
+                <NavMenu
+                  label="Movies"
+                  active={moviesActive}
+                  items={movieLibraries.map((library) => ({
+                    id: library.id,
+                    label: library.name,
+                    href: `/home/library/${library.id}`,
+                    active: library.id === activeLibraryId,
+                  }))}
+                  emptyHint="Add a movie library in Admin → Media libraries"
+                />
+                {tvLibraries.length > 0 ? (
+                  <NavMenu
+                    label="TV Shows"
+                    active={tvActive}
+                    items={tvLibraries.map((library) => ({
+                      id: library.id,
+                      label: library.name,
+                      href: `/home/library/${library.id}`,
+                      active: library.id === activeLibraryId,
+                    }))}
+                  />
+                ) : null}
+              </nav>
+            ) : (
+              <p className="hidden text-sm font-semibold text-white/70 lg:block">Administration</p>
+            )}
+          </div>
+
+          {/* Right — actions */}
+          <div className="justify-self-end">{headerActions}</div>
         </div>
+      </header>
 
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">{headerActions}</div>
-      </div>
-
-      <div className="hidden min-w-0 items-center gap-1.5 justify-self-start lg:flex">
-        {logoButton}
-      </div>
-
-      <nav className="hidden items-center justify-center gap-3 justify-self-center text-sm text-white/80 lg:flex xl:gap-4">
-        <HeaderLink href="/home" active={pathname === "/home"}>
-          Home
-        </HeaderLink>
-        <NavMenu
-          label="Movies"
-          items={movieLibraries.map((library) => ({
-            id: library.id,
-            label: library.name,
-            href: `/home/library/${library.id}`,
-          }))}
-          emptyHint="Add a movie library in Admin → Media libraries"
+      {variant === "browse" && browseMenuOpen ? (
+        <BrowseMobileDrawer
+          homeActive={homeActive}
+          discoverActive={discoverActive}
+          activeLibraryId={activeLibraryId ?? undefined}
+          movieLibraries={movieLibraries}
+          tvLibraries={tvLibraries}
+          onClose={() => setBrowseMenuOpen(false)}
+          onNavigate={(href) => {
+            setBrowseMenuOpen(false);
+            router.push(href);
+          }}
         />
-        {tvLibraries.length > 0 ? (
-          <NavMenu
-            label="TV Shows"
-            items={tvLibraries.map((library) => ({
-              id: library.id,
-              label: library.name,
-              href: `/home/library/${library.id}`,
-            }))}
-          />
-        ) : null}
-      </nav>
-
-      <div className="hidden shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2 md:gap-3 lg:flex">
-        {headerActions}
-      </div>
-    </header>
-
-    {variant === "browse" && browseMenuOpen ? (
-      <BrowseMobileDrawer
-        movieLibraries={movieLibraries}
-        tvLibraries={tvLibraries}
-        onClose={() => setBrowseMenuOpen(false)}
-        onNavigate={(href) => {
-          setBrowseMenuOpen(false);
-          router.push(href);
-        }}
-      />
-    ) : null}
+      ) : null}
     </>
   );
 }
 
 function BrowseMobileDrawer({
+  homeActive,
+  discoverActive,
+  activeLibraryId,
   movieLibraries,
   tvLibraries,
   onClose,
   onNavigate,
 }: {
+  homeActive: boolean;
+  discoverActive: boolean;
+  activeLibraryId?: string;
   movieLibraries: Array<{ id: string; name: string }>;
   tvLibraries: Array<{ id: string; name: string }>;
   onClose: () => void;
   onNavigate: (href: string) => void;
 }) {
+  const [moviesOpen, setMoviesOpen] = useState(false);
+  const [tvOpen, setTvOpen] = useState(false);
+  const moviesActive = movieLibraries.some((library) => library.id === activeLibraryId);
+  const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
+
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Close menu"
-        className="fixed inset-0 z-40 bg-black/55 lg:hidden"
-        onClick={onClose}
-      />
-      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-white/10 bg-background/98 shadow-[12px_0_40px_rgb(0_0_0/0.35)] backdrop-blur-md lg:hidden">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <div className={cn(styles.mobileOverlay, "lg:hidden")} role="dialog" aria-modal="true" aria-label="Browse menu">
+      <button type="button" className={styles.mobileBackdrop} aria-label="Close menu" onClick={onClose} />
+      <aside className={styles.mobilePanel}>
+        <div className="flex items-center justify-between border-b border-border px-4 pb-3 pt-3">
           <p className="text-base font-semibold text-foreground">Browse</p>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-lg text-white/80 active:bg-white/10"
-          >
+          <button type="button" aria-label="Close" onClick={onClose} className={styles.iconBtn}>
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3 brand-scrollbar" aria-label="Browse libraries">
-          <button
-            type="button"
-            className="mb-3 flex w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-foreground active:bg-white/10"
-            onClick={() => onNavigate("/home")}
-          >
-            <Home className="h-4 w-4 text-primary" />
-            Home
-          </button>
+        <nav className={cn(styles.mobileNavScroll, "brand-scrollbar")} aria-label="Browse libraries">
+          <ul className={styles.mobileNavList}>
+            <li>
+              <MobileNavLink active={homeActive} icon={Home} onClick={() => onNavigate("/home")}>
+                Home
+              </MobileNavLink>
+            </li>
+            <li>
+              <MobileNavLink
+                active={discoverActive}
+                icon={Sparkles}
+                onClick={() => onNavigate("/home/welcome")}
+              >
+                Discover
+              </MobileNavLink>
+            </li>
 
-          {movieLibraries.length > 0 ? (
-            <section className="mb-4">
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-white/45">Movies</p>
-              <ul className="space-y-1">
-                {movieLibraries.map((library) => (
-                  <li key={library.id}>
-                    <button
-                      type="button"
-                      className="flex w-full touch-manipulation items-center rounded-lg px-3 py-3 text-left text-sm text-white/90 active:bg-white/10"
-                      onClick={() => onNavigate(`/home/library/${library.id}`)}
-                    >
-                      {library.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+            {movieLibraries.length > 0 ? (
+              <li>
+                <MobileNavLink
+                  active={moviesActive}
+                  icon={Film}
+                  chevron
+                  expanded={moviesOpen}
+                  onClick={() => setMoviesOpen((value) => !value)}
+                >
+                  Movies
+                </MobileNavLink>
+                {moviesOpen ? (
+                  <ul className={styles.mobileSubmenu}>
+                    {movieLibraries.map((library) => (
+                      <li key={library.id}>
+                        <MobileNavLink
+                          active={library.id === activeLibraryId}
+                          icon={Film}
+                          onClick={() => onNavigate(`/home/library/${library.id}`)}
+                        >
+                          {library.name}
+                        </MobileNavLink>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ) : null}
 
-          {tvLibraries.length > 0 ? (
-            <section className="mb-4">
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-white/45">TV Shows</p>
-              <ul className="space-y-1">
-                {tvLibraries.map((library) => (
-                  <li key={library.id}>
-                    <button
-                      type="button"
-                      className="flex w-full touch-manipulation items-center rounded-lg px-3 py-3 text-left text-sm text-white/90 active:bg-white/10"
-                      onClick={() => onNavigate(`/home/library/${library.id}`)}
-                    >
-                      {library.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+            {tvLibraries.length > 0 ? (
+              <li>
+                <MobileNavLink
+                  active={tvActive}
+                  icon={Tv}
+                  chevron
+                  expanded={tvOpen}
+                  onClick={() => setTvOpen((value) => !value)}
+                >
+                  TV Shows
+                </MobileNavLink>
+                {tvOpen ? (
+                  <ul className={styles.mobileSubmenu}>
+                    {tvLibraries.map((library) => (
+                      <li key={library.id}>
+                        <MobileNavLink
+                          active={library.id === activeLibraryId}
+                          icon={Tv}
+                          onClick={() => onNavigate(`/home/library/${library.id}`)}
+                        >
+                          {library.name}
+                        </MobileNavLink>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ) : null}
+          </ul>
 
           {movieLibraries.length === 0 && tvLibraries.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-white/55">No libraries available yet.</p>
+            <p className="px-3 py-4 text-sm text-muted-foreground">No libraries available yet.</p>
           ) : null}
         </nav>
       </aside>
-    </>
+    </div>
+  );
+}
+
+function MobileNavLink({
+  children,
+  active,
+  icon: Icon,
+  chevron,
+  expanded,
+  onClick,
+}: {
+  children: ReactNode;
+  active?: boolean;
+  icon: typeof Home;
+  chevron?: boolean;
+  expanded?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(styles.mobileNavLink, active && styles.mobileNavLinkActive)}
+      onClick={onClick}
+    >
+      {active ? <span className={styles.mobileNavIndicator} aria-hidden /> : null}
+      <span className={cn(styles.mobileNavIconBox, active && styles.mobileNavIconBoxActive)}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="flex-1 truncate text-left">{children}</span>
+      {chevron ? (
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 transition-transform duration-200", expanded && "rotate-180")}
+          aria-hidden
+        />
+      ) : null}
+    </button>
   );
 }
 
@@ -332,7 +411,7 @@ function HeaderLink({
   return (
     <button
       type="button"
-      className={cn("hover:text-white", active && "font-semibold text-white")}
+      className={cn(styles.navLink, active && styles.navLinkActive)}
       onClick={() => router.push(href)}
     >
       {children}
@@ -399,7 +478,7 @@ function AccountMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className="flex min-h-11 min-w-11 touch-manipulation items-center gap-2 rounded-lg outline-none ring-offset-background transition hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-primary"
+        className={styles.accountBtn}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Account menu"
@@ -408,21 +487,20 @@ function AccountMenu({
         {profile ? (
           <ProfileAvatar profile={profile} size="sm" />
         ) : (
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary/20 text-xs font-bold text-primary">
-            {accountInitial}
-          </span>
+          <span className={styles.accountAvatar}>{accountInitial}</span>
         )}
-        <span className="hidden max-w-[8rem] truncate text-sm text-foreground/85 lg:inline">
-          {accountLabel}
-        </span>
+        <span className={styles.accountLabel}>{accountLabel}</span>
         <ChevronDown
-          className={cn("hidden h-3.5 w-3.5 text-muted-foreground transition sm:inline", open && "rotate-180 text-primary")}
+          className={cn(
+            "hidden h-3.5 w-3.5 text-muted-foreground transition sm:inline",
+            open && "rotate-180 text-primary",
+          )}
         />
       </button>
       {open ? (
         <div role="menu" className="absolute right-0 top-full z-50 min-w-[14rem] pt-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card/95 py-1.5 shadow-[0_18px_50px_-20px_rgb(0_0_0/0.75)] ring-1 ring-primary/15 backdrop-blur-md">
-            <div className="border-b border-border bg-secondary/50 px-3.5 py-3">
+          <div className={styles.menuPanel}>
+            <div className={styles.menuHeader}>
               <p className="truncate text-sm font-semibold text-foreground">{accountLabel}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {profile?.name
@@ -559,12 +637,9 @@ function MenuItem({
       role="menuitem"
       disabled={disabled}
       className={cn(
-        "block w-full px-3.5 py-3 text-left text-sm transition-colors disabled:opacity-60",
-        accent
-          ? "font-medium text-primary hover:bg-primary/15"
-          : danger
-            ? "text-destructive hover:bg-destructive/10"
-            : "text-foreground/85 hover:bg-secondary hover:text-foreground",
+        styles.menuItem,
+        accent && styles.menuItemAccent,
+        danger && styles.menuItemDanger,
       )}
       onClick={onClick}
     >
@@ -580,13 +655,30 @@ function NavMenu({
   active,
 }: {
   label: string;
-  items: Array<{ id: string; label: string; href: string }>;
+  items: Array<{ id: string; label: string; href: string; active?: boolean }>;
   emptyHint?: string;
   active?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelScheduledClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    cancelScheduledClose();
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  useEffect(() => {
+    return () => cancelScheduledClose();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -607,33 +699,43 @@ function NavMenu({
   return (
     <div
       ref={rootRef}
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      className={styles.navDropdown}
+      onMouseEnter={() => {
+        cancelScheduledClose();
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
     >
       <button
         type="button"
-        className={cn("inline-flex items-center gap-1 hover:text-white", active && "font-semibold text-white")}
+        className={cn(styles.navLink, styles.navDropdownTrigger, active && styles.navLinkActive)}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          cancelScheduledClose();
+          setOpen((value) => !value);
+        }}
       >
-        {label}
-        <ChevronDown className={cn("h-3.5 w-3.5 transition", open && "rotate-180")} />
+        <span>{label}</span>
+        <ChevronDown
+          className={cn(styles.navDropdownChevron, open && styles.navDropdownChevronOpen)}
+          aria-hidden
+        />
       </button>
       {open ? (
-        <div role="menu" className="absolute left-0 top-full z-50 min-w-[12.5rem] pt-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card/95 py-1.5 shadow-[0_18px_50px_-20px_rgb(0_0_0/0.75)] ring-1 ring-primary/15 backdrop-blur-md">
+        <div className={styles.navDropdownMenu} role="menu">
+          <div className={styles.navDropdownMenuInner}>
             {items.length === 0 ? (
-              <p className="px-3.5 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
             ) : (
               items.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   role="menuitem"
-                  className="block w-full px-3.5 py-2 text-left text-sm text-foreground/85 transition-colors hover:bg-secondary hover:text-foreground"
+                  className={cn(styles.navDropdownItem, item.active && styles.navDropdownItemActive)}
                   onClick={() => {
+                    cancelScheduledClose();
                     setOpen(false);
                     router.push(item.href);
                   }}

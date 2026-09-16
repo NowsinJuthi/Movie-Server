@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,8 +8,13 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import fs from 'fs/promises';
+import path from 'path';
 import { ErrorCode, LibraryKind, StorageProviderKind } from '@movie-server/shared';
 import { LibraryService } from '../library.service';
+import { LibraryScanService } from '../library-scan.service';
+import { resolveSafePath } from '../storage/path-safety';
+import { joinRemotePath, remotePathInLibrary, sanitizeUploadFilename } from './smb-media-upload.util';
 import { MediaLibrary, MediaLibraryDocument } from '../schemas/media-library.schema';
 import { SmbCredentialCrypto } from './smb-credential.crypto';
 import { SmbClientService, type SmbAuth } from './smb-client.service';
@@ -28,6 +34,7 @@ export class SmbService implements OnModuleInit {
     private readonly client: SmbClientService,
     private readonly mounts: SmbMountService,
     private readonly libraryService: LibraryService,
+    private readonly scans: LibraryScanService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -80,24 +87,64 @@ export class SmbService implements OnModuleInit {
     return { server: toAdminSmbServer(server) };
   }
 
+  async updateCredentials(id: string, password: string) {
+    const server = await this.requireServer(id, true);
+    server.passwordEnc = this.crypto.encrypt(password);
+    server.lastError = null;
+    await server.save();
+    return { ok: true, server: toAdminSmbServer(server) };
+  }
+
   async update(id: string, dto: UpdateSmbServerDto) {
     const server = await this.requireServer(id, true);
     if (dto.name) server.name = dto.name;
     if (dto.host) server.host = dto.host.trim();
     if (dto.port) server.port = dto.port;
     if (dto.username) server.username = dto.username.trim();
-    if (dto.password) server.passwordEnc = this.crypto.encrypt(dto.password);
     if (dto.domain !== undefined) server.domain = dto.domain.trim() || 'WORKGROUP';
     if (dto.share) server.share = dto.share.trim();
     if (dto.enabled !== undefined) server.enabled = dto.enabled;
 
-    const auth = this.toAuth(server);
-    const connected = await this.tryConnect(auth);
-    server.username = connected.username;
-    server.domain = connected.domain?.trim() || 'WORKGROUP';
-    server.lastOkAt = new Date();
-    server.lastError = null;
-    await server.save();
+    if (dto.password) {
+      server.passwordEnc = this.crypto.encrypt(dto.password);
+      // Persist new credentials first so a failed connection test cannot leave corrupt secrets in DB.
+      await server.save();
+    }
+
+    let auth: SmbAuth;
+    try {
+      auth = this.toAuth(server);
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException({
+        error: ErrorCode.SmbConnectionFailed,
+        message:
+          'Saved Samba password could not be read. Enter the password again and save, or remove and re-add this server.',
+      });
+    }
+
+    try {
+      const connected = await this.tryConnect(auth);
+      server.username = connected.username;
+      server.domain = connected.domain?.trim() || 'WORKGROUP';
+      server.lastOkAt = new Date();
+      server.lastError = null;
+      await server.save();
+    } catch (error) {
+      const message =
+        error instanceof BadRequestException
+          ? String((error.getResponse() as { message?: string }).message ?? error.message)
+          : error instanceof Error
+            ? error.message
+            : 'Connection test failed.';
+      server.lastError = message.slice(0, 500);
+      await server.save();
+      throw new BadRequestException({
+        error: ErrorCode.SmbConnectionFailed,
+        message,
+      });
+    }
+
     return { server: toAdminSmbServer(server) };
   }
 
@@ -230,6 +277,110 @@ export class SmbService implements OnModuleInit {
     }
   }
 
+  async uploadMedia(
+    id: string,
+    remoteDirectory: string,
+    file: Express.Multer.File,
+    options: { scan?: boolean } = {},
+  ) {
+    if (!file?.path) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Video file is required.',
+      });
+    }
+
+    const server = await this.requireServer(id, true);
+    const auth = this.toAuth(server);
+    const directory = this.sanitizeRemotePath(remoteDirectory);
+    const filename = sanitizeUploadFilename(file.originalname);
+    if (!this.client.isVideoFile(filename)) {
+      await fs.unlink(file.path).catch(() => undefined);
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Only video files can be uploaded to Samba libraries.',
+      });
+    }
+
+    let mountRoot: string;
+    try {
+      mountRoot = await this.mounts.ensureAccessible(String(server._id), auth, directory);
+    } catch (error) {
+      await fs.unlink(file.path).catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException({
+        error: ErrorCode.SmbConnectionFailed,
+        message: `Could not access Samba folder for upload: ${message}`,
+      });
+    }
+
+    let destination: string;
+    try {
+      destination = resolveSafePath(mountRoot, filename);
+    } catch {
+      await fs.unlink(file.path).catch(() => undefined);
+      throw new BadRequestException({
+        error: ErrorCode.InvalidLibraryPath,
+        message: 'Upload destination is not allowed.',
+      });
+    }
+
+    try {
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      await fs.copyFile(file.path, destination);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed.';
+      throw new BadRequestException({
+        error: ErrorCode.Internal,
+        message: `Could not write file to Samba share: ${message}`,
+      });
+    } finally {
+      await fs.unlink(file.path).catch(() => undefined);
+    }
+
+    const remoteFilePath = joinRemotePath(directory, filename);
+    server.lastOkAt = new Date();
+    server.lastError = null;
+    await server.save();
+
+    const linkedLibraries = await this.libraries
+      .find({ smbServerId: server._id, enabled: true })
+      .select('_id smbRemotePath name')
+      .exec();
+    const library = linkedLibraries.find((row) =>
+      remotePathInLibrary(row.smbRemotePath, remoteFilePath),
+    );
+
+    let scan: { id: string } | null = null;
+    if (options.scan !== false && library) {
+      try {
+        const started = await this.scans.start({ libraryId: String(library._id), full: false });
+        scan = { id: started.scan.id };
+      } catch (error) {
+        if (!(error instanceof ConflictException)) {
+          this.logger.warn(
+            `Upload OK but library scan could not start: ${
+              error instanceof Error ? error.message : error
+            }`,
+          );
+        }
+      }
+    }
+
+    const stat = await fs.stat(destination);
+    return {
+      ok: true,
+      serverId: String(server._id),
+      path: directory,
+      filename,
+      remotePath: remoteFilePath,
+      sizeBytes: stat.size,
+      libraryId: library ? String(library._id) : null,
+      libraryName: library?.name ?? null,
+      scan,
+    };
+  }
+
   private sanitizeRemotePath(input?: string | null): string {
     const raw = (input ?? '').trim();
     if (!raw) return '';
@@ -255,11 +406,21 @@ export class SmbService implements OnModuleInit {
   }
 
   private toAuth(server: SmbServerDocument): SmbAuth {
+    let password: string;
+    try {
+      password = this.crypto.decrypt(server.passwordEnc);
+    } catch {
+      throw new BadRequestException({
+        error: ErrorCode.SmbConnectionFailed,
+        message:
+          'Saved Samba password could not be read (app secret changed or credentials corrupted). Open this server, re-enter the password, and save.',
+      });
+    }
     return {
       host: server.host,
       port: server.port,
       username: server.username,
-      password: this.crypto.decrypt(server.passwordEnc),
+      password,
       domain: server.domain,
       share: server.share,
     };
@@ -333,9 +494,13 @@ export class SmbService implements OnModuleInit {
     )
       ? ' Username/password rejected (or Windows already has this share mapped with different credentials). Confirm the share opens in File Explorer with the same user/password. For Ubuntu Samba use `pdbedit -L` / `smbpasswd`. Leave Domain blank unless the account is domain-joined. If Explorer works but this fails, run `net use * /delete` and retry.'
       : '';
+    const remoteHint =
+      /timed out|refused|unreachable|network path was not found|1219|1326/i.test(message)
+        ? ' If this Samba server is on another PC/VPS, use its LAN IP (not public IP unless port 445 is open), or run AmarPin API on the same network as the share.'
+        : '';
     throw new BadRequestException({
       error: ErrorCode.SmbConnectionFailed,
-      message: `Samba connection failed: ${message}. Check IP, share name (${auth.share}), username/password, and that port ${auth.port ?? 445} is open from this machine.${logonHint}`,
+      message: `Samba connection failed: ${message}. Check IP, share name (${auth.share}), username/password, and that port ${auth.port ?? 445} is open from this machine.${logonHint}${remoteHint}`,
     });
   }
 

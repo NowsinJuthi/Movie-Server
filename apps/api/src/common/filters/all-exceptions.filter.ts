@@ -81,6 +81,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       };
     }
 
+    if (
+      exception instanceof Error &&
+      /request aborted|aborted/i.test(exception.message)
+    ) {
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        error: ErrorCode.ValidationFailed,
+        message:
+          'Upload was interrupted before the file finished sending. Keep this page open and try again.',
+      };
+    }
+
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const payload = exception.getResponse();

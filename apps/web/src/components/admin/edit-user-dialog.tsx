@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { END_USER_ROLES, USER_ROLES, UserRole, type AdminUserRow } from "@movie-server/shared";
+import {
+  END_USER_ROLES,
+  STAFF_PROFILE_DEFINITIONS,
+  USER_ROLES,
+  UserRole,
+  type AdminUserRow,
+} from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +19,7 @@ export type EditUserFormValues = {
   email: string;
   password: string;
   role: UserRole;
+  staffProfileId: string;
   emailVerified: boolean;
   isActive: boolean;
 };
@@ -48,6 +55,7 @@ export function EditUserDialog({
         email: user.email,
         password: "",
         role: user.role,
+        staffProfileId: user.staffProfileId ?? "administrator",
         emailVerified: user.emailVerified,
         isActive: user.isActive,
       });
@@ -142,11 +150,31 @@ export function EditUserDialog({
             >
               {roleOptions.map((role) => (
                 <option key={role} value={role}>
-                  {role.replaceAll("_", " ")}
+                  {role === UserRole.Vip ? "VIP" : role.replaceAll("_", " ")}
                 </option>
               ))}
             </select>
           </label>
+
+          {form.role === UserRole.Admin ? (
+            <label className="block space-y-2 text-sm">
+              <Label htmlFor="edit-user-staff-profile">Staff permission profile</Label>
+              <select
+                id="edit-user-staff-profile"
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.staffProfileId}
+                onChange={(event) => setForm({ ...form, staffProfileId: event.target.value })}
+              >
+                {STAFF_PROFILE_DEFINITIONS.filter((profile) => profile.id !== "super_admin").map(
+                  (profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          ) : null}
 
           <label className="flex items-center gap-2 text-sm">
             <input

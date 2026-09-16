@@ -11,17 +11,20 @@
     "dev": "npm run dev --workspaces --if-present",
     "dev:api": "npm run start:dev -w @movie-server/api",
     "dev:web": "npm run dev -w @movie-server/web",
+    "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-stop.ps1",
     "build": "npm run build -w @movie-server/shared && npm run build -w @movie-server/api && npm run build -w @movie-server/web",
     "postinstall": "npm run build -w @movie-server/shared",
     "build:api": "npm run build -w @movie-server/api",
     "build:web": "npm run build -w @movie-server/web",
     "start:api": "npm run start:prod -w @movie-server/api",
+    "start:web": "npm run start:prod -w @movie-server/web",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test -w @movie-server/api",
     "test:api:e2e": "npm run test:e2e -w @movie-server/api",
     "format": "prettier --write \"apps/**/*.{ts,tsx,js,json}\" \"packages/**/*.{ts,js,json}\"",
-    "license:generate": "node scripts/generate-license.mjs"
+    "license:generate": "node scripts/generate-license.mjs",
+    "bootstrap:admin": "node scripts/reset-bootstrap-admin.mjs"
   },
   "engines": {
     "node": ">=20.19.0"

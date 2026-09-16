@@ -15,6 +15,7 @@ tmp/
 .env
 .env.local
 .env.*.local
+.env.ready
 !.env.example
 *.pem
 

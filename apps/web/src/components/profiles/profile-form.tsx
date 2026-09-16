@@ -12,6 +12,7 @@ import {
   SUBTITLE_LANGUAGES,
   type PublicProfile,
 } from "@movie-server/shared";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,14 +20,16 @@ import { ProfileAvatar, avatarColor } from "@/components/profiles/profile-avatar
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
-  name: z.string().min(1).max(20),
+  name: z.string().trim().min(1, "Name is required").max(20, "Name is too long"),
   avatarKey: z.string(),
-  isKids: z.boolean(),
+  isKids: z.coerce.boolean(),
   language: z.string(),
   audioLanguage: z.string(),
   subtitleLanguage: z.string(),
   maturityLevel: z.string(),
-  pin: z.union([z.literal(""), z.string().regex(/^\d{4}$/)]).optional(),
+  pin: z.string().refine((value) => value === "" || /^\d{4}$/.test(value), {
+    message: "PIN must be exactly 4 digits.",
+  }),
 });
 
 export type ProfileFormValues = z.infer<typeof schema>;
@@ -37,12 +40,14 @@ export function ProfileForm({
   onSubmit,
   onAvatarFile,
   busy,
+  error,
 }: {
   profile?: PublicProfile;
   submitLabel: string;
   onSubmit: (values: ProfileFormValues) => void;
   onAvatarFile?: (file: File) => void;
   busy?: boolean;
+  error?: string | null;
 }) {
   const router = useRouter();
   const form = useForm<ProfileFormValues>({
@@ -61,8 +66,12 @@ export function ProfileForm({
 
   const values = form.watch();
 
+  const fieldError = (field: keyof ProfileFormValues) =>
+    form.formState.errors[field]?.message as string | undefined;
+
   return (
     <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+      {error ? <Alert>{error}</Alert> : null}
       <div className="flex flex-col items-center gap-4 sm:flex-row">
         <ProfileAvatar
           profile={{
@@ -73,7 +82,8 @@ export function ProfileForm({
         />
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
-          <Input id="name" maxLength={20} {...form.register("name")} />
+          <Input id="name" maxLength={20} autoComplete="off" {...form.register("name")} />
+          {fieldError("name") ? <p className="text-sm text-destructive">{fieldError("name")}</p> : null}
           {onAvatarFile ? (
             <Input
               type="file"
@@ -109,7 +119,11 @@ export function ProfileForm({
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" {...form.register("isKids")} />
+        <input
+          type="checkbox"
+          checked={values.isKids}
+          onChange={(event) => form.setValue("isKids", event.target.checked, { shouldValidate: true })}
+        />
         Kids profile
       </label>
 
@@ -129,6 +143,7 @@ export function ProfileForm({
         <div className="space-y-2">
           <Label htmlFor="pin">PIN (optional)</Label>
           <Input id="pin" inputMode="numeric" maxLength={4} placeholder="4 digits" {...form.register("pin")} />
+          {fieldError("pin") ? <p className="text-sm text-destructive">{fieldError("pin")}</p> : null}
         </div>
       ) : null}
 

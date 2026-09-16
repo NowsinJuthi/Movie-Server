@@ -7,6 +7,7 @@ export * from './home';
 export * from './library';
 export * from './license';
 export * from './movie';
+export * from './permissions';
 export * from './personalization';
 export * from './playback';
 export * from './profile';

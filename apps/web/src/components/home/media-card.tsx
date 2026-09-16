@@ -4,6 +4,7 @@ import type { HomeCard } from "@movie-server/shared";
 import { Play } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 import { homeCardToInfoTarget, MediaInfoDialog } from "./media-info-dialog";
 import { PosterImage } from "./poster-image";
 
@@ -17,11 +18,16 @@ export function MediaCard({
   listPending?: boolean;
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
-  const playHref = card.watchHref ?? card.href;
+  const playHref = autoplayPlayerHref(card.watchHref ?? card.href);
 
   return (
     <article className="w-[42vw] shrink-0 snap-start sm:w-[28vw] md:w-[18vw] lg:w-[14vw] xl:w-[12vw]">
-      <Link href={playHref} className="group block" aria-label={`Play ${card.title}`}>
+      <Link
+        href={playHref}
+        className="group block"
+        aria-label={`Play ${card.title}`}
+        onClick={() => rememberPlayerReturn()}
+      >
         <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-gradient-to-br from-secondary to-black shadow-lg transition duration-200 group-hover:scale-[1.03] group-hover:shadow-2xl">
           <PosterImage
             src={card.posterUrl ?? card.backdropUrl}

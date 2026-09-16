@@ -63,6 +63,8 @@ export class MoviesController {
       currentStreamCount: dto.currentStreamCount,
       deviceId: dto.deviceId,
       deviceLabel: dto.deviceLabel,
+      hevcDirectStream: dto.hevcDirectStream,
+      forceVideoTranscode: dto.forceVideoTranscode,
     });
   }
 

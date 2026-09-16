@@ -22,6 +22,19 @@ export class SmbMountService {
     );
   }
 
+  private mountHelperPath(): string {
+    const raw = this.config.get<string>('SMB_MOUNT_HELPER');
+    const helper = typeof raw === 'string' ? raw.trim() : '';
+    return helper || '/usr/local/bin/amarpin-mount-smb';
+  }
+
+  private sudoMountEnabled(): boolean {
+    const raw = this.config.get<boolean | string>('SMB_MOUNT_USE_SUDO');
+    if (raw === undefined || raw === '') return true;
+    if (typeof raw === 'boolean') return raw;
+    return !/^(0|false|no|off)$/i.test(raw.trim());
+  }
+
   uncPath(auth: SmbAuth, remotePath = ''): string {
     const share = `\\\\${auth.host}\\${auth.share}`;
     const cleaned = remotePath.replace(/\//g, '\\').replace(/^\\+/, '').replace(/\\+$/, '');
@@ -146,37 +159,91 @@ export class SmbMountService {
     return `${domain}\\${auth.username}`;
   }
 
+  /** Drop stale mappings to the same host (Windows error 1219). */
+  private async disconnectWindowsHost(host: string): Promise<void> {
+    const hostLit = this.psSingleQuote(host);
+    const script = [
+      "$ErrorActionPreference = 'SilentlyContinue'",
+      `Get-SmbMapping | Where-Object { $_.RemotePath -like ('\\\\' + ${hostLit} + '\\*') } | Remove-SmbMapping -Force -UpdateProfile`,
+    ].join('; ');
+    await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { windowsHide: true, timeout: 20_000 },
+    ).catch(() => undefined);
+  }
+
   private async connectWindows(auth: SmbAuth): Promise<void> {
     const shareUnc = `\\\\${auth.host}\\${auth.share}`;
-    const user = this.windowsUser(auth);
+    const users = this.windowsUserCandidates(auth);
 
-    // Drop stale mappings so Windows does not return System error 1219.
+    await this.disconnectWindowsHost(auth.host);
     await execFileAsync('net', ['use', shareUnc, '/delete', '/y'], {
       windowsHide: true,
       timeout: 15_000,
     }).catch(() => undefined);
 
+    let lastError: unknown;
+    for (const user of users) {
+      try {
+        await this.connectWindowsWithCredential(shareUnc, user, auth.password);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    const message = this.formatExecError(lastError);
+    this.logger.warn(`Windows SMB map failed for ${shareUnc}: ${message}`);
+    throw new Error(message);
+  }
+
+  private windowsUserCandidates(auth: SmbAuth): string[] {
+    const username = auth.username.trim();
+    const domain = (auth.domain ?? '').trim();
+    const hostLabel = auth.host.includes('.') ? auth.host.split('.')[0]! : auth.host;
+    const candidates = [
+      this.windowsUser(auth),
+      username,
+      `WORKGROUP\\${username}`,
+      `${hostLabel}\\${username}`,
+      `${auth.host}\\${username}`,
+    ];
+    if (domain && domain !== '.' && domain.toUpperCase() !== 'WORKGROUP') {
+      candidates.unshift(`${domain}\\${username}`);
+    }
+    return [...new Set(candidates.filter(Boolean))];
+  }
+
+  private async connectWindowsWithCredential(
+    shareUnc: string,
+    user: string,
+    password: string,
+  ): Promise<void> {
     const remote = this.psSingleQuote(shareUnc);
-    const userLit = this.psSingleQuote(user);
-    const passLit = this.psSingleQuote(auth.password);
     const script = [
       "$ErrorActionPreference = 'Stop'",
       `try { Remove-SmbMapping -RemotePath ${remote} -Force -ErrorAction SilentlyContinue } catch {}`,
-      `New-SmbMapping -RemotePath ${remote} -UserName ${userLit} -Password ${passLit} -Persistent:$false | Out-Null`,
+      '$pass = ConvertTo-SecureString -String $env:AMARPIN_SMB_PASS -AsPlainText -Force',
+      '$cred = New-Object System.Management.Automation.PSCredential($env:AMARPIN_SMB_USER, $pass)',
+      `New-SmbMapping -RemotePath ${remote} -Credential $cred -Persistent:$false | Out-Null`,
       `if (-not (Test-Path -LiteralPath ${remote})) { throw 'Share mapped but path is not accessible.' }`,
     ].join('; ');
 
-    try {
-      await execFileAsync(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-        { windowsHide: true, timeout: 45_000, maxBuffer: 2_000_000 },
-      );
-    } catch (error) {
-      const message = this.formatExecError(error);
-      this.logger.warn(`Windows SMB map failed for ${shareUnc} as ${user}: ${message}`);
-      throw new Error(message);
-    }
+    await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      {
+        windowsHide: true,
+        timeout: 45_000,
+        maxBuffer: 2_000_000,
+        env: {
+          ...process.env,
+          AMARPIN_SMB_USER: user,
+          AMARPIN_SMB_PASS: password,
+        },
+      },
+    );
   }
 
   private psSingleQuote(value: string): string {
@@ -303,7 +370,7 @@ export class SmbMountService {
   }
 
   private formatExecError(error: unknown): string {
-    if (!error || typeof error !== 'object') return String(error);
+    if (!error || typeof error !== 'object') return this.redactSecrets(String(error));
     const err = error as { message?: string; stderr?: Buffer | string; stdout?: Buffer | string };
     const stderr = typeof err.stderr === 'string' ? err.stderr : err.stderr?.toString('utf8') ?? '';
     const stdout = typeof err.stdout === 'string' ? err.stdout : err.stdout?.toString('utf8') ?? '';
@@ -313,9 +380,30 @@ export class SmbMountService {
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
-      .filter((line) => !/^At |^\+ |^CategoryInfo|^FullyQualifiedErrorId|^~/i.test(line));
-    const useful = combined.find((line) => /denied|logon|password|user|failed|error|access/i.test(line));
-    return (useful || combined[0] || err.message || 'Windows SMB authentication failed').slice(0, 400);
+      .filter((line) => !/^At |^\+ |^CategoryInfo|^FullyQualifiedErrorId|^~/i.test(line))
+      .filter((line) => !/^Command failed:/i.test(line));
+    const useful = combined.find((line) =>
+      /denied|logon|password|user|failed|error|access|1219|1326|network|timeout|refused|not found/i.test(
+        line,
+      ),
+    );
+    let message = useful || combined[0] || 'Windows SMB authentication failed';
+    if (/network path was not found/i.test(message)) {
+      message =
+        'Network path was not found — Windows cannot reach this host/share. Use the Samba server LAN IP, confirm the share name, ensure Samba is running, and that port 445 is reachable from this PC.';
+    }
+    if (/multiple connections to a server|error 1219|1219/i.test(message)) {
+      message =
+        'Windows already has another connection to this server (often a different share or username). Close File Explorer windows to that server, then retry — AmarPin clears old mappings automatically on the next attempt.';
+    }
+    return this.redactSecrets(message).slice(0, 400);
+  }
+
+  private redactSecrets(value: string): string {
+    return value
+      .replace(/-Password\s+'[^']*'/gi, "-Password '***'")
+      .replace(/AMARPIN_SMB_PASS=[^\s]+/gi, 'AMARPIN_SMB_PASS=***')
+      .replace(/password=[^\s]+/gi, 'password=***');
   }
 
   private async writeLinuxCredentialsFile(auth: SmbAuth): Promise<string> {
@@ -342,7 +430,7 @@ export class SmbMountService {
     if (!alreadyMounted) {
       const credFile = await this.writeLinuxCredentialsFile(auth);
       try {
-        await this.mountLinuxCifs(source, mountPoint, credFile, auth.port);
+        await this.mountLinuxCifs(serverId, auth, source, mountPoint, credFile);
       } catch (error) {
         try {
           await fs.access(full);
@@ -350,7 +438,7 @@ export class SmbMountService {
         } catch {
           const message = this.formatExecError(error);
           throw new Error(
-            `Could not mount ${source} at ${mountPoint}. Run deploy/aapanel/mount-smb-share.sh on the VPS host, or recreate the API container with privileged: true. ${message}`,
+            `Could not mount ${source} at ${mountPoint}. On systemd VPS run: sudo bash deploy/aapanel/install-smb-mount-helper.sh — then restart amarpin-api. ${message}`,
           );
         }
       } finally {
@@ -362,7 +450,35 @@ export class SmbMountService {
     return full;
   }
 
+  private isMountPermissionError(error: unknown): boolean {
+    const message = this.formatExecError(error).toLowerCase();
+    return (
+      /permission denied/.test(message) ||
+      /operation not permitted/.test(message) ||
+      /not permitted/.test(message) ||
+      /must be superuser/.test(message)
+    );
+  }
+
   private async mountLinuxCifs(
+    serverId: string,
+    auth: SmbAuth,
+    source: string,
+    mountPoint: string,
+    credFile: string,
+  ): Promise<void> {
+    try {
+      await this.mountLinuxCifsDirect(source, mountPoint, credFile, auth.port);
+    } catch (error) {
+      if (!this.sudoMountEnabled() || !this.isMountPermissionError(error)) {
+        throw error;
+      }
+      this.logger.log(`Direct CIFS mount denied for ${source}; retrying via sudo helper`);
+      await this.mountLinuxCifsViaSudo(serverId, auth, credFile);
+    }
+  }
+
+  private async mountLinuxCifsDirect(
     source: string,
     mountPoint: string,
     credFile: string,
@@ -401,6 +517,24 @@ export class SmbMountService {
     } catch (error) {
       throw lastError ?? error;
     }
+  }
+
+  private async mountLinuxCifsViaSudo(
+    serverId: string,
+    auth: SmbAuth,
+    credFile: string,
+  ): Promise<void> {
+    const helper = this.mountHelperPath();
+    const args = [
+      helper,
+      serverId,
+      auth.host,
+      auth.share,
+      credFile,
+      this.mountRoot(),
+      String(auth.port ?? 445),
+    ];
+    await execFileAsync('sudo', args, { timeout: 45_000 });
   }
 
   private async isMounted(mountPoint: string): Promise<boolean> {
