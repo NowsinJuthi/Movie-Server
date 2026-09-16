@@ -203,14 +203,14 @@ export function EmbyMobileChrome({
   return (
     <div
       className={cn(
-        "relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]",
-        !visible && "pointer-events-none opacity-0",
+        "relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] pointer-events-none",
+        !visible && "opacity-0",
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-transparent via-45% to-black/95" />
 
       {/* Top — back + title */}
-      <header className="relative z-10 flex shrink-0 items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           type="button"
           aria-label="Back"
@@ -239,13 +239,9 @@ export function EmbyMobileChrome({
         </button>
       </header>
 
-      {/* Tap video area — fullscreen shows compact center transport */}
-      <button
-        type="button"
-        aria-label={playing ? "Pause" : "Play"}
-        className="relative z-10 min-h-0 touch-manipulation bg-transparent"
-        onClick={onSkinClick}
-      />
+      {/* Spacer only — iOS Safari will not paint video if a full-screen element sits above it. */}
+      <div className="pointer-events-none relative z-10 min-h-0" aria-hidden />
+
       {fullscreen ? (
         <div
           className="pointer-events-none absolute inset-x-0 top-[22%] bottom-[34%] z-[15] flex items-center justify-center"
@@ -263,9 +259,9 @@ export function EmbyMobileChrome({
         </div>
       ) : null}
 
-      {/* Bottom — transport (above tap layer so seek/skip always receive touches) */}
+      {/* Bottom — transport */}
       <div
-        className="relative z-20 shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="pointer-events-auto relative z-20 shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >

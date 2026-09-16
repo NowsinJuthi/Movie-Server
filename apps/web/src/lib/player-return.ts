@@ -1,4 +1,21 @@
 const STORAGE_KEY = "cv:player-return";
+const AUTOPLAY_TAP_KEY = "cv:mobile-autoplay-tap";
+
+/** Mark a recent poster/play tap before navigating to /watch (mobile audible autoplay). */
+export function markMobileAutoplayTap(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(AUTOPLAY_TAP_KEY, String(Date.now()));
+}
+
+/** True once within maxAgeMs after markMobileAutoplayTap — consumed on read. */
+export function consumeMobileAutoplayTap(maxAgeMs = 1500): boolean {
+  if (typeof window === "undefined") return false;
+  const raw = sessionStorage.getItem(AUTOPLAY_TAP_KEY);
+  sessionStorage.removeItem(AUTOPLAY_TAP_KEY);
+  if (!raw) return false;
+  const age = Date.now() - Number(raw);
+  return Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
+}
 
 /** Same-app path only — blocks open redirects. */
 export function isSafeAppPath(path: string | null | undefined): path is string {

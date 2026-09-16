@@ -35,12 +35,18 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
-import { clearPlayerReturn, isSafeAppPath, peekPlayerReturn } from "@/lib/player-return";
+import {
+  clearPlayerReturn,
+  consumeMobileAutoplayTap,
+  isSafeAppPath,
+  peekPlayerReturn,
+} from "@/lib/player-return";
 import {
   browserSupportsHevcDirectStream,
   displayTimelineSeconds,
   effectiveVideoDuration,
   isAppleMobileDevice,
+  isCoarsePointerMobile,
   isLocalTimeBuffered,
   isVideoInNativeFullscreen,
   localTimelineSeconds,
@@ -126,11 +132,16 @@ export function StreamPlayer({
   const queryClient = useQueryClient();
   const returnToRef = useRef<string | null>(null);
   const autoplayRequestedRef = useRef(false);
+  /** Recent poster/play tap — may still allow audible start on mobile Safari. */
+  const posterTapPlayRef = useRef(false);
+  /** Mobile started muted due to autoplay policy — next tap should unmute, not pause. */
+  const mobileStartMutedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     autoplayRequestedRef.current = params.get("autoplay") === "1";
+    posterTapPlayRef.current = consumeMobileAutoplayTap();
     const from = params.get("from");
     if (isSafeAppPath(from) && !from.includes("/watch")) {
       returnToRef.current = from;
@@ -332,10 +343,21 @@ export function StreamPlayer({
     resumeApplied.current = true;
   }, []);
 
+  const wantsAudibleAutoplay = useCallback((): boolean => {
+    if (!autoplayRequestedRef.current && !posterTapPlayRef.current) {
+      return false;
+    }
+    if (typeof navigator !== "undefined" && navigator.userActivation?.isActive) {
+      return true;
+    }
+    return posterTapPlayRef.current;
+  }, []);
+
   const tryStartPlayback = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current;
     if (!video) return false;
     setLoading(true);
+    const preferAudible = wantsAudibleAutoplay();
     try {
       if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
         await Promise.race([
@@ -361,7 +383,10 @@ export function StreamPlayer({
         ]);
       }
       video.muted = false;
+      setMuted(false);
       await video.play();
+      posterTapPlayRef.current = false;
+      mobileStartMutedRef.current = false;
       setAwaitingTap(false);
       setIosMutedPlay(false);
       setLoading(false);
@@ -369,11 +394,14 @@ export function StreamPlayer({
     } catch {
       // An explicit poster/Play click should still start the movie when the
       // browser blocks audible autoplay after client-side navigation.
-      if (autoplayRequestedRef.current) {
+      if (preferAudible || autoplayRequestedRef.current) {
         try {
           video.muted = true;
           await video.play();
           setMuted(true);
+          if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+            mobileStartMutedRef.current = true;
+          }
           setAwaitingTap(false);
           setLoading(false);
           return true;
@@ -385,7 +413,7 @@ export function StreamPlayer({
       setLoading(false);
       return false;
     }
-  }, []);
+  }, [wantsAudibleAutoplay]);
 
   const warmMediaUrl = useCallback(async (url: string) => {
     try {
@@ -422,6 +450,7 @@ export function StreamPlayer({
       .play()
       .then(() => {
         setIosMutedPlay(true);
+        mobileStartMutedRef.current = true;
         setAwaitingTap(false);
         setLoading(false);
       })
@@ -430,6 +459,45 @@ export function StreamPlayer({
         setLoading(false);
       });
   }, []);
+
+  const startMobileAttachedPlayback = useCallback(
+    (video: HTMLVideoElement) => {
+      // iOS inline video must not stay muted — muted HLS often renders audio-only (black screen).
+      if (isAppleMobileDevice()) {
+        void tryStartPlayback();
+        return;
+      }
+      if (autoplayRequestedRef.current) {
+        void tryStartPlayback();
+        return;
+      }
+      void tryStartPlayback();
+    },
+    [tryStartPlayback],
+  );
+
+  const unlockMobileAudible = useCallback(async (): Promise<boolean> => {
+    if (!mobileLayoutRef.current && !isCoarsePointerMobile()) {
+      return false;
+    }
+    if (!mobileStartMutedRef.current && !iosMutedPlay && !awaitingTap) {
+      return false;
+    }
+    const video = videoRef.current;
+    if (!video) return false;
+    mobileStartMutedRef.current = false;
+    video.muted = false;
+    setMuted(false);
+    setIosMutedPlay(false);
+    setAwaitingTap(false);
+    try {
+      await video.play();
+      setLoading(false);
+      return true;
+    } catch {
+      return tryStartPlayback();
+    }
+  }, [awaitingTap, iosMutedPlay, tryStartPlayback]);
 
   const attachProgressive = useCallback(
     (info: PlaybackSessionInfo, resolution?: VideoResolution | "auto") => {
@@ -451,11 +519,12 @@ export function StreamPlayer({
       video.src = src;
       video.load();
       void warmMediaUrl(src);
-      if (isAppleMobileDevice()) {
+      if (isAppleMobileDevice() || mobileLayoutRef.current) {
+        const onReady = () => startMobileAttachedPlayback(video);
         if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-          startIosMutedPlayback(video);
+          onReady();
         } else {
-          video.addEventListener("loadedmetadata", () => startIosMutedPlayback(video), { once: true });
+          video.addEventListener("loadedmetadata", onReady, { once: true });
           video.addEventListener(
             "error",
             () => {
@@ -469,7 +538,7 @@ export function StreamPlayer({
       }
       void tryStartPlayback();
     },
-    [detachEngine, startIosMutedPlayback, tryStartPlayback, warmMediaUrl],
+    [detachEngine, startMobileAttachedPlayback, tryStartPlayback, warmMediaUrl],
   );
 
   /** Safari native HLS — Emby-style segmented stream for fast mobile start. */
@@ -485,7 +554,7 @@ export function StreamPlayer({
       setIosMutedPlay(false);
       video.src = hlsSourceFor(info, origin);
       video.load();
-      const onReady = () => startIosMutedPlayback(video);
+      const onReady = () => startMobileAttachedPlayback(video);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
         onReady();
         return;
@@ -505,12 +574,7 @@ export function StreamPlayer({
         { once: true },
       );
     },
-    [
-      detachEngine,
-      hlsSourceFor,
-      startIosMutedPlayback,
-      usesPackagedHls,
-    ],
+    [detachEngine, hlsSourceFor, startMobileAttachedPlayback, usesPackagedHls],
   );
 
   const attachHls = useCallback(
@@ -983,7 +1047,12 @@ export function StreamPlayer({
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (iosMutedPlay || (mobileLayout && awaitingTap)) {
+    if (mobileLayout || isCoarsePointerMobile()) {
+      if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
+        void unlockMobileAudible();
+        return;
+      }
+    } else if (iosMutedPlay || awaitingTap) {
       void tryStartPlayback();
       return;
     }
@@ -992,7 +1061,7 @@ export function StreamPlayer({
     } else {
       video.pause();
     }
-  }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback]);
+  }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback, unlockMobileAudible]);
 
   const seekPlaybackTo = useCallback(
     async (targetSeconds: number) => {
@@ -1387,6 +1456,14 @@ export function StreamPlayer({
     };
 
     if (selectedAudio?.url && !packagedEmbeddedAudio) {
+      // iOS: split audio mutes the video element and commonly yields a black picture.
+      if (isAppleMobileDevice()) {
+        audio.pause();
+        audio.removeAttribute("src");
+        video.muted = muted;
+        enableEmbedded(0);
+        return;
+      }
       const baseUrl = selectedAudio.url;
       const liveExtract = Boolean(selectedAudio.embedded);
       const movieTime = () =>
@@ -1524,7 +1601,13 @@ export function StreamPlayer({
       setSettingsView("root");
       return;
     }
-    if (iosMutedPlay || (mobileLayout && awaitingTap)) {
+    if (mobileLayout || isCoarsePointerMobile()) {
+      if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
+        void unlockMobileAudible();
+        revealControls();
+        return;
+      }
+    } else if (iosMutedPlay || awaitingTap) {
       void tryStartPlayback();
       revealControls();
       return;
@@ -1535,7 +1618,17 @@ export function StreamPlayer({
     }
     togglePlay();
     revealControls();
-  }, [awaitingTap, controls, iosMutedPlay, mobileLayout, revealControls, sheet, togglePlay, tryStartPlayback]);
+  }, [
+    awaitingTap,
+    controls,
+    iosMutedPlay,
+    mobileLayout,
+    revealControls,
+    sheet,
+    togglePlay,
+    tryStartPlayback,
+    unlockMobileAudible,
+  ]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1702,6 +1795,14 @@ export function StreamPlayer({
 
   const controlsVisible = controls || !playing || sheet != null;
   const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
+  /** iOS: lift the video above all UI while playing — Safari will not paint frames under overlays. */
+  const iosVideoOnTop =
+    mobileLayout && isAppleMobileDevice() && playing && sheet == null && !error;
+  /** iOS Safari stops painting video when any layer covers it — unmount chrome while playing. */
+  const mobileChromeMounted =
+    mobileLayout &&
+    !iosVideoOnTop &&
+    (sheet != null || !playing || controlsVisible || loading || buffering || Boolean(error));
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
@@ -1732,9 +1833,15 @@ export function StreamPlayer({
         ref={videoRef}
         className={cn(
           "bg-black",
-          mobileLayout ? "absolute inset-0 h-full w-full object-contain" : cn("h-screen w-full", videoObjectClass),
+          mobileLayout
+            ? cn(
+                "absolute inset-0 h-full w-full object-contain",
+                iosVideoOnTop ? "z-[200] [transform:translateZ(0)]" : "z-[1]",
+              )
+            : cn("h-screen w-full", videoObjectClass),
         )}
         playsInline
+        autoPlay={mobileLayout && autoplayRequestedRef.current}
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
         preload="auto"
@@ -1780,7 +1887,7 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || buffering) && !error ? (
+      {(loading || buffering) && !error && !(mobileLayout && playing && !loading) && !iosVideoOnTop ? (
         <div
           className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
           role="status"
@@ -1849,11 +1956,12 @@ export function StreamPlayer({
         </div>
       ) : null}
 
+      {mobileChromeMounted ? (
       <div
         className={cn(
-          "absolute inset-0 transition-opacity duration-300",
+          "absolute inset-0 z-10 transition-opacity duration-300",
           mobileLayout ? "h-full" : "flex flex-col justify-between",
-          controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
+          !mobileLayout && (controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"),
         )}
       >
         {mobileLayout ? (
@@ -2346,6 +2454,7 @@ export function StreamPlayer({
           </>
         )}
       </div>
+      ) : null}
 
       {mobileLayout && sheet === "subtitles" ? (
         <MobileBottomSheet title="Subtitles" onClose={closeSheet}>

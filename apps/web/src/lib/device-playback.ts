@@ -42,6 +42,23 @@ export function browserSupportsHevcDirectStream(): boolean {
   return codecs.some((codec) => MediaSource.isTypeSupported(codec));
 }
 
+/** Touch-first phones/tablets — matches the mobile player layout breakpoint. */
+export function isCoarsePointerMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 768px), (hover: none) and (pointer: coarse)").matches;
+}
+
+/**
+ * Whether the playback API may use HEVC direct stream (video copy + audio transcode).
+ * PC/desktop keeps full browser detection; Android mobile uses hls.js and often cannot decode HEVC.
+ */
+export function hevcDirectStreamForPlayback(): boolean {
+  if (isCoarsePointerMobile() && !isAppleMobileDevice()) {
+    return false;
+  }
+  return browserSupportsHevcDirectStream();
+}
+
 /** iPhone / iPad / iPod — Safari blocks autoplay without a direct tap on the video surface. */
 export function isAppleMobileDevice(): boolean {
   if (typeof navigator === "undefined") return false;
