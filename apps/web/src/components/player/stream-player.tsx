@@ -1811,7 +1811,6 @@ export function StreamPlayer({
 
   const controlsVisible = controls || !playing || sheet != null;
   const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
-  const mobileChromeMounted = mobileLayout;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
@@ -1962,7 +1961,6 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {mobileChromeMounted ? (
       <div
         className={cn(
           "absolute inset-0 z-10 transition-opacity duration-300",
@@ -2460,7 +2458,6 @@ export function StreamPlayer({
           </>
         )}
       </div>
-      ) : null}
 
       {mobileLayout && sheet === "subtitles" ? (
         <MobileBottomSheet title="Subtitles" onClose={closeSheet}>
