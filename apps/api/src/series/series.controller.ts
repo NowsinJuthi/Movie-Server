@@ -102,11 +102,12 @@ export class SeriesController {
     @Param('id') id: string,
     @Param('episodeId', ParseObjectIdPipe) episodeId: string,
     @Body() dto: EpisodePlaybackDto,
+    @Req() req: Request,
   ) {
     return this.series.playback(id, episodeId, user, dto.quality, {
       currentStreamCount: dto.currentStreamCount,
       deviceId: dto.deviceId,
-      deviceLabel: dto.deviceLabel,
+      deviceLabel: req.get('user-agent') || dto.deviceLabel,
       hevcDirectStream: dto.hevcDirectStream,
       forceVideoTranscode: dto.forceVideoTranscode,
     });

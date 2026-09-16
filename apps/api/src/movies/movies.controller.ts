@@ -58,11 +58,12 @@ export class MoviesController {
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Body() dto: StartPlaybackDto,
+    @Req() req: Request,
   ) {
     return this.movies.playback(id, user, dto.quality, {
       currentStreamCount: dto.currentStreamCount,
       deviceId: dto.deviceId,
-      deviceLabel: dto.deviceLabel,
+      deviceLabel: req.get('user-agent') || dto.deviceLabel,
       hevcDirectStream: dto.hevcDirectStream,
       forceVideoTranscode: dto.forceVideoTranscode,
     });
