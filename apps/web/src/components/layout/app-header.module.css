@@ -4,9 +4,7 @@
   top: 0;
   z-index: 50;
   background: var(--background);
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 88%, transparent);
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
   animation: headerAppear 0.18s ease-out both;
 }
 
@@ -16,7 +14,6 @@
     color-mix(in oklch, var(--background) 92%, transparent) 0%,
     transparent 100%
   );
-  border-bottom-color: transparent;
   box-shadow: none;
 }
 
