@@ -25,8 +25,6 @@ export type HomeRowFormValues = {
   itemIds: string;
 };
 
-type CollectionOption = { id: string; name: string; media: "movie" | "series" };
-
 function emptyForm(preset?: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">): HomeRowFormValues {
   return {
     title: library?.name ?? preset?.defaultTitle ?? "Featured",
@@ -56,7 +54,6 @@ export function HomeRowDialog({
   mode,
   preset,
   row,
-  collections,
   libraries,
   initialLibrary,
   busy,
@@ -67,7 +64,6 @@ export function HomeRowDialog({
   mode: "create" | "edit";
   preset?: HomeRowPreset;
   row?: AdminHomeRow | null;
-  collections: CollectionOption[];
   libraries: AdminLibrary[];
   initialLibrary?: Pick<AdminLibrary, "id" | "name"> | null;
   busy?: boolean;
@@ -90,10 +86,8 @@ export function HomeRowDialog({
 
   if (!mounted || !open) return null;
 
-  const showCollection = form.kind === HomeRowKind.Collection;
   const showLibrary = form.kind === HomeRowKind.Library;
   const showGenre = form.kind === HomeRowKind.Genre;
-  const showManual = form.kind === HomeRowKind.Manual;
 
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 p-4 sm:items-center">
@@ -126,7 +120,6 @@ export function HomeRowDialog({
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (showCollection && !form.collectionId.trim()) return;
             if (showLibrary && !form.libraryId.trim()) return;
             onSubmit(form);
           }}
@@ -159,9 +152,6 @@ export function HomeRowDialog({
                 <option value={HomeRowKind.RecentlyAdded}>Recently added</option>
                 <option value={HomeRowKind.NewReleases}>New releases</option>
                 <option value={HomeRowKind.Library}>Media library</option>
-                <option value={HomeRowKind.Collection}>Collection</option>
-                <option value={HomeRowKind.Genre}>Genre row</option>
-                <option value={HomeRowKind.Manual}>Manual picks</option>
               </select>
             </div>
           ) : null}
@@ -194,43 +184,6 @@ export function HomeRowDialog({
             </div>
           ) : null}
 
-          {showCollection ? (
-            <div>
-              <Label htmlFor="home-row-collection">Collection</Label>
-              <select
-                id="home-row-collection"
-                className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.collectionId}
-                onChange={(event) => setForm({ ...form, collectionId: event.target.value })}
-                required
-              >
-                <option value="">Select collection</option>
-                {collections.some((item) => item.media === "movie") ? (
-                  <optgroup label="Movie collections">
-                    {collections
-                      .filter((item) => item.media === "movie")
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                ) : null}
-                {collections.some((item) => item.media === "series") ? (
-                  <optgroup label="Series collections">
-                    {collections
-                      .filter((item) => item.media === "series")
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                ) : null}
-              </select>
-            </div>
-          ) : null}
-
           {showGenre ? (
             <div>
               <Label htmlFor="home-row-genre">Genre</Label>
@@ -246,18 +199,6 @@ export function HomeRowDialog({
                   </option>
                 ))}
               </select>
-            </div>
-          ) : null}
-
-          {showManual ? (
-            <div>
-              <Label htmlFor="home-row-items">Media IDs</Label>
-              <Input
-                id="home-row-items"
-                value={form.itemIds}
-                onChange={(event) => setForm({ ...form, itemIds: event.target.value })}
-                placeholder="Comma-separated movie or series ids"
-              />
             </div>
           ) : null}
 

@@ -35,8 +35,6 @@ import { Input } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 import { libraryApi } from "@/lib/library-api";
-import { movieApi } from "@/lib/movie-api";
-import { seriesApi } from "@/lib/series-api";
 import styles from "./home-page.module.css";
 
 function rowPayload(values: HomeRowFormValues) {
@@ -57,19 +55,15 @@ function rowPayload(values: HomeRowFormValues) {
   };
 }
 
-function rowDetail(
-  row: AdminHomeRow,
-  collectionLabels: Map<string, string>,
-  libraryLabels: Map<string, string>,
-) {
+function rowDetail(row: AdminHomeRow, libraryLabels: Map<string, string>) {
   if (row.kind === HomeRowKind.Library && row.libraryId) {
     return libraryLabels.get(row.libraryId) ?? row.libraryId;
   }
-  if (row.kind === HomeRowKind.Collection && row.collectionId) {
-    return collectionLabels.get(row.collectionId) ?? row.collectionId;
-  }
   if (row.kind === HomeRowKind.Genre && row.genre) {
     return `Genre · ${genreDisplayName(row.genre)}`;
+  }
+  if (row.kind === HomeRowKind.Collection) {
+    return "Collection shelf";
   }
   if (row.kind === HomeRowKind.Manual && row.itemIds.length > 0) {
     return `${row.itemIds.length} hand-picked titles`;
@@ -87,14 +81,6 @@ export default function AdminHomePage() {
 
   const hero = useQuery({ queryKey: ["admin-home-hero"], queryFn: adminApi.homeHero });
   const rows = useQuery({ queryKey: ["admin-home-rows"], queryFn: adminApi.homeRows });
-  const movieCollections = useQuery({
-    queryKey: ["admin-movie-collections"],
-    queryFn: movieApi.adminCollections,
-  });
-  const seriesCollections = useQuery({
-    queryKey: ["admin-series-collections"],
-    queryFn: seriesApi.adminCollections,
-  });
   const mediaLibraries = useQuery({
     queryKey: ["admin-libraries"],
     queryFn: libraryApi.list,
@@ -104,30 +90,6 @@ export default function AdminHomePage() {
     () => [...(rows.data?.rows ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)),
     [rows.data?.rows],
   );
-
-  const collectionOptions = useMemo(
-    () => [
-      ...(movieCollections.data?.collections ?? []).map((collection) => ({
-        id: collection.id,
-        name: collection.name,
-        media: "movie" as const,
-      })),
-      ...(seriesCollections.data?.collections ?? []).map((collection) => ({
-        id: collection.id,
-        name: collection.name,
-        media: "series" as const,
-      })),
-    ],
-    [movieCollections.data?.collections, seriesCollections.data?.collections],
-  );
-
-  const collectionLabels = useMemo(() => {
-    const labels = new Map<string, string>();
-    for (const item of collectionOptions) {
-      labels.set(item.id, `${item.media === "movie" ? "Movie" : "Series"} · ${item.name}`);
-    }
-    return labels;
-  }, [collectionOptions]);
 
   const libraryOptions = useMemo(
     () => [...(mediaLibraries.data?.libraries ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
@@ -274,11 +236,7 @@ export default function AdminHomePage() {
   }
 
   function presetDisabled(preset: HomeRowPreset) {
-    if (
-      preset.kind === HomeRowKind.Collection ||
-      preset.kind === HomeRowKind.Manual ||
-      preset.kind === HomeRowKind.Library
-    ) {
+    if (preset.kind === HomeRowKind.Library) {
       return false;
     }
     if (preset.kind === HomeRowKind.Genre && preset.genre) {
@@ -290,7 +248,7 @@ export default function AdminHomePage() {
   return (
     <AdminPage
       title="Homepage layout"
-      description="Manage the shelves viewers see on the home page. Add catalog lists, media libraries, collections, and control their order."
+      description="Manage the shelves viewers see on the home page. Add standard lists, media libraries, and control their order."
       error={error}
       actions={
         <div className="flex flex-wrap gap-2">
@@ -422,7 +380,7 @@ export default function AdminHomePage() {
                   <div>
                     <p className={styles.shelfTitle}>{row.title}</p>
                     <p className={styles.shelfMeta}>
-                      {homeRowKindLabel(row.kind)} · {rowDetail(row, collectionLabels, libraryLabels)}
+                      {homeRowKindLabel(row.kind)} · {rowDetail(row, libraryLabels)}
                     </p>
                   </div>
                   <div className={styles.shelfActions}>
@@ -553,7 +511,6 @@ export default function AdminHomePage() {
         mode={dialogMode === "edit" ? "edit" : "create"}
         preset={dialogPreset}
         row={editRow}
-        collections={collectionOptions}
         libraries={libraryOptions}
         initialLibrary={initialLibrary}
         busy={dialogBusy}
