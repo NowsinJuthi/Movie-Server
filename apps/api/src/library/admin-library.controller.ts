@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ErrorCode, UserRole } from '@movie-server/shared';
+import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { LibraryService } from './library.service';
@@ -35,6 +36,7 @@ export class AdminLibraryController {
   }
 
   @Post()
+  @Permissions('manage_libraries')
   create(@Body() dto: UpsertLibraryDto) {
     return this.libraries.create(dto);
   }
@@ -50,11 +52,13 @@ export class AdminLibraryController {
   }
 
   @Patch(':id')
+  @Permissions('manage_libraries')
   update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateLibraryDto) {
     return this.libraries.update(id, dto);
   }
 
   @Post(':id/image')
+  @Permissions('manage_libraries')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -79,6 +83,7 @@ export class AdminLibraryController {
   }
 
   @Delete(':id')
+  @Permissions('manage_libraries')
   async remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.libraries.remove(id);
   }
@@ -96,6 +101,7 @@ export class AdminLibraryScanController {
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
+  @Permissions('manage_libraries')
   start(@Body() dto: StartScanDto) {
     return this.scans.start(dto ?? {});
   }
@@ -106,6 +112,7 @@ export class AdminLibraryScanController {
   }
 
   @Post(':id/cancel')
+  @Permissions('manage_libraries')
   cancel(@Param('id', ParseObjectIdPipe) id: string) {
     return this.scans.cancel(id);
   }

@@ -483,7 +483,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                                     className={styles.navLinkMain}
                                     onClick={() => {
                                       if (open) {
-                                        router.push(item.href);
+                                        const target = canAccessAdminRoute(item.href, can)
+                                          ? item.href
+                                          : children.find((child) =>
+                                              canAccessAdminRoute(child.href, can),
+                                            )?.href ?? item.href;
+                                        router.push(target);
                                       } else {
                                         expandGroup(item);
                                       }

@@ -51,6 +51,7 @@ export default function AdminFileManagerPage() {
   const { can, canAny, isLoading: permissionsLoading } = useAdminPermissions();
   const canManageSmb = can("manage_smb_files");
   const canUseSmb = canAny("upload_smb_files", "manage_smb_files");
+  const canRemoveSmbServer = canManageSmb;
   const [error, setError] = useState<string | null>(null);
   const [showConnectForm, setShowConnectForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -419,7 +420,7 @@ export default function AdminFileManagerPage() {
                       )}
                       Test connection
                     </Button>
-                    {canManageSmb ? (
+                    {canRemoveSmbServer ? (
                       <Button
                         size="sm"
                         variant="ghost"

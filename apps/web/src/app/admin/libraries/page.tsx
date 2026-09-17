@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { libraryApi } from "@/lib/library-api";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,8 @@ export default function AdminLibrariesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, status } = useAuthStore();
+  const { can, isLoading: permissionsLoading } = useAdminPermissions();
+  const canManageLibraries = can("manage_libraries");
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("Movies");
   const [kind, setKind] = useState<(typeof LIBRARY_KINDS)[number]>("movies");
@@ -94,8 +97,15 @@ export default function AdminLibrariesPage() {
       router.replace("/login?next=/admin/libraries");
     } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
       router.replace("/unauthorized");
+    } else if (
+      user &&
+      hasMinimumRole(user.role, UserRole.Admin) &&
+      !permissionsLoading &&
+      !canManageLibraries
+    ) {
+      router.replace("/admin/file-manager");
     }
-  }, [status, user, router]);
+  }, [status, user, router, permissionsLoading, canManageLibraries]);
 
   const create = useMutation({
     mutationFn: () => libraryApi.create({ name, kind, rootPath }),
@@ -213,7 +223,14 @@ export default function AdminLibrariesPage() {
         ? 12
         : 0;
 
-  if (status === "loading" || status === "idle" || !user || !hasMinimumRole(user.role, UserRole.Admin)) {
+  if (
+    status === "loading" ||
+    status === "idle" ||
+    !user ||
+    !hasMinimumRole(user.role, UserRole.Admin) ||
+    permissionsLoading ||
+    !canManageLibraries
+  ) {
     return (
       <AdminPage title="Media libraries" description="Connect folders, scan media, and keep posters in sync.">
         <p className="text-sm text-muted-foreground">Checking access...</p>
