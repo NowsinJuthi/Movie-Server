@@ -18,13 +18,15 @@ export function MediaCarousel({
   const scroller = useRef<HTMLDivElement>(null);
   const isContinue = row.kind === "continue" || row.kind === "recently_watched";
   const rowHref =
-    row.id === "mylist"
-      ? "/home/list"
-      : row.id === "favorites"
-        ? "/home/favorites"
-        : row.id === "recently-watched" || row.id === "continue"
-          ? "/home/history"
-          : null;
+    row.kind === "library" && row.libraryId
+      ? `/home/library/${row.libraryId}`
+      : row.id === "mylist"
+        ? "/home/list"
+        : row.id === "favorites"
+          ? "/home/favorites"
+          : row.id === "recently-watched" || row.id === "continue"
+            ? "/home/history"
+            : null;
 
   const scroll = (dir: number) => {
     const node = scroller.current;

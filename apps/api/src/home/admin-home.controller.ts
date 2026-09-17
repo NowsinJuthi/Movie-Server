@@ -3,6 +3,7 @@ import { ErrorCode, UserRole } from '@movie-server/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { HomeCmsService } from './home-cms.service';
+import { LibraryService } from '../library/library.service';
 import {
   UpsertHomeHeroDto,
   CreateHomeRowDto,
@@ -13,7 +14,10 @@ import {
 @Controller('admin/home')
 @Roles(UserRole.Admin)
 export class AdminHomeController {
-  constructor(private readonly cms: HomeCmsService) {}
+  constructor(
+    private readonly cms: HomeCmsService,
+    private readonly libraries: LibraryService,
+  ) {}
 
   @Get('hero')
   async hero() {
@@ -47,6 +51,19 @@ export class AdminHomeController {
   @Post('rows/seed-catalog')
   async seedCatalogRows() {
     const rows = await this.cms.seedCatalogRows();
+    return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
+  }
+
+  @Post('rows/seed-libraries')
+  async seedLibraryRows() {
+    const { libraries } = await this.libraries.list();
+    const rows = await this.cms.seedLibraryRows(
+      libraries.map((library) => ({
+        id: library.id,
+        name: library.name,
+        enabled: library.enabled,
+      })),
+    );
     return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
   }
 

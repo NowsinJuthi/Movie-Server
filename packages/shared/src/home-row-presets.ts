@@ -1,6 +1,6 @@
 import { HomeRowKind, type HomeRowKind as HomeRowKindType } from './home';
 
-export type HomeRowPresetGroup = 'catalog' | 'advanced' | 'personalized';
+export type HomeRowPresetGroup = 'catalog' | 'advanced' | 'personalized' | 'library';
 
 export type HomeRowPreset = {
   kind: HomeRowKindType;
@@ -55,6 +55,14 @@ export const HOME_CATALOG_ROW_PRESETS: HomeRowPreset[] = [
     group: 'catalog',
   },
 ];
+
+export const HOME_LIBRARY_ROW_PRESET: HomeRowPreset = {
+  kind: HomeRowKind.Library,
+  label: 'Media library',
+  defaultTitle: 'Media library',
+  description: 'Published titles from a scanned media library folder.',
+  group: 'library',
+};
 
 export const HOME_ADVANCED_ROW_PRESETS: HomeRowPreset[] = [
   {
@@ -126,9 +134,12 @@ export const HOME_PERSONALIZED_ROW_PRESETS: HomeRowPreset[] = [
 ];
 
 const PRESET_BY_KIND = new Map<HomeRowKindType, HomeRowPreset>(
-  [...HOME_CATALOG_ROW_PRESETS, ...HOME_ADVANCED_ROW_PRESETS, ...HOME_PERSONALIZED_ROW_PRESETS].map(
-    (preset) => [preset.kind, preset],
-  ),
+  [
+    ...HOME_CATALOG_ROW_PRESETS,
+    HOME_LIBRARY_ROW_PRESET,
+    ...HOME_ADVANCED_ROW_PRESETS,
+    ...HOME_PERSONALIZED_ROW_PRESETS,
+  ].map((preset) => [preset.kind, preset]),
 );
 
 export function homeRowPreset(kind: HomeRowKindType): HomeRowPreset | undefined {

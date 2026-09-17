@@ -25,6 +25,7 @@ export const HomeRowKind = {
   RecentlyWatched: 'recently_watched',
   Favorites: 'favorites',
   Manual: 'manual',
+  Library: 'library',
 } as const;
 
 export type HomeRowKind = (typeof HomeRowKind)[keyof typeof HomeRowKind];
@@ -44,6 +45,7 @@ export const HOME_ROW_KINDS = [
   HomeRowKind.RecentlyWatched,
   HomeRowKind.Favorites,
   HomeRowKind.Manual,
+  HomeRowKind.Library,
 ] as const;
 
 export const HomeRowSource = {
@@ -85,6 +87,8 @@ export type HomeRow = {
   kind: HomeRowKind;
   source: HomeRowSource;
   items: HomeCard[];
+  /** Set when kind is `library` — links the shelf to `/home/library/:id`. */
+  libraryId?: string | null;
 };
 
 export type HomeResponse = {

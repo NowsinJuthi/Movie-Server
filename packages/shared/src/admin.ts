@@ -111,6 +111,7 @@ export type AdminHomeRow = {
   sortOrder: number;
   genre: string | null;
   collectionId: string | null;
+  libraryId: string | null;
   itemIds: string[];
   createdAt: string;
   updatedAt: string;

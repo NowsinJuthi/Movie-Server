@@ -25,6 +25,9 @@ export class HomeRowConfig {
   @Prop({ type: String, default: null, maxlength: 32 })
   collectionId?: string | null;
 
+  @Prop({ type: String, default: null, maxlength: 32 })
+  libraryId?: string | null;
+
   @Prop({ type: [String], default: [] })
   itemIds!: string[];
 

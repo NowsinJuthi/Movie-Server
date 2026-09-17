@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronUp,
+  HardDrive,
   Layers3,
   MonitorPlay,
   Pencil,
@@ -15,11 +16,13 @@ import { useMemo, useState } from "react";
 import {
   HOME_ADVANCED_ROW_PRESETS,
   HOME_CATALOG_ROW_PRESETS,
+  HOME_LIBRARY_ROW_PRESET,
   HOME_PERSONALIZED_ROW_PRESETS,
   HomeRowKind,
   homeRowKindLabel,
   homeRowPreset,
   type AdminHomeRow,
+  type AdminLibrary,
   type HomeRowPreset,
 } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
@@ -29,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
+import { libraryApi } from "@/lib/library-api";
 import { movieApi } from "@/lib/movie-api";
 import { seriesApi } from "@/lib/series-api";
 import styles from "./home-page.module.css";
@@ -39,6 +43,7 @@ function rowPayload(values: HomeRowFormValues) {
     kind: values.kind,
     enabled: values.enabled,
     collectionId: values.kind === HomeRowKind.Collection ? values.collectionId.trim() || null : null,
+    libraryId: values.kind === HomeRowKind.Library ? values.libraryId.trim() || null : null,
     genre: values.kind === HomeRowKind.Genre ? values.genre.trim() || null : null,
     itemIds:
       values.kind === HomeRowKind.Manual
@@ -50,7 +55,14 @@ function rowPayload(values: HomeRowFormValues) {
   };
 }
 
-function rowDetail(row: AdminHomeRow, collectionLabels: Map<string, string>) {
+function rowDetail(
+  row: AdminHomeRow,
+  collectionLabels: Map<string, string>,
+  libraryLabels: Map<string, string>,
+) {
+  if (row.kind === HomeRowKind.Library && row.libraryId) {
+    return libraryLabels.get(row.libraryId) ?? row.libraryId;
+  }
   if (row.kind === HomeRowKind.Collection && row.collectionId) {
     return collectionLabels.get(row.collectionId) ?? row.collectionId;
   }
@@ -69,6 +81,7 @@ export default function AdminHomePage() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [dialogPreset, setDialogPreset] = useState<HomeRowPreset | undefined>();
   const [editRow, setEditRow] = useState<AdminHomeRow | null>(null);
+  const [initialLibrary, setInitialLibrary] = useState<Pick<AdminLibrary, "id" | "name"> | null>(null);
 
   const hero = useQuery({ queryKey: ["admin-home-hero"], queryFn: adminApi.homeHero });
   const rows = useQuery({ queryKey: ["admin-home-rows"], queryFn: adminApi.homeRows });
@@ -79,6 +92,10 @@ export default function AdminHomePage() {
   const seriesCollections = useQuery({
     queryKey: ["admin-series-collections"],
     queryFn: seriesApi.adminCollections,
+  });
+  const mediaLibraries = useQuery({
+    queryKey: ["admin-libraries"],
+    queryFn: libraryApi.list,
   });
 
   const sortedRows = useMemo(
@@ -110,7 +127,32 @@ export default function AdminHomePage() {
     return labels;
   }, [collectionOptions]);
 
+  const libraryOptions = useMemo(
+    () => [...(mediaLibraries.data?.libraries ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [mediaLibraries.data?.libraries],
+  );
+
+  const libraryLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const library of libraryOptions) {
+      labels.set(
+        library.id,
+        `${library.kind === "movies" ? "Movies" : "TV"} · ${library.name}${library.enabled ? "" : " (hidden)"}`,
+      );
+    }
+    return labels;
+  }, [libraryOptions]);
+
   const configuredKinds = useMemo(() => new Set(sortedRows.map((row) => row.kind)), [sortedRows]);
+  const configuredLibraryIds = useMemo(
+    () =>
+      new Set(
+        sortedRows
+          .filter((row) => row.kind === HomeRowKind.Library && row.libraryId)
+          .map((row) => row.libraryId!),
+      ),
+    [sortedRows],
+  );
 
   const stats = useMemo(() => {
     const active = sortedRows.filter((row) => row.enabled).length;
@@ -119,8 +161,11 @@ export default function AdminHomePage() {
       active,
       hidden: sortedRows.length - active,
       catalogAvailable: HOME_CATALOG_ROW_PRESETS.filter((preset) => !configuredKinds.has(preset.kind)).length,
+      librariesAvailable: libraryOptions.filter(
+        (library) => library.enabled && !configuredLibraryIds.has(library.id),
+      ).length,
     };
-  }, [sortedRows, configuredKinds]);
+  }, [sortedRows, configuredKinds, libraryOptions, configuredLibraryIds]);
 
   const invalidateRows = () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] });
 
@@ -157,6 +202,10 @@ export default function AdminHomePage() {
     mutationFn: adminApi.seedHomeCatalogRows,
     onSuccess: invalidateRows,
   });
+  const seedLibraries = useMutation({
+    mutationFn: adminApi.seedHomeLibraryRows,
+    onSuccess: invalidateRows,
+  });
   const remove = useMutation({
     mutationFn: adminApi.deleteHomeRow,
     onSuccess: async () => {
@@ -176,7 +225,9 @@ export default function AdminHomePage() {
             ? update.error.message
             : seedCatalog.error instanceof ApiError
               ? seedCatalog.error.message
-              : remove.error instanceof ApiError
+              : seedLibraries.error instanceof ApiError
+                ? seedLibraries.error.message
+                : remove.error instanceof ApiError
                 ? remove.error.message
                 : saveHero.error instanceof ApiError
                   ? saveHero.error.message
@@ -185,14 +236,16 @@ export default function AdminHomePage() {
   const heroData = hero.data?.hero;
   const dialogBusy = create.isPending || update.isPending;
 
-  function openCreate(preset?: HomeRowPreset) {
+  function openCreate(preset?: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">) {
     setEditRow(null);
     setDialogPreset(preset);
+    setInitialLibrary(library ?? null);
     setDialogMode("create");
   }
 
   function openEdit(row: AdminHomeRow) {
     setDialogPreset(undefined);
+    setInitialLibrary(null);
     setEditRow(row);
     setDialogMode("edit");
   }
@@ -207,7 +260,12 @@ export default function AdminHomePage() {
   }
 
   function presetDisabled(preset: HomeRowPreset) {
-    if (preset.kind === HomeRowKind.Collection || preset.kind === HomeRowKind.Genre || preset.kind === HomeRowKind.Manual) {
+    if (
+      preset.kind === HomeRowKind.Collection ||
+      preset.kind === HomeRowKind.Genre ||
+      preset.kind === HomeRowKind.Manual ||
+      preset.kind === HomeRowKind.Library
+    ) {
       return false;
     }
     return configuredKinds.has(preset.kind);
@@ -216,7 +274,7 @@ export default function AdminHomePage() {
   return (
     <AdminPage
       title="Homepage layout"
-      description="Manage the shelves viewers see on the home page. Add catalog lists, collections, and control their order."
+      description="Manage the shelves viewers see on the home page. Add catalog lists, media libraries, collections, and control their order."
       error={error}
       actions={
         <div className="flex flex-wrap gap-2">
@@ -320,7 +378,7 @@ export default function AdminHomePage() {
                   <div>
                     <p className={styles.shelfTitle}>{row.title}</p>
                     <p className={styles.shelfMeta}>
-                      {homeRowKindLabel(row.kind)} · {rowDetail(row, collectionLabels)}
+                      {homeRowKindLabel(row.kind)} · {rowDetail(row, collectionLabels, libraryLabels)}
                     </p>
                   </div>
                   <div className={styles.shelfActions}>
@@ -386,6 +444,57 @@ export default function AdminHomePage() {
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
+              <h2 className={styles.panelTitle}>Media libraries</h2>
+              <p className={styles.panelHint}>
+                Show scanned library folders as homepage shelves. Each library can appear once.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={seedLibraries.isPending || stats.librariesAvailable === 0}
+              onClick={() => seedLibraries.mutate()}
+            >
+              <HardDrive className="mr-1.5 h-3.5 w-3.5" />
+              {seedLibraries.isPending ? "Adding..." : "Add all libraries"}
+            </Button>
+          </div>
+          {libraryOptions.length === 0 ? (
+            <div className={styles.emptyState}>
+              <p>No media libraries yet.</p>
+              <p className="mt-2">Create libraries under Catalog → Libraries, then add them here.</p>
+            </div>
+          ) : (
+            <div className={styles.presetGrid}>
+              {libraryOptions.map((library) => {
+                const onHomepage = configuredLibraryIds.has(library.id);
+                return (
+                  <button
+                    key={library.id}
+                    type="button"
+                    className={styles.presetCard}
+                    disabled={onHomepage || !library.enabled}
+                    onClick={() => openCreate(HOME_LIBRARY_ROW_PRESET, library)}
+                  >
+                    <p className={styles.presetLabel}>{library.name}</p>
+                    <p className={styles.presetDescription}>
+                      {!library.enabled
+                        ? "Library is hidden — enable it first"
+                        : onHomepage
+                          ? "Already on homepage"
+                          : `${library.kind === "movies" ? "Movies" : "TV"} · ${library.itemCount} titles`}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
               <h2 className={styles.panelTitle}>Collections & advanced</h2>
               <p className={styles.panelHint}>Curated collections, genre rows, or hand-picked title lists.</p>
             </div>
@@ -427,11 +536,14 @@ export default function AdminHomePage() {
         preset={dialogPreset}
         row={editRow}
         collections={collectionOptions}
+        libraries={libraryOptions}
+        initialLibrary={initialLibrary}
         busy={dialogBusy}
         onClose={() => {
           setDialogMode(null);
           setEditRow(null);
           setDialogPreset(undefined);
+          setInitialLibrary(null);
         }}
         onSubmit={(values) => {
           if (dialogMode === "edit" && editRow) {

@@ -107,12 +107,20 @@ export function homeRow(
   source: HomeRowSource,
   items: HomeCard[],
   limit = 18,
+  libraryId?: string | null,
 ): HomeRow | null {
   const unique = dedupeCards(items).slice(0, limit);
   if (unique.length === 0) {
     return null;
   }
-  return { id, title, kind, source, items: unique };
+  return {
+    id,
+    title,
+    kind,
+    source,
+    items: unique,
+    ...(libraryId ? { libraryId } : {}),
+  };
 }
 
 export function dedupeCards(items: HomeCard[]): HomeCard[] {

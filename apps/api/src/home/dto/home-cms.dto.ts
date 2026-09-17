@@ -84,6 +84,11 @@ export class CreateHomeRowDto {
   collectionId?: string | null;
 
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsMongoId()
+  libraryId?: string | null;
+
+  @IsOptional()
   @IsArray()
   @ArrayMaxSize(40)
   @IsString({ each: true })
@@ -124,6 +129,11 @@ export class UpdateHomeRowDto {
   @ValidateIf((_, value) => value !== null)
   @IsMongoId()
   collectionId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsMongoId()
+  libraryId?: string | null;
 
   @IsOptional()
   @IsArray()

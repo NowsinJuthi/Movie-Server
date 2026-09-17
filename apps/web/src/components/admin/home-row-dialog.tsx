@@ -8,6 +8,7 @@ import {
   MOVIE_GENRES,
   homeRowKindLabel,
   type AdminHomeRow,
+  type AdminLibrary,
   type HomeRowPreset,
 } from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
@@ -19,18 +20,20 @@ export type HomeRowFormValues = {
   kind: AdminHomeRow["kind"];
   enabled: boolean;
   collectionId: string;
+  libraryId: string;
   genre: string;
   itemIds: string;
 };
 
 type CollectionOption = { id: string; name: string; media: "movie" | "series" };
 
-function emptyForm(preset?: HomeRowPreset): HomeRowFormValues {
+function emptyForm(preset?: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">): HomeRowFormValues {
   return {
-    title: preset?.defaultTitle ?? "Featured",
+    title: library?.name ?? preset?.defaultTitle ?? "Featured",
     kind: preset?.kind ?? HomeRowKind.Featured,
     enabled: true,
     collectionId: "",
+    libraryId: library?.id ?? "",
     genre: MOVIE_GENRES[0] ?? "Action",
     itemIds: "",
   };
@@ -42,6 +45,7 @@ function fromRow(row: AdminHomeRow): HomeRowFormValues {
     kind: row.kind,
     enabled: row.enabled,
     collectionId: row.collectionId ?? "",
+    libraryId: row.libraryId ?? "",
     genre: row.genre ?? MOVIE_GENRES[0] ?? "Action",
     itemIds: (row.itemIds ?? []).join(", "),
   };
@@ -53,6 +57,8 @@ export function HomeRowDialog({
   preset,
   row,
   collections,
+  libraries,
+  initialLibrary,
   busy,
   onClose,
   onSubmit,
@@ -62,6 +68,8 @@ export function HomeRowDialog({
   preset?: HomeRowPreset;
   row?: AdminHomeRow | null;
   collections: CollectionOption[];
+  libraries: AdminLibrary[];
+  initialLibrary?: Pick<AdminLibrary, "id" | "name"> | null;
   busy?: boolean;
   onClose: () => void;
   onSubmit: (values: HomeRowFormValues) => void;
@@ -76,13 +84,14 @@ export function HomeRowDialog({
     if (mode === "edit" && row) {
       setForm(fromRow(row));
     } else {
-      setForm(emptyForm(preset));
+      setForm(emptyForm(preset, initialLibrary ?? undefined));
     }
-  }, [open, mode, preset, row]);
+  }, [open, mode, preset, row, initialLibrary]);
 
   if (!mounted || !open) return null;
 
   const showCollection = form.kind === HomeRowKind.Collection;
+  const showLibrary = form.kind === HomeRowKind.Library;
   const showGenre = form.kind === HomeRowKind.Genre;
   const showManual = form.kind === HomeRowKind.Manual;
 
@@ -118,6 +127,7 @@ export function HomeRowDialog({
           onSubmit={(event) => {
             event.preventDefault();
             if (showCollection && !form.collectionId.trim()) return;
+            if (showLibrary && !form.libraryId.trim()) return;
             onSubmit(form);
           }}
         >
@@ -148,9 +158,38 @@ export function HomeRowDialog({
                 <option value={HomeRowKind.PopularSeries}>Popular TV series</option>
                 <option value={HomeRowKind.RecentlyAdded}>Recently added</option>
                 <option value={HomeRowKind.NewReleases}>New releases</option>
+                <option value={HomeRowKind.Library}>Media library</option>
                 <option value={HomeRowKind.Collection}>Collection</option>
                 <option value={HomeRowKind.Genre}>Genre row</option>
                 <option value={HomeRowKind.Manual}>Manual picks</option>
+              </select>
+            </div>
+          ) : null}
+
+          {showLibrary ? (
+            <div>
+              <Label htmlFor="home-row-library">Media library</Label>
+              <select
+                id="home-row-library"
+                className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.libraryId}
+                onChange={(event) => {
+                  const library = libraries.find((item) => item.id === event.target.value);
+                  setForm({
+                    ...form,
+                    libraryId: event.target.value,
+                    title: form.title.trim() ? form.title : (library?.name ?? form.title),
+                  });
+                }}
+                required
+              >
+                <option value="">Select library</option>
+                {libraries.map((library) => (
+                  <option key={library.id} value={library.id}>
+                    {library.name} ({library.kind === "movies" ? "Movies" : "TV"})
+                    {!library.enabled ? " · hidden" : ""}
+                  </option>
+                ))}
               </select>
             </div>
           ) : null}

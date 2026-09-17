@@ -19,6 +19,7 @@ import { WatchHistoryService } from '../profiles/watch-history.service';
 import { ProfilesService } from '../profiles/profiles.service';
 import { RedisService } from '../redis/redis.service';
 import { HomeCmsService } from './home-cms.service';
+import { LibraryService } from '../library/library.service';
 import { homeCacheKey } from '../common/cache-keys';
 import {
   dedupeCards,
@@ -45,6 +46,7 @@ export class HomeService {
     private readonly history: WatchHistoryService,
     private readonly redis: RedisService,
     private readonly cms: HomeCmsService,
+    private readonly libraries: LibraryService,
   ) {}
 
   async get(user: RequestUser, entitlement: SubscriptionEntitlement | null): Promise<HomeResponse> {
@@ -230,12 +232,21 @@ export class HomeService {
             recentlyWatched,
             genre: cfg.genre,
             collectionId: cfg.collectionId,
+            libraryId: cfg.libraryId,
             itemIds: cfg.itemIds,
             viewer,
             entitlement,
             myList,
           });
-          return homeRow(`cms-${String(cfg._id)}`, cfg.title, cfg.kind, HomeRowSource.Admin, items);
+          return homeRow(
+            `cms-${String(cfg._id)}`,
+            cfg.title,
+            cfg.kind,
+            HomeRowSource.Admin,
+            items,
+            ROW_LIMIT,
+            cfg.libraryId ?? null,
+          );
         }),
       );
       const personalized = rows.filter((row) => row?.source === HomeRowSource.Personalized);
@@ -378,6 +389,7 @@ export class HomeService {
       recentlyWatched: HomeCard[];
       genre?: string | null;
       collectionId?: string | null;
+      libraryId?: string | null;
       itemIds: string[];
       viewer: { maturity: import('@movie-server/shared').MaturityLevel; isKids: boolean };
       entitlement: SubscriptionEntitlement | null;
@@ -430,6 +442,18 @@ export class HomeService {
         if (!ctx.collectionId) return ctx.collectionRows[0]?.items ?? [];
         const match = ctx.collectionRows.find((row) => row.id.includes(ctx.collectionId!));
         return match?.items ?? [];
+      }
+      case HomeRowKind.Library: {
+        if (!ctx.libraryId) return [];
+        try {
+          const { items } = await this.libraries.browsePublic(ctx.libraryId, ctx.entitlement);
+          return items.slice(0, ROW_LIMIT).map((card) => ({
+            ...card,
+            inMyList: ctx.myList.has(card.id),
+          }));
+        } catch {
+          return [];
+        }
       }
       default:
         return [];

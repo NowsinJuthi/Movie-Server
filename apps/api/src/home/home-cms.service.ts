@@ -3,9 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   HOME_CATALOG_ROW_PRESETS,
+  HomeRowKind,
   type AdminHomeHero,
   type AdminHomeRow,
-  type HomeRowKind,
+  type HomeRowKind as HomeRowKindType,
 } from '@movie-server/shared';
 import { RedisService } from '../redis/redis.service';
 import { HOME_LAYOUT_KEY } from '../common/cache-keys';
@@ -77,11 +78,12 @@ export class HomeCmsService {
 
   async createRow(input: {
     title: string;
-    kind: HomeRowKind;
+    kind: HomeRowKindType;
     enabled?: boolean;
     sortOrder?: number;
     genre?: string | null;
     collectionId?: string | null;
+    libraryId?: string | null;
     itemIds?: string[];
   }): Promise<HomeRowConfigDocument> {
     const created = await this.rows.create({
@@ -91,6 +93,7 @@ export class HomeCmsService {
       sortOrder: input.sortOrder ?? 0,
       genre: input.genre ?? null,
       collectionId: input.collectionId ?? null,
+      libraryId: input.libraryId ?? null,
       itemIds: (input.itemIds ?? []).slice(0, 40),
     });
     await this.bump();
@@ -101,11 +104,12 @@ export class HomeCmsService {
     id: string,
     input: Partial<{
       title: string;
-      kind: HomeRowKind;
+      kind: HomeRowKindType;
       enabled: boolean;
       sortOrder: number;
       genre: string | null;
       collectionId: string | null;
+      libraryId: string | null;
       itemIds: string[];
     }>,
   ): Promise<HomeRowConfigDocument | null> {
@@ -117,6 +121,7 @@ export class HomeCmsService {
     if (input.sortOrder !== undefined) row.sortOrder = input.sortOrder;
     if (input.genre !== undefined) row.genre = input.genre;
     if (input.collectionId !== undefined) row.collectionId = input.collectionId;
+    if (input.libraryId !== undefined) row.libraryId = input.libraryId;
     if (input.itemIds !== undefined) row.itemIds = input.itemIds.slice(0, 40);
     await row.save();
     await this.bump();
@@ -155,6 +160,35 @@ export class HomeCmsService {
         sortOrder: order,
         genre: null,
         collectionId: null,
+        libraryId: null,
+        itemIds: [],
+      });
+      order += 1;
+    }
+    await this.bump();
+    return this.listRows();
+  }
+
+  async seedLibraryRows(
+    libraries: Array<{ id: string; name: string; enabled: boolean }>,
+  ): Promise<HomeRowConfigDocument[]> {
+    const existing = await this.listRows();
+    const usedLibraryIds = new Set(
+      existing
+        .filter((row) => row.kind === HomeRowKind.Library && row.libraryId)
+        .map((row) => String(row.libraryId)),
+    );
+    let order = existing.length;
+    for (const library of libraries) {
+      if (!library.enabled || usedLibraryIds.has(library.id)) continue;
+      await this.rows.create({
+        title: library.name,
+        kind: HomeRowKind.Library,
+        enabled: true,
+        sortOrder: order,
+        genre: null,
+        collectionId: null,
+        libraryId: library.id,
         itemIds: [],
       });
       order += 1;
@@ -190,6 +224,7 @@ export class HomeCmsService {
       sortOrder: row.sortOrder,
       genre: row.genre ?? null,
       collectionId: row.collectionId ?? null,
+      libraryId: row.libraryId ?? null,
       itemIds: row.itemIds ?? [],
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

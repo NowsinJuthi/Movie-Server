@@ -168,5 +168,7 @@ export const adminApi = {
     }),
   seedHomeCatalogRows: () =>
     apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/seed-catalog", { method: "POST" }),
+  seedHomeLibraryRows: () =>
+    apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/seed-libraries", { method: "POST" }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
 };
