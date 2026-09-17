@@ -1,0 +1,176 @@
+.posterLink {
+  display: block;
+}
+
+.posterFrame {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  background: linear-gradient(to bottom right, var(--secondary), #000);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.22);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+
+.posterLink:hover .posterFrame,
+.posterLink:focus-visible .posterFrame {
+  transform: scale(1.03);
+  box-shadow:
+    0 16px 36px rgb(0 0 0 / 0.32),
+    0 0 24px -8px color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.posterImage {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.posterLink:hover .posterImage,
+.posterLink:focus-visible .posterImage {
+  transform: scale(1.07);
+}
+
+.playOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    rgb(1 19 26 / 0.08) 0%,
+    rgb(1 19 26 / 0.42) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.posterLink:hover .playOverlay,
+.posterLink:focus-visible .playOverlay,
+.posterLink:active .playOverlay {
+  opacity: 1;
+}
+
+.playButton {
+  position: relative;
+  display: inline-flex;
+  height: 3rem;
+  width: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in oklch, var(--primary) 72%, white);
+  background: color-mix(in oklch, var(--background) 42%, transparent);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 0 0 0 color-mix(in oklch, var(--primary) 35%, transparent),
+    0 10px 28px rgb(0 0 0 / 0.38);
+  transform: scale(0.68);
+  opacity: 0;
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.22s ease,
+    border-color 0.28s ease;
+}
+
+.playButton::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, transparent);
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 0.35s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.posterLink:hover .playButton,
+.posterLink:focus-visible .playButton,
+.posterLink:active .playButton {
+  transform: scale(1);
+  opacity: 1;
+  animation: playGlow 1.6s ease-in-out infinite;
+}
+
+.posterLink:hover .playButton::before,
+.posterLink:focus-visible .playButton::before,
+.posterLink:active .playButton::before {
+  opacity: 1;
+  transform: scale(1);
+  animation: playRing 1.6s ease-in-out infinite;
+}
+
+.playIcon {
+  position: relative;
+  z-index: 1;
+  height: 1.25rem;
+  width: 1.25rem;
+  fill: currentColor;
+  margin-left: 0.125rem;
+  transform: translateX(-1px);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.posterLink:hover .playIcon,
+.posterLink:focus-visible .playIcon,
+.posterLink:active .playIcon {
+  transform: translateX(-1px) scale(1.12);
+}
+
+@keyframes playGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklch, var(--primary) 32%, transparent),
+      0 10px 28px rgb(0 0 0 / 0.38);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 10px color-mix(in oklch, var(--primary) 8%, transparent),
+      0 0 24px color-mix(in oklch, var(--primary) 38%, transparent),
+      0 12px 32px rgb(0 0 0 / 0.42);
+  }
+}
+
+@keyframes playRing {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .posterFrame,
+  .posterImage,
+  .playOverlay,
+  .playButton,
+  .playIcon,
+  .playButton::before {
+    transition: none;
+    animation: none !important;
+  }
+
+  .posterLink:hover .posterFrame,
+  .posterLink:focus-visible .posterFrame {
+    transform: none;
+  }
+
+  .posterLink:hover .posterImage,
+  .posterLink:focus-visible .posterImage {
+    transform: none;
+  }
+}

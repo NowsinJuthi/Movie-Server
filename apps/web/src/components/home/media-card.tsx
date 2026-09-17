@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 import { homeCardToInfoTarget, MediaInfoDialog } from "./media-info-dialog";
+import styles from "./media-card.module.css";
 import { PosterImage } from "./poster-image";
 
 export function MediaCard({
@@ -24,23 +25,23 @@ export function MediaCard({
     <article className="w-[42vw] shrink-0 snap-start sm:w-[28vw] md:w-[18vw] lg:w-[14vw] xl:w-[12vw]">
       <Link
         href={playHref}
-        className="group block"
+        className={styles.posterLink}
         aria-label={`Play ${card.title}`}
         onClick={() => rememberPlayerReturn()}
       >
-        <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-gradient-to-br from-secondary to-black shadow-lg transition duration-200 group-hover:scale-[1.03] group-hover:shadow-2xl">
+        <div className={styles.posterFrame}>
           <PosterImage
             src={card.posterUrl ?? card.backdropUrl}
             alt=""
-            className="h-full w-full object-cover"
+            className={styles.posterImage}
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/25 group-hover:opacity-100 group-active:bg-black/25 group-active:opacity-100">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-black shadow-lg">
-              <Play className="h-5 w-5 fill-current" />
+          <div className={styles.playOverlay} aria-hidden>
+            <span className={styles.playButton}>
+              <Play className={styles.playIcon} />
             </span>
           </div>
           {progress && card.progressRatio != null ? (
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+            <div className="absolute inset-x-0 bottom-0 z-[1] h-1 bg-white/20">
               <div className="h-full bg-primary" style={{ width: `${Math.round(card.progressRatio * 100)}%` }} />
             </div>
           ) : null}
