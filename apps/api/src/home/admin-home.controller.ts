@@ -3,7 +3,12 @@ import { ErrorCode, UserRole } from '@movie-server/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { HomeCmsService } from './home-cms.service';
-import { UpsertHomeHeroDto, CreateHomeRowDto, UpdateHomeRowDto } from './dto/home-cms.dto';
+import {
+  UpsertHomeHeroDto,
+  CreateHomeRowDto,
+  UpdateHomeRowDto,
+  ReorderHomeRowsDto,
+} from './dto/home-cms.dto';
 
 @Controller('admin/home')
 @Roles(UserRole.Admin)
@@ -31,6 +36,18 @@ export class AdminHomeController {
   async createRow(@Body() dto: CreateHomeRowDto) {
     const row = await this.cms.createRow(dto);
     return { row: this.cms.toPublicRow(row) };
+  }
+
+  @Post('rows/reorder')
+  async reorderRows(@Body() dto: ReorderHomeRowsDto) {
+    const rows = await this.cms.reorderRows(dto.ids);
+    return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
+  }
+
+  @Post('rows/seed-catalog')
+  async seedCatalogRows() {
+    const rows = await this.cms.seedCatalogRows();
+    return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
   }
 
   @Patch('rows/:id')

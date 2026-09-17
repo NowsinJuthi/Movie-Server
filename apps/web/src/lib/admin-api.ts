@@ -161,5 +161,12 @@ export const adminApi = {
   updateHomeRow: (id: string, input: Partial<AdminHomeRow>) =>
     apiFetch<{ row: AdminHomeRow }>(`/admin/home/rows/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteHomeRow: (id: string) => apiFetch<{ deleted: boolean }>(`/admin/home/rows/${id}`, { method: "DELETE" }),
+  reorderHomeRows: (ids: string[]) =>
+    apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/reorder", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  seedHomeCatalogRows: () =>
+    apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/seed-catalog", { method: "POST" }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
 };

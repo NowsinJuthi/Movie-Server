@@ -1,0 +1,193 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  border-radius: 1rem;
+  border: 1px solid rgb(38 191 176 / 0.18);
+  background: linear-gradient(165deg, rgb(3 26 34 / 0.95), rgb(1 19 26 / 0.9));
+  padding: 0.95rem 1rem;
+}
+
+.statLabel {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8aa3aa;
+}
+
+.statValue {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.panel {
+  border-radius: 1.15rem;
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(3 26 34 / 0.72);
+  overflow: hidden;
+}
+
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  padding: 1rem 1.1rem;
+}
+
+.panelTitle {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.panelHint {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: rgb(138 163 170 / 0.95);
+}
+
+.shelfList {
+  display: flex;
+  flex-direction: column;
+}
+
+.shelfRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  border-bottom: 1px solid rgb(255 255 255 / 0.05);
+  padding: 0.9rem 1.1rem;
+}
+
+.shelfRow:last-child {
+  border-bottom: none;
+}
+
+.orderBadge {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: rgb(38 191 176 / 0.12);
+  color: #26bfb0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.shelfTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.shelfMeta {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: #8aa3aa;
+}
+
+.shelfActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+@media (min-width: 700px) {
+  .presetGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .presetGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.presetCard {
+  border-radius: 0.95rem;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(1 19 26 / 0.85);
+  padding: 0.95rem 1rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.presetCard:hover:not(:disabled) {
+  border-color: rgb(38 191 176 / 0.35);
+  background: rgb(3 26 34 / 0.95);
+}
+
+.presetCard:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.presetLabel {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.presetDescription {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #8aa3aa;
+}
+
+.personalizedList {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 1.1rem 1.1rem;
+}
+
+.personalizedItem {
+  border-radius: 0.75rem;
+  border: 1px dashed rgb(255 255 255 / 0.08);
+  padding: 0.75rem 0.85rem;
+}
+
+.emptyState {
+  padding: 2rem 1.1rem;
+  text-align: center;
+  color: #8aa3aa;
+  font-size: 0.9rem;
+}
+
+.heroPanel {
+  border-radius: 1.15rem;
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(3 26 34 / 0.72);
+  padding: 1rem 1.1rem 1.1rem;
+}

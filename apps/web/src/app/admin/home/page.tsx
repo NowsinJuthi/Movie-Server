@@ -1,39 +1,75 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ChevronDown,
+  ChevronUp,
+  Layers3,
+  MonitorPlay,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
-import { HOME_ROW_KINDS, HomeRowKind } from "@movie-server/shared";
+import {
+  HOME_ADVANCED_ROW_PRESETS,
+  HOME_CATALOG_ROW_PRESETS,
+  HOME_PERSONALIZED_ROW_PRESETS,
+  HomeRowKind,
+  homeRowKindLabel,
+  homeRowPreset,
+  type AdminHomeRow,
+  type HomeRowPreset,
+} from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
-import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { HomeRowDialog, type HomeRowFormValues } from "@/components/admin/home-row-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 import { movieApi } from "@/lib/movie-api";
 import { seriesApi } from "@/lib/series-api";
+import styles from "./home-page.module.css";
 
-type HomeRowForm = {
-  title: string;
-  kind: (typeof HOME_ROW_KINDS)[number];
-  sortOrder: number;
-  collectionId: string;
-};
+function rowPayload(values: HomeRowFormValues) {
+  return {
+    title: values.title.trim(),
+    kind: values.kind,
+    enabled: values.enabled,
+    collectionId: values.kind === HomeRowKind.Collection ? values.collectionId.trim() || null : null,
+    genre: values.kind === HomeRowKind.Genre ? values.genre.trim() || null : null,
+    itemIds:
+      values.kind === HomeRowKind.Manual
+        ? values.itemIds
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : [],
+  };
+}
 
-function rowKindLabel(kind: string) {
-  return kind.replaceAll("_", " ");
+function rowDetail(row: AdminHomeRow, collectionLabels: Map<string, string>) {
+  if (row.kind === HomeRowKind.Collection && row.collectionId) {
+    return collectionLabels.get(row.collectionId) ?? row.collectionId;
+  }
+  if (row.kind === HomeRowKind.Genre && row.genre) {
+    return `Genre · ${row.genre}`;
+  }
+  if (row.kind === HomeRowKind.Manual && row.itemIds.length > 0) {
+    return `${row.itemIds.length} hand-picked titles`;
+  }
+  return homeRowPreset(row.kind)?.description ?? "Catalog shelf";
 }
 
 export default function AdminHomePage() {
   const queryClient = useQueryClient();
-  const [pending, setPending] = useState<string | null>(null);
-  const [form, setForm] = useState<HomeRowForm>({
-    title: "Featured",
-    kind: HomeRowKind.Featured,
-    sortOrder: 0,
-    collectionId: "",
-  });
+  const [pendingDelete, setPendingDelete] = useState<AdminHomeRow | null>(null);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
+  const [dialogPreset, setDialogPreset] = useState<HomeRowPreset | undefined>();
+  const [editRow, setEditRow] = useState<AdminHomeRow | null>(null);
+
   const hero = useQuery({ queryKey: ["admin-home-hero"], queryFn: adminApi.homeHero });
   const rows = useQuery({ queryKey: ["admin-home-rows"], queryFn: adminApi.homeRows });
   const movieCollections = useQuery({
@@ -45,47 +81,90 @@ export default function AdminHomePage() {
     queryFn: seriesApi.adminCollections,
   });
 
+  const sortedRows = useMemo(
+    () => [...(rows.data?.rows ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)),
+    [rows.data?.rows],
+  );
+
+  const collectionOptions = useMemo(
+    () => [
+      ...(movieCollections.data?.collections ?? []).map((collection) => ({
+        id: collection.id,
+        name: collection.name,
+        media: "movie" as const,
+      })),
+      ...(seriesCollections.data?.collections ?? []).map((collection) => ({
+        id: collection.id,
+        name: collection.name,
+        media: "series" as const,
+      })),
+    ],
+    [movieCollections.data?.collections, seriesCollections.data?.collections],
+  );
+
   const collectionLabels = useMemo(() => {
     const labels = new Map<string, string>();
-    for (const collection of movieCollections.data?.collections ?? []) {
-      labels.set(collection.id, `Movie · ${collection.name}`);
-    }
-    for (const collection of seriesCollections.data?.collections ?? []) {
-      labels.set(collection.id, `Series · ${collection.name}`);
+    for (const item of collectionOptions) {
+      labels.set(item.id, `${item.media === "movie" ? "Movie" : "Series"} · ${item.name}`);
     }
     return labels;
-  }, [movieCollections.data?.collections, seriesCollections.data?.collections]);
+  }, [collectionOptions]);
+
+  const configuredKinds = useMemo(() => new Set(sortedRows.map((row) => row.kind)), [sortedRows]);
+
+  const stats = useMemo(() => {
+    const active = sortedRows.filter((row) => row.enabled).length;
+    return {
+      total: sortedRows.length,
+      active,
+      hidden: sortedRows.length - active,
+      catalogAvailable: HOME_CATALOG_ROW_PRESETS.filter((preset) => !configuredKinds.has(preset.kind)).length,
+    };
+  }, [sortedRows, configuredKinds]);
+
+  const invalidateRows = () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] });
 
   const saveHero = useMutation({
     mutationFn: adminApi.updateHomeHero,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-home-hero"] }),
   });
   const create = useMutation({
-    mutationFn: () =>
-      adminApi.createHomeRow({
-        title: form.title,
-        kind: form.kind,
-        sortOrder: form.sortOrder,
-        collectionId:
-          form.kind === HomeRowKind.Collection ? form.collectionId.trim() || null : null,
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] }),
+    mutationFn: (values: HomeRowFormValues) => adminApi.createHomeRow(rowPayload(values)),
+    onSuccess: async () => {
+      setDialogMode(null);
+      setDialogPreset(undefined);
+      await invalidateRows();
+    },
+  });
+  const update = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: HomeRowFormValues }) =>
+      adminApi.updateHomeRow(id, rowPayload(values)),
+    onSuccess: async () => {
+      setDialogMode(null);
+      setEditRow(null);
+      await invalidateRows();
+    },
   });
   const toggle = useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => adminApi.updateHomeRow(id, { enabled }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] }),
+    onSuccess: invalidateRows,
   });
-  const move = useMutation({
-    mutationFn: ({ id, sortOrder }: { id: string; sortOrder: number }) => adminApi.updateHomeRow(id, { sortOrder }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] }),
+  const reorder = useMutation({
+    mutationFn: (ids: string[]) => adminApi.reorderHomeRows(ids),
+    onSuccess: invalidateRows,
+  });
+  const seedCatalog = useMutation({
+    mutationFn: adminApi.seedHomeCatalogRows,
+    onSuccess: invalidateRows,
   });
   const remove = useMutation({
     mutationFn: adminApi.deleteHomeRow,
-    onSuccess: () => {
-      setPending(null);
-      void queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] });
+    onSuccess: async () => {
+      setPendingDelete(null);
+      await invalidateRows();
     },
   });
+
   const error =
     hero.error instanceof ApiError
       ? hero.error.message
@@ -93,184 +172,287 @@ export default function AdminHomePage() {
         ? rows.error.message
         : create.error instanceof ApiError
           ? create.error.message
-          : saveHero.error instanceof ApiError
-            ? saveHero.error.message
-            : remove.error instanceof ApiError
-              ? remove.error.message
-              : null;
+          : update.error instanceof ApiError
+            ? update.error.message
+            : seedCatalog.error instanceof ApiError
+              ? seedCatalog.error.message
+              : remove.error instanceof ApiError
+                ? remove.error.message
+                : saveHero.error instanceof ApiError
+                  ? saveHero.error.message
+                  : null;
+
   const heroData = hero.data?.hero;
-  const showCollectionPicker = form.kind === HomeRowKind.Collection;
+  const dialogBusy = create.isPending || update.isPending;
+
+  function openCreate(preset?: HomeRowPreset) {
+    setEditRow(null);
+    setDialogPreset(preset);
+    setDialogMode("create");
+  }
+
+  function openEdit(row: AdminHomeRow) {
+    setDialogPreset(undefined);
+    setEditRow(row);
+    setDialogMode("edit");
+  }
+
+  function moveRow(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= sortedRows.length) return;
+    const next = [...sortedRows];
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item!);
+    reorder.mutate(next.map((row) => row.id));
+  }
+
+  function presetDisabled(preset: HomeRowPreset) {
+    if (preset.kind === HomeRowKind.Collection || preset.kind === HomeRowKind.Genre || preset.kind === HomeRowKind.Manual) {
+      return false;
+    }
+    return configuredKinds.has(preset.kind);
+  }
 
   return (
     <AdminPage
-      title="Homepage"
-      description="Override the hero and add ordered rows. Use collection rows to surface movie or series collections on the home page."
+      title="Homepage layout"
+      description="Manage the shelves viewers see on the home page. Add catalog lists, collections, and control their order."
       error={error}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={seedCatalog.isPending || stats.catalogAvailable === 0}
+            onClick={() => seedCatalog.mutate()}
+          >
+            <Layers3 className="mr-1.5 h-3.5 w-3.5" />
+            {seedCatalog.isPending ? "Adding..." : "Add default shelves"}
+          </Button>
+          <Button type="button" size="sm" onClick={() => openCreate()}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Custom shelf
+          </Button>
+        </div>
+      }
     >
-      <section className="mb-8 rounded-xl border border-border bg-card p-5">
-        <h2 className="text-lg font-medium">Hero banner</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Leave the media id empty to use the automatic featured/trending fallback.
-        </p>
-        <div className="grid gap-3 md:grid-cols-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(heroData?.enabled)}
-              onChange={(event) => saveHero.mutate({ enabled: event.target.checked })}
-            />
-            Enabled
-          </label>
-          <select
-            className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm"
-            value={heroData?.mediaKind ?? ""}
-            onChange={(event) =>
-              saveHero.mutate({ mediaKind: (event.target.value || null) as "movie" | "series" | null })
-            }
-          >
-            <option value="">Kind</option>
-            <option value="movie">Movie</option>
-            <option value="series">Series</option>
-          </select>
-          <Input
-            placeholder="Movie or series id"
-            defaultValue={heroData?.mediaId ?? ""}
-            onBlur={(event) => saveHero.mutate({ mediaId: event.target.value || null })}
-          />
-          <Input
-            placeholder="Title override"
-            defaultValue={heroData?.titleOverride ?? ""}
-            onBlur={(event) => saveHero.mutate({ titleOverride: event.target.value || null })}
-          />
-        </div>
-      </section>
-      <form
-        className="mb-4 grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (showCollectionPicker && !form.collectionId.trim()) return;
-          create.mutate();
-        }}
-      >
-        <div>
-          <Label htmlFor="row-title">Row title</Label>
-          <Input
-            id="row-title"
-            value={form.title}
-            onChange={(event) => setForm({ ...form, title: event.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="row-kind">Source</Label>
-          <select
-            id="row-kind"
-            className="mt-2 h-10 w-full rounded-md border border-input bg-background/60 px-3 text-sm"
-            value={form.kind}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                kind: event.target.value as HomeRowForm["kind"],
-                collectionId: "",
-              })
-            }
-          >
-            {HOME_ROW_KINDS.map((kind) => (
-              <option key={kind} value={kind}>
-                {rowKindLabel(kind)}
-              </option>
-            ))}
-          </select>
-        </div>
-        {showCollectionPicker ? (
-          <div className="md:col-span-2">
-            <Label htmlFor="row-collection">Collection</Label>
-            <select
-              id="row-collection"
-              className="mt-2 h-10 w-full rounded-md border border-input bg-background/60 px-3 text-sm"
-              value={form.collectionId}
-              onChange={(event) => setForm({ ...form, collectionId: event.target.value })}
-              required
-            >
-              <option value="">Select a collection</option>
-              {(movieCollections.data?.collections ?? []).length > 0 ? (
-                <optgroup label="Movie collections">
-                  {(movieCollections.data?.collections ?? []).map((collection) => (
-                    <option key={collection.id} value={collection.id}>
-                      {collection.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-              {(seriesCollections.data?.collections ?? []).length > 0 ? (
-                <optgroup label="Series collections">
-                  {(seriesCollections.data?.collections ?? []).map((collection) => (
-                    <option key={collection.id} value={collection.id}>
-                      {collection.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Manage collections under Homepage → Movie collections / Series collections.
-            </p>
+      <div className={styles.layout}>
+        <div className={styles.stats}>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Configured shelves</span>
+            <span className={styles.statValue}>{stats.total}</span>
           </div>
-        ) : null}
-        <div>
-          <Label htmlFor="row-order">Order</Label>
-          <Input
-            id="row-order"
-            type="number"
-            value={form.sortOrder}
-            onChange={(event) => setForm({ ...form, sortOrder: Number(event.target.value) })}
-          />
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Visible</span>
+            <span className={styles.statValue}>{stats.active}</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Hidden</span>
+            <span className={styles.statValue}>{stats.hidden}</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Defaults available</span>
+            <span className={styles.statValue}>{stats.catalogAvailable}</span>
+          </div>
         </div>
-        <Button
-          className="self-end"
-          disabled={create.isPending || (showCollectionPicker && !form.collectionId.trim())}
-        >
-          Add row
-        </Button>
-      </form>
-      <AdminTable columns={["Order", "Title", "Kind", "Collection", "Enabled", ""]}>
-        {(rows.data?.rows ?? []).map((row, index, list) => (
-          <tr key={row.id}>
-            <AdminTd>{row.sortOrder}</AdminTd>
-            <AdminTd>{row.title}</AdminTd>
-            <AdminTd>{rowKindLabel(row.kind)}</AdminTd>
-            <AdminTd>
-              {row.collectionId
-                ? (collectionLabels.get(row.collectionId) ?? row.collectionId)
-                : "—"}
-            </AdminTd>
-            <AdminTd>{row.enabled ? "Yes" : "No"}</AdminTd>
-            <AdminTd className="space-x-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={index === 0}
-                onClick={() => move.mutate({ id: row.id, sortOrder: (list[index - 1]?.sortOrder ?? 0) - 1 })}
+
+        <section className={styles.heroPanel}>
+          <div className="mb-3 flex items-center gap-2">
+            <MonitorPlay className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold">Hero banner</h2>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Leave the media id empty to use automatic featured/trending fallback.
+          </p>
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(heroData?.enabled)}
+                onChange={(event) => saveHero.mutate({ enabled: event.target.checked })}
+              />
+              Enabled
+            </label>
+            <select
+              className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm"
+              value={heroData?.mediaKind ?? ""}
+              onChange={(event) =>
+                saveHero.mutate({ mediaKind: (event.target.value || null) as "movie" | "series" | null })
+              }
+            >
+              <option value="">Kind</option>
+              <option value="movie">Movie</option>
+              <option value="series">Series</option>
+            </select>
+            <Input
+              placeholder="Movie or series id"
+              defaultValue={heroData?.mediaId ?? ""}
+              onBlur={(event) => saveHero.mutate({ mediaId: event.target.value || null })}
+            />
+            <Input
+              placeholder="Title override"
+              defaultValue={heroData?.titleOverride ?? ""}
+              onBlur={(event) => saveHero.mutate({ titleOverride: event.target.value || null })}
+            />
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Homepage shelves</h2>
+              <p className={styles.panelHint}>
+                These rows appear on the public home page in the order shown below.
+              </p>
+            </div>
+          </div>
+          {sortedRows.length === 0 ? (
+            <div className={styles.emptyState}>
+              <p>No shelves configured yet.</p>
+              <p className="mt-2">Use <strong>Add default shelves</strong> to load Featured, Trending, Popular Movies, and more.</p>
+            </div>
+          ) : (
+            <div className={styles.shelfList}>
+              {sortedRows.map((row, index) => (
+                <article key={row.id} className={styles.shelfRow}>
+                  <span className={styles.orderBadge}>{index + 1}</span>
+                  <div>
+                    <p className={styles.shelfTitle}>{row.title}</p>
+                    <p className={styles.shelfMeta}>
+                      {homeRowKindLabel(row.kind)} · {rowDetail(row, collectionLabels)}
+                    </p>
+                  </div>
+                  <div className={styles.shelfActions}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={index === 0 || reorder.isPending}
+                      onClick={() => moveRow(index, -1)}
+                      aria-label="Move up"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={index === sortedRows.length - 1 || reorder.isPending}
+                      onClick={() => moveRow(index, 1)}
+                      aria-label="Move down"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: row.id, enabled: !row.enabled })}>
+                      {row.enabled ? "Hide" : "Show"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setPendingDelete(row)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Catalog shelves</h2>
+              <p className={styles.panelHint}>Quick-add the same lists that appear on your home page today.</p>
+            </div>
+          </div>
+          <div className={styles.presetGrid}>
+            {HOME_CATALOG_ROW_PRESETS.map((preset) => (
+              <button
+                key={preset.kind}
+                type="button"
+                className={styles.presetCard}
+                disabled={presetDisabled(preset)}
+                onClick={() => openCreate(preset)}
               >
-                Up
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: row.id, enabled: !row.enabled })}>
-                {row.enabled ? "Hide" : "Show"}
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setPending(row.id)}>
-                Delete
-              </Button>
-            </AdminTd>
-          </tr>
-        ))}
-      </AdminTable>
+                <p className={styles.presetLabel}>{preset.label}</p>
+                <p className={styles.presetDescription}>
+                  {presetDisabled(preset) ? "Already on homepage" : preset.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Collections & advanced</h2>
+              <p className={styles.panelHint}>Curated collections, genre rows, or hand-picked title lists.</p>
+            </div>
+          </div>
+          <div className={styles.presetGrid}>
+            {HOME_ADVANCED_ROW_PRESETS.map((preset) => (
+              <button key={preset.kind} type="button" className={styles.presetCard} onClick={() => openCreate(preset)}>
+                <p className={styles.presetLabel}>{preset.label}</p>
+                <p className={styles.presetDescription}>{preset.description}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Automatic profile rows</h2>
+              <p className={styles.panelHint}>
+                These personalized shelves are injected automatically when profile data exists.
+              </p>
+            </div>
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div className={styles.personalizedList}>
+            {HOME_PERSONALIZED_ROW_PRESETS.map((preset) => (
+              <div key={preset.kind} className={styles.personalizedItem}>
+                <p className={styles.presetLabel}>{preset.label}</p>
+                <p className={styles.presetDescription}>{preset.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <HomeRowDialog
+        open={dialogMode !== null}
+        mode={dialogMode === "edit" ? "edit" : "create"}
+        preset={dialogPreset}
+        row={editRow}
+        collections={collectionOptions}
+        busy={dialogBusy}
+        onClose={() => {
+          setDialogMode(null);
+          setEditRow(null);
+          setDialogPreset(undefined);
+        }}
+        onSubmit={(values) => {
+          if (dialogMode === "edit" && editRow) {
+            update.mutate({ id: editRow.id, values });
+          } else {
+            create.mutate({
+              ...values,
+              title: values.title || dialogPreset?.defaultTitle || "Shelf",
+            });
+          }
+        }}
+      />
+
       <ConfirmDialog
-        open={Boolean(pending)}
-        title="Remove this homepage row?"
-        description="The browse page will stop showing this shelf after the next cache refresh."
-        confirmLabel="Delete row"
+        open={Boolean(pendingDelete)}
+        title={`Remove “${pendingDelete?.title ?? "shelf"}”?`}
+        description="This shelf will disappear from the homepage after the layout cache refreshes."
+        confirmLabel="Delete shelf"
         pending={remove.isPending}
-        onClose={() => setPending(null)}
-        onConfirm={() => pending && remove.mutate(pending)}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => pendingDelete && remove.mutate(pendingDelete.id)}
       />
     </AdminPage>
   );

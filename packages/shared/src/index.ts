@@ -4,6 +4,7 @@ export * from './billing';
 export * from './device';
 export * from './errors';
 export * from './home';
+export * from './home-row-presets';
 export * from './library';
 export * from './license';
 export * from './movie';

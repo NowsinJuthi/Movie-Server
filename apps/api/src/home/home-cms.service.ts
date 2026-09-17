@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import type { AdminHomeHero, AdminHomeRow, HomeRowKind } from '@movie-server/shared';
+import {
+  HOME_CATALOG_ROW_PRESETS,
+  type AdminHomeHero,
+  type AdminHomeRow,
+  type HomeRowKind,
+} from '@movie-server/shared';
 import { RedisService } from '../redis/redis.service';
 import { HOME_LAYOUT_KEY } from '../common/cache-keys';
 import { HomeHero, HomeHeroDocument } from './schemas/home-hero.schema';
@@ -122,6 +127,40 @@ export class HomeCmsService {
     const result = await this.rows.findByIdAndDelete(id);
     if (result) await this.bump();
     return Boolean(result);
+  }
+
+  async reorderRows(ids: string[]): Promise<HomeRowConfigDocument[]> {
+    const unique = [...new Set(ids)];
+    const existing = await this.rows.find({ _id: { $in: unique } }).exec();
+    if (existing.length !== unique.length) {
+      return this.listRows();
+    }
+    await Promise.all(
+      unique.map((id, index) => this.rows.updateOne({ _id: id }, { $set: { sortOrder: index } })),
+    );
+    await this.bump();
+    return this.listRows();
+  }
+
+  async seedCatalogRows(): Promise<HomeRowConfigDocument[]> {
+    const existing = await this.listRows();
+    const usedKinds = new Set(existing.map((row) => row.kind));
+    let order = existing.length;
+    for (const preset of HOME_CATALOG_ROW_PRESETS) {
+      if (usedKinds.has(preset.kind)) continue;
+      await this.rows.create({
+        title: preset.defaultTitle,
+        kind: preset.kind,
+        enabled: true,
+        sortOrder: order,
+        genre: null,
+        collectionId: null,
+        itemIds: [],
+      });
+      order += 1;
+    }
+    await this.bump();
+    return this.listRows();
   }
 
   toPublicHero(hero: HomeHeroDocument): AdminHomeHero {

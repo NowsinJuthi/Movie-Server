@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -129,4 +130,12 @@ export class UpdateHomeRowDto {
   @ArrayMaxSize(40)
   @IsString({ each: true })
   itemIds?: string[];
+}
+
+export class ReorderHomeRowsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsMongoId({ each: true })
+  ids!: string[];
 }
