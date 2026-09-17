@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ErrorCode, MaturityLevel, UserRole } from '@movie-server/shared';
+import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { CreateMediaAssetDto, UpdateMediaAssetDto } from '../movies/dto/media-asset.dto';
@@ -44,6 +45,7 @@ export class AdminSeriesController {
   }
 
   @Post('bulk')
+  @Permissions('manage_series')
   async bulk(@Body() dto: BulkSeriesDto) {
     const result = await this.series.bulkSeries(dto.ids, dto.action);
     return { ...result, action: dto.action };
@@ -61,6 +63,7 @@ export class AdminSeriesController {
   }
 
   @Delete(':id')
+  @Permissions('manage_series')
   async remove(@Param('id', ParseObjectIdPipe) id: string) {
     await this.series.removeSeries(id);
     return { deleted: true };

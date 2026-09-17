@@ -10,7 +10,9 @@ import {
   Trash2,
   Tv,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { hasMinimumRole, UserRole } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { SeriesEditDialog } from "@/components/admin/series-edit-dialog";
@@ -18,19 +20,42 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { seriesApi } from "@/lib/series-api";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import styles from "../collections/collections-page.module.css";
 
 export default function AdminSeriesCollectionsPage() {
+  const router = useRouter();
+  const { user, status } = useAuthStore();
+  const { can, canAny, isLoading: permissionsLoading } = useAdminPermissions();
+  const canManageSeries = can("manage_series");
+  const canAccessCatalog = canAny("manage_collections", "view_series", "manage_series");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [editSeriesId, setEditSeriesId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (status === "anonymous") {
+      router.replace("/login?next=/admin/series-collections");
+    } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
+      router.replace("/unauthorized");
+    } else if (
+      user &&
+      hasMinimumRole(user.role, UserRole.Admin) &&
+      !permissionsLoading &&
+      !canAccessCatalog
+    ) {
+      router.replace("/admin/file-manager");
+    }
+  }, [status, user, router, permissionsLoading, canAccessCatalog]);
+
   const seriesQuery = useQuery({
     queryKey: ["admin-series", "collections-bulk", q],
     queryFn: () => seriesApi.adminList({ q: q || undefined, limit: 50, sort: "newest" }),
+    enabled: Boolean(user && hasMinimumRole(user.role, UserRole.Admin) && canAccessCatalog),
   });
 
   const bulk = useMutation({
@@ -58,6 +83,20 @@ export default function AdminSeriesCollectionsPage() {
       featured,
     };
   }, [items]);
+
+  if (
+    status === "loading" ||
+    !user ||
+    !hasMinimumRole(user.role, UserRole.Admin) ||
+    permissionsLoading ||
+    !canAccessCatalog
+  ) {
+    return (
+      <AdminPage title="Series collections" description="Browse TV series and run bulk catalog actions.">
+        <p className="text-sm text-muted-foreground">Checking access...</p>
+      </AdminPage>
+    );
+  }
 
   return (
     <AdminPage
@@ -153,15 +192,17 @@ export default function AdminSeriesCollectionsPage() {
             >
               Unpublish
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={!selected.length || bulk.isPending}
-              onClick={() => setPendingDelete(true)}
-            >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
+            {canManageSeries ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!selected.length || bulk.isPending}
+                onClick={() => setPendingDelete(true)}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Delete
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -276,15 +317,17 @@ export default function AdminSeriesCollectionsPage() {
           ) : null}
         </div>
 
-        <ConfirmDialog
-          open={pendingDelete}
-          title="Delete selected series?"
-          description="Published and draft series will be removed with their seasons and episodes. This cannot be undone from the admin UI."
-          confirmLabel="Delete"
-          pending={bulk.isPending}
-          onClose={() => setPendingDelete(false)}
-          onConfirm={() => bulk.mutate("delete")}
-        />
+        {canManageSeries ? (
+          <ConfirmDialog
+            open={pendingDelete}
+            title="Delete selected series?"
+            description="Published and draft series will be removed with their seasons and episodes. This cannot be undone from the admin UI."
+            confirmLabel="Delete"
+            pending={bulk.isPending}
+            onClose={() => setPendingDelete(false)}
+            onConfirm={() => bulk.mutate("delete")}
+          />
+        ) : null}
 
         <SeriesEditDialog
           seriesId={editSeriesId}

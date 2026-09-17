@@ -10,7 +10,9 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { hasMinimumRole, UserRole } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { MovieEditDialog } from "@/components/admin/movie-edit-dialog";
@@ -18,19 +20,42 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { movieApi } from "@/lib/movie-api";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
+import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import styles from "./collections-page.module.css";
 
 export default function AdminCollectionsPage() {
+  const router = useRouter();
+  const { user, status } = useAuthStore();
+  const { can, canAny, isLoading: permissionsLoading } = useAdminPermissions();
+  const canManageMovies = can("manage_movies");
+  const canAccessCatalog = canAny("manage_collections", "view_movies", "manage_movies");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [pendingDeleteMovies, setPendingDeleteMovies] = useState(false);
   const [editMovieId, setEditMovieId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (status === "anonymous") {
+      router.replace("/login?next=/admin/collections");
+    } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
+      router.replace("/unauthorized");
+    } else if (
+      user &&
+      hasMinimumRole(user.role, UserRole.Admin) &&
+      !permissionsLoading &&
+      !canAccessCatalog
+    ) {
+      router.replace("/admin/file-manager");
+    }
+  }, [status, user, router, permissionsLoading, canAccessCatalog]);
+
   const moviesQuery = useQuery({
     queryKey: ["admin-movies", "collections-bulk", q],
     queryFn: () => movieApi.adminList({ q: q || undefined, limit: 50, sort: "newest" }),
+    enabled: Boolean(user && hasMinimumRole(user.role, UserRole.Admin) && canAccessCatalog),
   });
 
   const bulk = useMutation({
@@ -58,6 +83,20 @@ export default function AdminCollectionsPage() {
       featured,
     };
   }, [items]);
+
+  if (
+    status === "loading" ||
+    !user ||
+    !hasMinimumRole(user.role, UserRole.Admin) ||
+    permissionsLoading ||
+    !canAccessCatalog
+  ) {
+    return (
+      <AdminPage title="Movie collections" description="Browse titles and run bulk catalog actions.">
+        <p className="text-sm text-muted-foreground">Checking access...</p>
+      </AdminPage>
+    );
+  }
 
   return (
     <AdminPage
@@ -153,15 +192,17 @@ export default function AdminCollectionsPage() {
             >
               Unpublish
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={!selected.length || bulk.isPending}
-              onClick={() => setPendingDeleteMovies(true)}
-            >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
+            {canManageMovies ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!selected.length || bulk.isPending}
+                onClick={() => setPendingDeleteMovies(true)}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Delete
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -275,15 +316,17 @@ export default function AdminCollectionsPage() {
           ) : null}
         </div>
 
-        <ConfirmDialog
-          open={pendingDeleteMovies}
-          title="Delete selected movies?"
-          description="Published and draft titles will be removed. This cannot be undone from the admin UI."
-          confirmLabel="Delete"
-          pending={bulk.isPending}
-          onClose={() => setPendingDeleteMovies(false)}
-          onConfirm={() => bulk.mutate("delete")}
-        />
+        {canManageMovies ? (
+          <ConfirmDialog
+            open={pendingDeleteMovies}
+            title="Delete selected movies?"
+            description="Published and draft titles will be removed. This cannot be undone from the admin UI."
+            confirmLabel="Delete"
+            pending={bulk.isPending}
+            onClose={() => setPendingDeleteMovies(false)}
+            onConfirm={() => bulk.mutate("delete")}
+          />
+        ) : null}
 
         <MovieEditDialog
           movieId={editMovieId}
