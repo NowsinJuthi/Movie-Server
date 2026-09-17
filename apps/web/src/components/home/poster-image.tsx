@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function PosterImage({
   src,
@@ -13,13 +13,21 @@ export function PosterImage({
   className?: string;
   priority?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    setFailed(false);
+    setRetry(0);
   }, [src]);
 
-  if (!src || failed) {
+  const displaySrc = useMemo(() => {
+    if (!src || retry === 0) {
+      return src;
+    }
+    const separator = src.includes("?") ? "&" : "?";
+    return `${src}${separator}retry=${retry}`;
+  }, [src, retry]);
+
+  if (!displaySrc) {
     return <div className={className} aria-hidden />;
   }
 
@@ -27,13 +35,18 @@ export function PosterImage({
     // Artwork is cookie-authenticated; the Next optimizer cannot send the session cookie.
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      key={displaySrc}
+      src={displaySrc}
       alt={alt}
       className={className}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       draggable={false}
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (retry < 1) {
+          setRetry((value) => value + 1);
+        }
+      }}
     />
   );
 }

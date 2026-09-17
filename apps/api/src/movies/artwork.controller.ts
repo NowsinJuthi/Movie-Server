@@ -1,14 +1,18 @@
-import { Controller, Get, NotFoundException, Param, Res } from '@nestjs/common';
+import { Controller, Get, Header, NotFoundException, Param, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { ErrorCode, hasMinimumRole, UserRole } from '@movie-server/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { SkipLicense } from '../common/decorators/skip-license.decorator';
 import { RequestUser } from '../auth/auth.types';
 import { ArtworkStorageService } from './artwork-storage.service';
 import { MoviesService } from './movies.service';
 import { isArtworkKey } from './movie.util';
 
 @Controller('media/artwork')
+@SkipThrottle()
+@SkipLicense()
 export class ArtworkController {
   constructor(
     private readonly artwork: ArtworkStorageService,
@@ -17,6 +21,7 @@ export class ArtworkController {
 
   @Public()
   @Get(':key')
+  @Header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800')
   async get(@Param('key') key: string, @CurrentUser() user: RequestUser | undefined, @Res() res: Response) {
     if (!isArtworkKey(key)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Not found.' });

@@ -1,4 +1,5 @@
 import { Controller, Get, Header, Res } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { SkipLicense } from '../common/decorators/skip-license.decorator';
@@ -18,6 +19,7 @@ export class PublicSettingsController {
 
   @Public()
   @SkipLicense()
+  @SkipThrottle()
   @Get('branding/logo')
   @Header('Cache-Control', 'public, max-age=300')
   async logo(@Res() res: Response) {
@@ -28,6 +30,7 @@ export class PublicSettingsController {
 
   @Public()
   @SkipLicense()
+  @SkipThrottle()
   @Get('branding/favicon')
   @Header('Cache-Control', 'public, max-age=300')
   async favicon(@Res() res: Response) {
