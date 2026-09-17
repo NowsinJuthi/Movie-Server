@@ -1840,7 +1840,7 @@ export function StreamPlayer({
       <video
         ref={videoRef}
         className={cn(
-          "bg-black",
+          "border-0 bg-black outline-none",
           mobileLayout
             ? "absolute inset-0 z-[1] h-full w-full object-contain"
             : cn("h-screen w-full", videoObjectClass),
@@ -2070,7 +2070,7 @@ export function StreamPlayer({
         <button
           type="button"
           aria-label={playing ? "Pause" : "Play"}
-          className="relative z-10 min-h-[30vh] w-full flex-1 cursor-pointer bg-transparent"
+          className="relative z-10 min-h-[30vh] w-full flex-1 cursor-pointer border-0 bg-transparent outline-none"
           onClick={onSkinClick}
         />
 
