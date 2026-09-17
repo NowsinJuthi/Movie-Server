@@ -853,6 +853,7 @@ export class MoviesService {
       currentStreamCount?: number;
       deviceId?: string;
       deviceLabel?: string;
+      clientIp?: string;
       hevcDirectStream?: boolean;
       forceVideoTranscode?: boolean;
     },
@@ -888,6 +889,7 @@ export class MoviesService {
         quality,
         deviceId: extras?.deviceId,
         deviceLabel: extras?.deviceLabel,
+        clientIp: extras?.clientIp,
         clientHevc: extras?.hevcDirectStream,
         forceVideoTranscode: extras?.forceVideoTranscode,
         movieId: String(movie._id),

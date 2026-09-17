@@ -169,7 +169,9 @@ export default function DevicesPage() {
                         {device.platform ? ` · ${device.platform}` : ""}
                         {device.countsTowardLimit ? "" : " · login only"}
                       </p>
-                      <p className="text-xs text-muted-foreground">Last active {formatTime(device.lastActiveAt)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {device.ip ? `IP ${device.ip} · ` : ""}Last active {formatTime(device.lastActiveAt)}
+                      </p>
                       {device.suspicious ? (
                         <p className="text-xs text-destructive">Flagged: {(device.flags ?? []).join(", ") || "suspicious activity"}</p>
                       ) : null}
@@ -219,7 +221,9 @@ export default function DevicesPage() {
                     <p className="text-sm text-muted-foreground">
                       {session.deviceType ?? "unknown"} · expires {formatTime(session.expiresAt)}
                     </p>
-                    <p className="text-xs text-muted-foreground">Last active {formatTime(session.lastActiveAt)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {session.ip ? `IP ${session.ip} · ` : ""}Last active {formatTime(session.lastActiveAt)}
+                    </p>
                   </div>
                   {session.current ? null : (
                     <Button

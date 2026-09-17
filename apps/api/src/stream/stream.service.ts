@@ -88,6 +88,7 @@ export class StreamService {
     quality: VideoQuality;
     deviceId?: string;
     deviceLabel?: string;
+    clientIp?: string;
     movieId?: string;
     episodeId?: string;
     seriesId?: string;
@@ -161,6 +162,10 @@ export class StreamService {
           deviceId,
           deviceLabel,
           entitlement.maxDevices,
+          {
+            ip: input.clientIp,
+            userAgent: deviceLabel,
+          },
         ),
         this.loadTracks(input.movieId, input.episodeId),
         this.profiles.get(input.user.id, profileId),

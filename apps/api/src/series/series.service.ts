@@ -551,6 +551,7 @@ export class SeriesService {
       currentStreamCount?: number;
       deviceId?: string;
       deviceLabel?: string;
+      clientIp?: string;
       hevcDirectStream?: boolean;
       forceVideoTranscode?: boolean;
     },
@@ -578,6 +579,7 @@ export class SeriesService {
       quality,
       deviceId: extras?.deviceId,
       deviceLabel: extras?.deviceLabel,
+      clientIp: extras?.clientIp,
       clientHevc: extras?.hevcDirectStream,
       forceVideoTranscode: extras?.forceVideoTranscode,
       episodeId,

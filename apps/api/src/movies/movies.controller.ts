@@ -64,6 +64,7 @@ export class MoviesController {
       currentStreamCount: dto.currentStreamCount,
       deviceId: dto.deviceId,
       deviceLabel: req.get('user-agent') || dto.deviceLabel,
+      clientIp: req.ip,
       hevcDirectStream: dto.hevcDirectStream,
       forceVideoTranscode: dto.forceVideoTranscode,
     });

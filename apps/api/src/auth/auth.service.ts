@@ -149,6 +149,7 @@ export class AuthService {
 
   async logoutAll(res: Response, user: RequestUser): Promise<{ message: string }> {
     await this.playback.stopAllForUser(user.id);
+    await this.devices.revokeAllForUser(user.id);
     await this.sessions.revokeAllForUser(user.id);
     const dbUser = await this.users.findById(user.id, true);
     if (dbUser) {
@@ -364,7 +365,7 @@ export class AuthService {
     return { user: toPublicUser(user) };
   }
 
-  async validateAccessPayload(payload: AccessTokenPayload): Promise<RequestUser> {
+  async validateAccessPayload(payload: AccessTokenPayload, clientIp?: string): Promise<RequestUser> {
     if (payload.typ !== 'access') {
       throw new UnauthorizedException({
         error: ErrorCode.InvalidToken,
@@ -402,9 +403,10 @@ export class AuthService {
       });
     }
 
-    await this.sessions.touch(payload.sid);
+    const ip = clientIp?.trim() || undefined;
+    await this.sessions.touch(payload.sid, ip ? { ip } : undefined);
     if (session.deviceKey) {
-      await this.devices.touch(String(user._id), session.deviceKey);
+      await this.devices.touch(String(user._id), session.deviceKey, ip ? { ip } : undefined);
     }
 
     const rules = user.subscriptionStaffRules;

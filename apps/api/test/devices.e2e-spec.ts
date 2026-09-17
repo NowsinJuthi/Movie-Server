@@ -228,6 +228,12 @@ describe('Devices and sessions (e2e)', () => {
     const afterLogout = await request(server).get(`${prefix}/auth/me`).set('Cookie', secondLogin);
     expect(afterLogout.status).toBe(401);
 
+    const freshLogin = await login('device-viewer@example.com', { deviceId: 'desk-01', deviceName: 'Desk' });
+    const afterLogoutAll = await request(server).get(`${prefix}/devices`).set('Cookie', freshLogin);
+    expect(afterLogoutAll.status).toBe(200);
+    expect(afterLogoutAll.body.deviceCount).toBe(0);
+    expect(afterLogoutAll.body.streamCount).toBe(0);
+
     const anon = await request(server).get(`${prefix}/devices`);
     expect(anon.status).toBe(401);
   });

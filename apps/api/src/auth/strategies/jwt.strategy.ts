@@ -20,10 +20,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       ]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      passReqToCallback: true,
     });
   }
 
-  validate(payload: AccessTokenPayload): Promise<RequestUser> {
-    return this.authService.validateAccessPayload(payload);
+  validate(req: Request, payload: AccessTokenPayload): Promise<RequestUser> {
+    return this.authService.validateAccessPayload(payload, req.ip);
   }
 }

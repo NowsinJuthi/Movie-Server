@@ -127,6 +127,11 @@ export class PlaybackSessionStore {
     for (const session of active) {
       await this.stop(session.id, userId);
     }
+    await this.clearDevicesForUser(userId);
+  }
+
+  async clearDevicesForUser(userId: string): Promise<void> {
+    await this.redis.client.del(this.deviceKey(userId));
   }
 
   async listAllLive(): Promise<StoredPlaybackSession[]> {
@@ -234,7 +239,13 @@ export class PlaybackSessionStore {
     return stoppedIds;
   }
 
-  async registerDevice(userId: string, deviceId: string, label: string, maxDevices: number): Promise<void> {
+  async registerDevice(
+    userId: string,
+    deviceId: string,
+    label: string,
+    maxDevices: number,
+    extras?: { ip?: string; userAgent?: string },
+  ): Promise<void> {
     const devices = await this.devicesMap(userId);
     const now = Date.now();
     const windowMs = 30 * 24 * 60 * 60 * 1000;
@@ -252,7 +263,7 @@ export class PlaybackSessionStore {
     }
     devices[deviceId] = { lastSeen: now, label: label.slice(0, 80) || 'AmarPin' };
     await this.redis.client.set(this.deviceKey(userId), JSON.stringify(devices), 'PX', windowMs);
-    await this.devices.registerForPlayback(userId, deviceId, label, maxDevices, undefined, { skipLimit: true });
+    await this.devices.registerForPlayback(userId, deviceId, label, maxDevices, extras, { skipLimit: true });
   }
 
   private async touchDevice(userId: string, deviceId: string, label: string): Promise<void> {

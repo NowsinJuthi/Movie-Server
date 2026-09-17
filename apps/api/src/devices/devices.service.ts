@@ -175,6 +175,14 @@ export class DevicesService {
     return device;
   }
 
+  async revokeAllForUser(userId: string): Promise<number> {
+    const result = await this.deviceModel.updateMany(
+      { userId: new Types.ObjectId(userId), revoked: false },
+      { $set: { revoked: true, revokedAt: new Date(), countsTowardLimit: false } },
+    );
+    return result.modifiedCount ?? 0;
+  }
+
   async touch(userId: string, deviceKey: string, extras?: { ip?: string }): Promise<void> {
     if (!deviceKey) return;
     await this.deviceModel.updateOne(
