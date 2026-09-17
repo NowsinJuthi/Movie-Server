@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  HOME_ADVANCED_ROW_PRESETS,
   HOME_AUTO_PERSONALIZED_ROW_PRESETS,
   HOME_LAYOUT_ROW_PRESETS,
   HOME_LIBRARY_ROW_PRESET,
@@ -510,23 +509,6 @@ export default function AdminHomePage() {
               })}
             </div>
           )}
-        </section>
-
-        <section className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div>
-              <h2 className={styles.panelTitle}>Collections & advanced</h2>
-              <p className={styles.panelHint}>Curated collections, genre rows, or hand-picked title lists.</p>
-            </div>
-          </div>
-          <div className={styles.presetGrid}>
-            {HOME_ADVANCED_ROW_PRESETS.map((preset) => (
-              <button key={preset.kind} type="button" className={styles.presetCard} onClick={() => openCreate(preset)}>
-                <p className={styles.presetLabel}>{preset.label}</p>
-                <p className={styles.presetDescription}>{preset.description}</p>
-              </button>
-            ))}
-          </div>
         </section>
 
         <section className={styles.panel}>
