@@ -18,15 +18,8 @@ import {
 import { MovieDocument } from './schemas/movie.schema';
 import { MovieCollectionDocument } from './schemas/movie-collection.schema';
 import { MediaAssetDocument } from './schemas/media-asset.schema';
-import { artworkPublicPath } from './movie.util';
+import { resolvePublicArtworkUrl } from './movie.util';
 import { toPlaybackMarkers } from '../stream/playback-markers.util';
-
-function publicImageUrl(url?: string | null, key?: string | null): string | null {
-  if (key) {
-    return artworkPublicPath(key);
-  }
-  return url ?? null;
-}
 
 function asRatings(ratings?: MovieDocument['ratings'] | null): MovieRatings {
   return {
@@ -93,8 +86,8 @@ export function toPublicMovie(
     title: movie.title,
     originalTitle: movie.originalTitle ?? null,
     description: movie.description,
-    posterUrl: publicImageUrl(movie.posterUrl, movie.posterKey),
-    backdropUrl: publicImageUrl(movie.backdropUrl, movie.backdropKey),
+    posterUrl: resolvePublicArtworkUrl(movie.posterUrl, movie.posterKey),
+    backdropUrl: resolvePublicArtworkUrl(movie.backdropUrl, movie.backdropKey),
     trailerUrl: movie.trailerUrl ?? null,
     releaseYear: movie.releaseYear,
     year: movie.releaseYear,

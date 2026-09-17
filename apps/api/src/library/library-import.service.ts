@@ -6,6 +6,7 @@ import { Model, Types } from 'mongoose';
 import { LibraryFileKind, LibraryKind, LibraryMatchType, MaturityLevel } from '@movie-server/shared';
 import { sniffImageMime } from '../common/security/image-bytes';
 import { MoviesService } from '../movies/movies.service';
+import { looksLikeFilesystemPath } from '../movies/movie.util';
 import { Movie, MovieDocument } from '../movies/schemas/movie.schema';
 import { ArtworkStorageService } from '../movies/artwork-storage.service';
 import { SeriesService } from '../series/series.service';
@@ -427,7 +428,7 @@ export class LibraryImportService {
   }
 
   private async needsMovieArtwork(movie: MovieDocument): Promise<boolean> {
-    if (movie.posterUrl) {
+    if (movie.posterUrl && !looksLikeFilesystemPath(movie.posterUrl)) {
       return false;
     }
     if (!movie.posterKey && !movie.backdropKey) {
@@ -443,7 +444,7 @@ export class LibraryImportService {
   }
 
   private async needsSeriesArtwork(series: SeriesDocument): Promise<boolean> {
-    if (series.posterUrl) {
+    if (series.posterUrl && !looksLikeFilesystemPath(series.posterUrl)) {
       return false;
     }
     if (!series.posterKey && !series.backdropKey) {

@@ -68,6 +68,34 @@ export function artworkPublicPath(key: string): string {
   return `/api/v1/media/artwork/${key}`;
 }
 
+export function seriesArtworkPublicPath(key: string): string {
+  return `/api/v1/series/artwork/${key}`;
+}
+
+export function resolvePublicArtworkUrl(
+  url?: string | null,
+  key?: string | null,
+  route: 'media' | 'series' = 'media',
+): string | null {
+  if (key && isArtworkKey(key)) {
+    return route === 'series' ? seriesArtworkPublicPath(key) : artworkPublicPath(key);
+  }
+  if (!url) {
+    return null;
+  }
+  const trimmed = url.trim();
+  if (!trimmed || looksLikeFilesystemPath(trimmed)) {
+    return null;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
+
 export function isArtworkKey(value: string): boolean {
   return /^[a-f0-9]{32}\.(jpg|jpeg|png|webp)$/i.test(value);
 }

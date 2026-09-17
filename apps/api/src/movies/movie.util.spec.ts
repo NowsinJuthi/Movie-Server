@@ -1,4 +1,10 @@
-import { looksLikeFilesystemPath, slugify, isSafeHttpUrl, escapeRegex } from './movie.util';
+import {
+  looksLikeFilesystemPath,
+  resolvePublicArtworkUrl,
+  slugify,
+  isSafeHttpUrl,
+  escapeRegex,
+} from './movie.util';
 
 describe('movie.util', () => {
   it('slugifies titles', () => {
@@ -17,5 +23,15 @@ describe('movie.util', () => {
 
   it('escapes regex metacharacters for search', () => {
     expect(escapeRegex('a+b(c)')).toBe('a\\+b\\(c\\)');
+  });
+
+  it('resolves artwork keys and rejects filesystem poster paths', () => {
+    expect(resolvePublicArtworkUrl(null, 'a1b2c3d4e5f6789012345678abcdef01.jpg')).toBe(
+      '/api/v1/media/artwork/a1b2c3d4e5f6789012345678abcdef01.jpg',
+    );
+    expect(resolvePublicArtworkUrl('C:\\Movies\\poster.jpg', null)).toBeNull();
+    expect(resolvePublicArtworkUrl('https://image.tmdb.org/poster.jpg', null)).toBe(
+      'https://image.tmdb.org/poster.jpg',
+    );
   });
 });

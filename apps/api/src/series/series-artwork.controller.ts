@@ -2,6 +2,7 @@ import { Controller, Get, NotFoundException, Param, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ErrorCode, hasMinimumRole, UserRole } from '@movie-server/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { RequestUser } from '../auth/auth.types';
 import { ArtworkStorageService } from '../movies/artwork-storage.service';
 import { isArtworkKey } from '../movies/movie.util';
@@ -14,8 +15,9 @@ export class SeriesArtworkController {
     private readonly series: SeriesService,
   ) {}
 
+  @Public()
   @Get(':key')
-  async get(@Param('key') key: string, @CurrentUser() user: RequestUser, @Res() res: Response) {
+  async get(@Param('key') key: string, @CurrentUser() user: RequestUser | undefined, @Res() res: Response) {
     if (!isArtworkKey(key)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Not found.' });
     }
@@ -23,7 +25,7 @@ export class SeriesArtworkController {
     if (!owner) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Not found.' });
     }
-    const isAdmin = hasMinimumRole(user.role, UserRole.Admin);
+    const isAdmin = user ? hasMinimumRole(user.role, UserRole.Admin) : false;
     if (!owner.published && !isAdmin) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Not found.' });
     }

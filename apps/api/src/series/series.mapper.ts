@@ -21,16 +21,7 @@ import { EpisodeDocument } from './schemas/episode.schema';
 import { MediaAssetDocument } from '../movies/schemas/media-asset.schema';
 import { toPlaybackMarkers } from '../stream/playback-markers.util';
 
-export function seriesArtworkPath(key: string): string {
-  return `/api/v1/series/artwork/${key}`;
-}
-
-function publicImageUrl(url?: string | null, key?: string | null): string | null {
-  if (key) {
-    return seriesArtworkPath(key);
-  }
-  return url ?? null;
-}
+import { resolvePublicArtworkUrl } from '../movies/movie.util';
 
 function asRatings(ratings?: SeriesDocument['ratings'] | null): MovieRatings {
   return {
@@ -83,8 +74,8 @@ export function toPublicSeries(
     title: series.title,
     originalTitle: series.originalTitle ?? null,
     description: series.description,
-    posterUrl: publicImageUrl(series.posterUrl, series.posterKey),
-    backdropUrl: publicImageUrl(series.backdropUrl, series.backdropKey),
+    posterUrl: resolvePublicArtworkUrl(series.posterUrl, series.posterKey, 'series'),
+    backdropUrl: resolvePublicArtworkUrl(series.backdropUrl, series.backdropKey, 'series'),
     firstAirYear: series.firstAirYear,
     lastAirYear: series.lastAirYear ?? null,
     genres: series.genres ?? [],
@@ -128,7 +119,7 @@ export function toPublicSeason(season: SeasonDocument, episodeCount = 0): Public
     seasonNumber: season.seasonNumber,
     name: season.name,
     description: season.description ?? '',
-    posterUrl: publicImageUrl(season.posterUrl, season.posterKey),
+    posterUrl: resolvePublicArtworkUrl(season.posterUrl, season.posterKey, 'series'),
     airDate: isoDate(season.airDate),
     published: season.published,
     episodeCount,
@@ -160,7 +151,7 @@ export function toPublicEpisode(
     episodeNumber: episode.episodeNumber,
     title: episode.title,
     description: episode.description,
-    thumbnailUrl: publicImageUrl(episode.thumbnailUrl, episode.thumbnailKey),
+    thumbnailUrl: resolvePublicArtworkUrl(episode.thumbnailUrl, episode.thumbnailKey, 'series'),
     runtimeMinutes: episode.runtimeMinutes,
     airDate: isoDate(episode.airDate),
     published: episode.published,

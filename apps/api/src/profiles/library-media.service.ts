@@ -5,8 +5,7 @@ import { ErrorCode, type LibraryTitleCard, type PersonalizationMediaKind } from 
 import { Movie, MovieDocument } from '../movies/schemas/movie.schema';
 import { Series, SeriesDocument } from '../series/schemas/series.schema';
 import { Episode, EpisodeDocument } from '../series/schemas/episode.schema';
-import { artworkPublicPath } from '../movies/movie.util';
-import { seriesArtworkPath } from '../series/series.mapper';
+import { resolvePublicArtworkUrl } from '../movies/movie.util';
 
 @Injectable()
 export class LibraryMediaService {
@@ -72,7 +71,7 @@ export class LibraryMediaService {
           title: movie.title,
           kind: 'movie' as const,
           href: `/home/movies/${mediaId}`,
-          posterUrl: movie.posterKey ? artworkPublicPath(movie.posterKey) : (movie.posterUrl ?? null),
+          posterUrl: resolvePublicArtworkUrl(movie.posterUrl, movie.posterKey),
           year: movie.releaseYear,
         };
       }
@@ -83,7 +82,7 @@ export class LibraryMediaService {
           title: show.title,
           kind: 'series' as const,
           href: `/home/series/${mediaId}`,
-          posterUrl: show.posterKey ? seriesArtworkPath(show.posterKey) : (show.posterUrl ?? null),
+          posterUrl: resolvePublicArtworkUrl(show.posterUrl, show.posterKey, 'series'),
           year: show.firstAirYear,
         };
       }
@@ -95,7 +94,7 @@ export class LibraryMediaService {
           title: `${parent.title} · S${episode.seasonNumber}:E${episode.episodeNumber} ${episode.title}`,
           kind: 'episode' as const,
           href: `/home/series/${String(parent._id)}/watch/${mediaId}`,
-          posterUrl: parent.posterKey ? seriesArtworkPath(parent.posterKey) : (parent.posterUrl ?? null),
+          posterUrl: resolvePublicArtworkUrl(parent.posterUrl, parent.posterKey, 'series'),
           year: parent.firstAirYear,
         };
       }
