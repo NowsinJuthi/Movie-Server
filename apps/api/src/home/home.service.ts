@@ -249,12 +249,12 @@ export class HomeService {
           );
         }),
       );
-      const personalized = rows.filter((row) => row?.source === HomeRowSource.Personalized);
-      const usedKinds = new Set(cmsRows.map((cfg) => cfg.kind));
-      const leftover = rows.filter(
-        (row) => row && row.source !== HomeRowSource.Personalized && !usedKinds.has(row.kind),
+      const autoPersonalized = rows.filter(
+        (row) =>
+          row?.source === HomeRowSource.Personalized &&
+          (row.kind === HomeRowKind.RecentlyWatched || row.kind === HomeRowKind.BecauseYouWatched),
       );
-      rows = [...personalized, ...built, ...leftover].filter((row): row is HomeRow => Boolean(row));
+      rows = [...autoPersonalized, ...built].filter((row): row is HomeRow => Boolean(row));
     }
 
     const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };

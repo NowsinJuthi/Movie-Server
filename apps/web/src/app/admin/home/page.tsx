@@ -15,12 +15,17 @@ import {
 import { useMemo, useState } from "react";
 import {
   HOME_ADVANCED_ROW_PRESETS,
+  HOME_AUTO_PERSONALIZED_ROW_PRESETS,
   HOME_CATALOG_ROW_PRESETS,
+  HOME_LAYOUT_ROW_PRESETS,
   HOME_LIBRARY_ROW_PRESET,
+  HOME_MORE_GENRE_ROW_PRESETS,
   HOME_PERSONALIZED_ROW_PRESETS,
   HomeRowKind,
+  genreDisplayName,
   homeRowKindLabel,
   homeRowPreset,
+  homeRowPresetKey,
   type AdminHomeRow,
   type AdminLibrary,
   type HomeRowPreset,
@@ -67,7 +72,7 @@ function rowDetail(
     return collectionLabels.get(row.collectionId) ?? row.collectionId;
   }
   if (row.kind === HomeRowKind.Genre && row.genre) {
-    return `Genre · ${row.genre}`;
+    return `Genre · ${genreDisplayName(row.genre)}`;
   }
   if (row.kind === HomeRowKind.Manual && row.itemIds.length > 0) {
     return `${row.itemIds.length} hand-picked titles`;
@@ -143,7 +148,17 @@ export default function AdminHomePage() {
     return labels;
   }, [libraryOptions]);
 
-  const configuredKinds = useMemo(() => new Set(sortedRows.map((row) => row.kind)), [sortedRows]);
+  const configuredPresetKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const row of sortedRows) {
+      if (row.kind === HomeRowKind.Genre && row.genre) {
+        keys.add(`genre:${row.genre}`);
+      } else {
+        keys.add(row.kind);
+      }
+    }
+    return keys;
+  }, [sortedRows]);
   const configuredLibraryIds = useMemo(
     () =>
       new Set(
@@ -160,12 +175,14 @@ export default function AdminHomePage() {
       total: sortedRows.length,
       active,
       hidden: sortedRows.length - active,
-      catalogAvailable: HOME_CATALOG_ROW_PRESETS.filter((preset) => !configuredKinds.has(preset.kind)).length,
+      layoutAvailable: HOME_LAYOUT_ROW_PRESETS.filter(
+        (preset) => !configuredPresetKeys.has(homeRowPresetKey(preset)),
+      ).length,
       librariesAvailable: libraryOptions.filter(
         (library) => library.enabled && !configuredLibraryIds.has(library.id),
       ).length,
     };
-  }, [sortedRows, configuredKinds, libraryOptions, configuredLibraryIds]);
+  }, [sortedRows, configuredPresetKeys, libraryOptions, configuredLibraryIds]);
 
   const invalidateRows = () => queryClient.invalidateQueries({ queryKey: ["admin-home-rows"] });
 
@@ -198,8 +215,8 @@ export default function AdminHomePage() {
     mutationFn: (ids: string[]) => adminApi.reorderHomeRows(ids),
     onSuccess: invalidateRows,
   });
-  const seedCatalog = useMutation({
-    mutationFn: adminApi.seedHomeCatalogRows,
+  const seedLayout = useMutation({
+    mutationFn: adminApi.seedHomeLayoutRows,
     onSuccess: invalidateRows,
   });
   const seedLibraries = useMutation({
@@ -223,9 +240,9 @@ export default function AdminHomePage() {
           ? create.error.message
           : update.error instanceof ApiError
             ? update.error.message
-            : seedCatalog.error instanceof ApiError
-              ? seedCatalog.error.message
-              : seedLibraries.error instanceof ApiError
+            : seedLayout.error instanceof ApiError
+                ? seedLayout.error.message
+                : seedLibraries.error instanceof ApiError
                 ? seedLibraries.error.message
                 : remove.error instanceof ApiError
                 ? remove.error.message
@@ -262,13 +279,15 @@ export default function AdminHomePage() {
   function presetDisabled(preset: HomeRowPreset) {
     if (
       preset.kind === HomeRowKind.Collection ||
-      preset.kind === HomeRowKind.Genre ||
       preset.kind === HomeRowKind.Manual ||
       preset.kind === HomeRowKind.Library
     ) {
       return false;
     }
-    return configuredKinds.has(preset.kind);
+    if (preset.kind === HomeRowKind.Genre && preset.genre) {
+      return configuredPresetKeys.has(homeRowPresetKey(preset));
+    }
+    return configuredPresetKeys.has(homeRowPresetKey(preset));
   }
 
   return (
@@ -282,11 +301,11 @@ export default function AdminHomePage() {
             type="button"
             size="sm"
             variant="outline"
-            disabled={seedCatalog.isPending || stats.catalogAvailable === 0}
-            onClick={() => seedCatalog.mutate()}
+            disabled={seedLayout.isPending || stats.layoutAvailable === 0}
+            onClick={() => seedLayout.mutate()}
           >
             <Layers3 className="mr-1.5 h-3.5 w-3.5" />
-            {seedCatalog.isPending ? "Adding..." : "Add default shelves"}
+            {seedLayout.isPending ? "Adding..." : "Add homepage shelves"}
           </Button>
           <Button type="button" size="sm" onClick={() => openCreate()}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -310,10 +329,38 @@ export default function AdminHomePage() {
             <span className={styles.statValue}>{stats.hidden}</span>
           </div>
           <div className={styles.stat}>
-            <span className={styles.statLabel}>Defaults available</span>
-            <span className={styles.statValue}>{stats.catalogAvailable}</span>
+            <span className={styles.statLabel}>Shelves to add</span>
+            <span className={styles.statValue}>{stats.layoutAvailable}</span>
           </div>
         </div>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Standard homepage shelves</h2>
+              <p className={styles.panelHint}>
+                Featured, Trending, Recommended, Recently Added, New Releases, and top genre rows.
+                Click to add — remove from the list above.
+              </p>
+            </div>
+          </div>
+          <div className={styles.presetGrid}>
+            {HOME_LAYOUT_ROW_PRESETS.map((preset) => (
+              <button
+                key={homeRowPresetKey(preset)}
+                type="button"
+                className={styles.presetCard}
+                disabled={presetDisabled(preset)}
+                onClick={() => openCreate(preset)}
+              >
+                <p className={styles.presetLabel}>{preset.defaultTitle}</p>
+                <p className={styles.presetDescription}>
+                  {presetDisabled(preset) ? "On homepage — delete above to remove" : preset.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
 
         <section className={styles.heroPanel}>
           <div className="mb-3 flex items-center gap-2">
@@ -368,7 +415,7 @@ export default function AdminHomePage() {
           {sortedRows.length === 0 ? (
             <div className={styles.emptyState}>
               <p>No shelves configured yet.</p>
-              <p className="mt-2">Use <strong>Add default shelves</strong> to load Featured, Trending, Popular Movies, and more.</p>
+              <p className="mt-2">Use <strong>Add homepage shelves</strong> to load Featured, Trending, genres, and more.</p>
             </div>
           ) : (
             <div className={styles.shelfList}>
@@ -512,15 +559,56 @@ export default function AdminHomePage() {
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
-              <h2 className={styles.panelTitle}>Automatic profile rows</h2>
+              <h2 className={styles.panelTitle}>More genre shelves</h2>
+              <p className={styles.panelHint}>Add additional genre rows beyond Action, Drama, Adventure, and Thriller.</p>
+            </div>
+          </div>
+          <div className={styles.presetGrid}>
+            {HOME_MORE_GENRE_ROW_PRESETS.map((preset) => (
+              <button
+                key={homeRowPresetKey(preset)}
+                type="button"
+                className={styles.presetCard}
+                disabled={presetDisabled(preset)}
+                onClick={() => openCreate(preset)}
+              >
+                <p className={styles.presetLabel}>{preset.label}</p>
+                <p className={styles.presetDescription}>
+                  {presetDisabled(preset) ? "Already on homepage" : preset.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2 className={styles.panelTitle}>Profile shelves</h2>
               <p className={styles.panelHint}>
-                These personalized shelves are injected automatically when profile data exists.
+                Optional personalized rows you can add or remove. Watch history rows stay automatic.
               </p>
             </div>
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <div className={styles.personalizedList}>
+          <div className={styles.presetGrid}>
             {HOME_PERSONALIZED_ROW_PRESETS.map((preset) => (
+              <button
+                key={homeRowPresetKey(preset)}
+                type="button"
+                className={styles.presetCard}
+                disabled={presetDisabled(preset)}
+                onClick={() => openCreate(preset)}
+              >
+                <p className={styles.presetLabel}>{preset.label}</p>
+                <p className={styles.presetDescription}>
+                  {presetDisabled(preset) ? "On homepage — delete above to remove" : preset.description}
+                </p>
+              </button>
+            ))}
+          </div>
+          <div className={`${styles.personalizedList} mt-4`}>
+            {HOME_AUTO_PERSONALIZED_ROW_PRESETS.map((preset) => (
               <div key={preset.kind} className={styles.personalizedItem}>
                 <p className={styles.presetLabel}>{preset.label}</p>
                 <p className={styles.presetDescription}>{preset.description}</p>

@@ -34,7 +34,7 @@ function emptyForm(preset?: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "
     enabled: true,
     collectionId: "",
     libraryId: library?.id ?? "",
-    genre: MOVIE_GENRES[0] ?? "Action",
+    genre: preset?.genre ?? MOVIE_GENRES[0] ?? "action",
     itemIds: "",
   };
 }
@@ -46,7 +46,7 @@ function fromRow(row: AdminHomeRow): HomeRowFormValues {
     enabled: row.enabled,
     collectionId: row.collectionId ?? "",
     libraryId: row.libraryId ?? "",
-    genre: row.genre ?? MOVIE_GENRES[0] ?? "Action",
+    genre: row.genre ?? MOVIE_GENRES[0] ?? "action",
     itemIds: (row.itemIds ?? []).join(", "),
   };
 }

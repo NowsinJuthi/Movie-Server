@@ -1,6 +1,7 @@
 import { HomeRowKind, type HomeRowKind as HomeRowKindType } from './home';
+import { MOVIE_GENRES, genreDisplayName } from './movie';
 
-export type HomeRowPresetGroup = 'catalog' | 'advanced' | 'personalized' | 'library';
+export type HomeRowPresetGroup = 'catalog' | 'advanced' | 'personalized' | 'library' | 'genre';
 
 export type HomeRowPreset = {
   kind: HomeRowKindType;
@@ -8,6 +9,8 @@ export type HomeRowPreset = {
   defaultTitle: string;
   description: string;
   group: HomeRowPresetGroup;
+  /** Set for genre shelves — multiple genre rows can coexist on the homepage. */
+  genre?: string;
 };
 
 /** Shelves that map to catalog / admin content on the public home page. */
@@ -56,6 +59,50 @@ export const HOME_CATALOG_ROW_PRESETS: HomeRowPreset[] = [
   },
 ];
 
+/** Typical shelves shown on a fresh homepage (catalog + recommended + top genres). */
+export const HOME_LAYOUT_ROW_PRESETS: HomeRowPreset[] = [
+  HOME_CATALOG_ROW_PRESETS[0]!,
+  HOME_CATALOG_ROW_PRESETS[1]!,
+  {
+    kind: HomeRowKind.Recommended,
+    label: 'Recommended',
+    defaultTitle: 'Recommended for You',
+    description: 'Personalized recommendations for the active profile.',
+    group: 'personalized',
+  },
+  HOME_CATALOG_ROW_PRESETS[4]!,
+  HOME_CATALOG_ROW_PRESETS[5]!,
+  ...(['action', 'drama', 'adventure', 'thriller'] as const).map(
+    (genre): HomeRowPreset => ({
+      kind: HomeRowKind.Genre,
+      label: genreDisplayName(genre),
+      defaultTitle: genreDisplayName(genre),
+      description: `${genreDisplayName(genre)} movies and series.`,
+      group: 'genre',
+      genre,
+    }),
+  ),
+];
+
+const FEATURED_GENRES = new Set(['action', 'drama', 'adventure', 'thriller']);
+
+export const HOME_GENRE_ROW_PRESETS: HomeRowPreset[] = HOME_LAYOUT_ROW_PRESETS.filter(
+  (preset) => preset.group === 'genre',
+);
+
+export const HOME_MORE_GENRE_ROW_PRESETS: HomeRowPreset[] = MOVIE_GENRES.filter(
+  (genre) => !FEATURED_GENRES.has(genre),
+).map(
+  (genre): HomeRowPreset => ({
+    kind: HomeRowKind.Genre,
+    label: genreDisplayName(genre),
+    defaultTitle: genreDisplayName(genre),
+    description: `${genreDisplayName(genre)} movies and series.`,
+    group: 'genre',
+    genre,
+  }),
+);
+
 export const HOME_LIBRARY_ROW_PRESET: HomeRowPreset = {
   kind: HomeRowKind.Library,
   label: 'Media library',
@@ -88,19 +135,13 @@ export const HOME_ADVANCED_ROW_PRESETS: HomeRowPreset[] = [
   },
 ];
 
+/** Personalized rows admins can opt into via CMS (watch history rows stay automatic). */
 export const HOME_PERSONALIZED_ROW_PRESETS: HomeRowPreset[] = [
   {
     kind: HomeRowKind.Continue,
     label: 'Continue watching',
     defaultTitle: 'Continue Watching',
-    description: 'Shown automatically when a profile has playback progress.',
-    group: 'personalized',
-  },
-  {
-    kind: HomeRowKind.RecentlyWatched,
-    label: 'Recently watched',
-    defaultTitle: 'Recently Watched',
-    description: 'Profile watch history shelf.',
+    description: 'Shown when a profile has in-progress playback.',
     group: 'personalized',
   },
   {
@@ -117,11 +158,16 @@ export const HOME_PERSONALIZED_ROW_PRESETS: HomeRowPreset[] = [
     description: 'Profile favorites shelf.',
     group: 'personalized',
   },
+  HOME_LAYOUT_ROW_PRESETS[2]!,
+];
+
+/** Always injected when profile data exists — not managed as CMS shelves. */
+export const HOME_AUTO_PERSONALIZED_ROW_PRESETS: HomeRowPreset[] = [
   {
-    kind: HomeRowKind.Recommended,
-    label: 'Recommended',
-    defaultTitle: 'Recommended for You',
-    description: 'Personalized recommendations.',
+    kind: HomeRowKind.RecentlyWatched,
+    label: 'Recently watched',
+    defaultTitle: 'Recently Watched',
+    description: 'Injected automatically from profile watch history.',
     group: 'personalized',
   },
   {
@@ -139,8 +185,16 @@ const PRESET_BY_KIND = new Map<HomeRowKindType, HomeRowPreset>(
     HOME_LIBRARY_ROW_PRESET,
     ...HOME_ADVANCED_ROW_PRESETS,
     ...HOME_PERSONALIZED_ROW_PRESETS,
+    ...HOME_AUTO_PERSONALIZED_ROW_PRESETS,
   ].map((preset) => [preset.kind, preset]),
 );
+
+export function homeRowPresetKey(preset: HomeRowPreset): string {
+  if (preset.kind === HomeRowKind.Genre && preset.genre) {
+    return `genre:${preset.genre}`;
+  }
+  return preset.kind;
+}
 
 export function homeRowPreset(kind: HomeRowKindType): HomeRowPreset | undefined {
   return PRESET_BY_KIND.get(kind);

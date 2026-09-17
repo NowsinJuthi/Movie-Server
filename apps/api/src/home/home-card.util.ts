@@ -3,6 +3,7 @@ import {
   HomeRowKind,
   HomeRowSource,
   MovieAvailability,
+  genreDisplayName,
   type HomeCard,
   type HomeRow,
   type MovieContinueItem,
@@ -14,12 +15,7 @@ import {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export function genreDisplayName(genre: string): string {
-  if (genre === 'scifi') {
-    return 'Sci-Fi';
-  }
-  return genre.charAt(0).toUpperCase() + genre.slice(1);
-}
+export { genreDisplayName };
 
 export function movieToHomeCard(movie: PublicMovie, myList: Set<string>, extras?: Partial<HomeCard>): HomeCard {
   return {

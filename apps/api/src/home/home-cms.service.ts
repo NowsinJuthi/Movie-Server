@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   HOME_CATALOG_ROW_PRESETS,
+  HOME_LAYOUT_ROW_PRESETS,
   HomeRowKind,
   type AdminHomeHero,
   type AdminHomeRow,
@@ -164,6 +165,42 @@ export class HomeCmsService {
         itemIds: [],
       });
       order += 1;
+    }
+    await this.bump();
+    return this.listRows();
+  }
+
+  async seedLayoutRows(): Promise<HomeRowConfigDocument[]> {
+    const existing = await this.listRows();
+    const usedKinds = new Set(existing.map((row) => row.kind));
+    const usedGenres = new Set(
+      existing
+        .filter((row) => row.kind === HomeRowKind.Genre && row.genre)
+        .map((row) => String(row.genre)),
+    );
+    let order = existing.length;
+    for (const preset of HOME_LAYOUT_ROW_PRESETS) {
+      if (preset.kind === HomeRowKind.Genre) {
+        if (!preset.genre || usedGenres.has(preset.genre)) continue;
+      } else if (usedKinds.has(preset.kind)) {
+        continue;
+      }
+      await this.rows.create({
+        title: preset.defaultTitle,
+        kind: preset.kind,
+        enabled: true,
+        sortOrder: order,
+        genre: preset.genre ?? null,
+        collectionId: null,
+        libraryId: null,
+        itemIds: [],
+      });
+      order += 1;
+      if (preset.kind === HomeRowKind.Genre && preset.genre) {
+        usedGenres.add(preset.genre);
+      } else {
+        usedKinds.add(preset.kind);
+      }
     }
     await this.bump();
     return this.listRows();

@@ -54,6 +54,12 @@ export class AdminHomeController {
     return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
   }
 
+  @Post('rows/seed-layout')
+  async seedLayoutRows() {
+    const rows = await this.cms.seedLayoutRows();
+    return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
+  }
+
   @Post('rows/seed-libraries')
   async seedLibraryRows() {
     const { libraries } = await this.libraries.list();

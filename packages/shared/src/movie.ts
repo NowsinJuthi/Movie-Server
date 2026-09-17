@@ -92,6 +92,13 @@ export const MOVIE_GENRES = [
 
 export type MovieGenre = (typeof MOVIE_GENRES)[number];
 
+export function genreDisplayName(genre: string): string {
+  if (genre === 'scifi') {
+    return 'Sci-Fi';
+  }
+  return genre.charAt(0).toUpperCase() + genre.slice(1);
+}
+
 export const MOVIE_CERTIFICATIONS = [
   'G',
   'PG',
