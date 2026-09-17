@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import {
-  USER_ROLES,
   UserRole,
+  assignableRoleOptions,
   hasMinimumRole,
   isEndUserRole,
   isStaffRole,
+  parseAssignableRole,
+  userRoleDisplayLabel,
   type AdminUserRow,
 } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
@@ -26,11 +28,6 @@ import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { cn } from "@/lib/utils";
-
-function roleLabel(role: string) {
-  if (role === UserRole.Vip) return "VIP";
-  return role.replaceAll("_", " ");
-}
 
 function subscriptionStatusClass(status: string) {
   switch (status) {
@@ -59,7 +56,7 @@ export default function AdminUsersPage() {
   const canManageSubscriptions = can("manage_subscriptions");
   const [q, setQ] = useState("");
   const qDebounced = useDebouncedValue(q.trim(), 250);
-  const [role, setRole] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pendingActive, setPendingActive] = useState<{ id: string; active: boolean } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AdminUserRow | null>(null);
@@ -67,12 +64,15 @@ export default function AdminUsersPage() {
   const [editUser, setEditUser] = useState<AdminUserRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const roleQuery = roleFilter ? parseAssignableRole(roleFilter) : null;
+
   const query = useQuery({
-    queryKey: ["admin-users", qDebounced, role, page],
+    queryKey: ["admin-users", qDebounced, roleFilter, page],
     queryFn: () =>
       adminApi.users({
         q: qDebounced.length >= 1 ? qDebounced : undefined,
-        role: role || undefined,
+        role: roleQuery?.role,
+        staffProfileId: roleQuery?.staffProfileId ?? undefined,
         page,
         limit: 25,
         sort: qDebounced.length >= 1 ? "name" : "newest",
@@ -112,7 +112,7 @@ export default function AdminUsersPage() {
         displayName: string;
         email: string;
         role: UserRole;
-        staffProfileId: string;
+        staffProfileId?: string;
         emailVerified: boolean;
         isActive: boolean;
         password?: string;
@@ -177,14 +177,17 @@ export default function AdminUsersPage() {
         />
         <AdminSelect
           label="Role"
-          value={role}
+          value={roleFilter}
           onChange={(value) => {
-            setRole(value);
+            setRoleFilter(value);
             setPage(1);
           }}
           options={[
             { value: "", label: "All" },
-            ...USER_ROLES.map((item) => ({ value: item, label: roleLabel(item) })),
+            ...assignableRoleOptions(isSuper).map((item) => ({
+              value: item.value,
+              label: `${item.group === "Staff roles" ? "Staff · " : ""}${item.label}`,
+            })),
           ]}
         />
       </div>
@@ -208,7 +211,7 @@ export default function AdminUsersPage() {
             <tr key={item.id}>
               <AdminTd>{item.displayName}</AdminTd>
               <AdminTd>{item.email}</AdminTd>
-              <AdminTd className="capitalize">{roleLabel(item.role)}</AdminTd>
+              <AdminTd>{userRoleDisplayLabel(item)}</AdminTd>
               {canViewSubscriptions ? (
                 <AdminTd>
                   {item.subscription ? (
@@ -321,11 +324,13 @@ export default function AdminUsersPage() {
         }}
         onSubmit={(values) => {
           setFormError(null);
+          const assignment = parseAssignableRole(values.assignableRole);
           create.mutate({
             email: values.email.trim(),
             displayName: values.displayName.trim(),
             password: values.password,
-            role: values.role,
+            role: assignment.role,
+            staffProfileId: assignment.staffProfileId,
             emailVerified: values.emailVerified,
           });
         }}
@@ -347,13 +352,14 @@ export default function AdminUsersPage() {
           if (!editUser) return;
           setFormError(null);
           const password = values.password.trim();
+          const assignment = parseAssignableRole(values.assignableRole);
           update.mutate({
             id: editUser.id,
             input: {
               displayName: values.displayName.trim(),
               email: values.email.trim(),
-              role: values.role,
-              staffProfileId: values.staffProfileId,
+              role: assignment.role,
+              staffProfileId: assignment.staffProfileId ?? undefined,
               emailVerified: values.emailVerified,
               isActive: values.isActive,
               ...(password ? { password } : {}),

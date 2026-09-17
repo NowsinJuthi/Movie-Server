@@ -12,7 +12,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { USER_ROLES, UserRole } from '@movie-server/shared';
+import { STAFF_PROFILE_IDS, USER_ROLES, UserRole } from '@movie-server/shared';
 import { NormalizeEmail, Trim } from '../../common/decorators/transform.decorators';
 import { sanitizePlainText } from '../../common/security/sanitize';
 
@@ -47,6 +47,11 @@ export class QueryUsersDto {
   @IsOptional()
   @IsIn([...USER_ROLES])
   role?: UserRole;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...STAFF_PROFILE_IDS])
+  staffProfileId?: string;
 
   @IsOptional()
   @Transform(toBool)
@@ -102,7 +107,7 @@ export class PatchUserDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(40)
+  @IsIn([...STAFF_PROFILE_IDS])
   staffProfileId?: string;
 
   @IsOptional()

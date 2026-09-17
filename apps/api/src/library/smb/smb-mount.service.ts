@@ -42,7 +42,10 @@ export class SmbMountService {
     if (uid && gid) {
       return { uid, gid };
     }
-    return { uid: String(process.getuid()), gid: String(process.getgid()) };
+    return {
+      uid: String(process.getuid?.() ?? 0),
+      gid: String(process.getgid?.() ?? 0),
+    };
   }
 
   uncPath(auth: SmbAuth, remotePath = ''): string {

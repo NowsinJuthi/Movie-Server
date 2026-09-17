@@ -35,7 +35,15 @@ export const adminApi = {
   jobs: () => apiFetch<AdminJobsResponse>("/admin/jobs"),
   audit: (query: { q?: string; page?: number; limit?: number } = {}) =>
     apiFetch<AdminPage<AdminAuditLog>>(`/admin/audit${qs(query)}`),
-  users: (query: { q?: string; role?: string; isActive?: boolean; sort?: string; page?: number; limit?: number } = {}) =>
+  users: (query: {
+    q?: string;
+    role?: string;
+    staffProfileId?: string;
+    isActive?: boolean;
+    sort?: string;
+    page?: number;
+    limit?: number;
+  } = {}) =>
     apiFetch<AdminPage<AdminUserRow> & { users: PublicUser[] }>(`/admin/users${qs(query)}`),
   userSuggest: (query: { q: string; limit?: number }) =>
     apiFetch<{
@@ -52,6 +60,7 @@ export const adminApi = {
     displayName: string;
     password: string;
     role?: UserRole;
+    staffProfileId?: string | null;
     emailVerified?: boolean;
   }) =>
     apiFetch<{ user: AdminUserRow }>("/admin/users", {

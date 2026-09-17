@@ -156,7 +156,7 @@ export default function AdminRolesPage() {
   return (
     <AdminPage
       title="Roles & permissions"
-      description="Configure what each staff profile can access in the admin panel."
+      description="Configure staff access here. The same role names are assigned in Accounts → People → Users when creating or editing staff."
       error={error}
     >
       {success ? (

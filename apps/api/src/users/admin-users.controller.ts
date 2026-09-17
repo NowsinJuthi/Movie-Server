@@ -90,6 +90,7 @@ export class AdminUsersController {
       displayName: dto.displayName,
       password: dto.password,
       role,
+      staffProfileId: dto.staffProfileId,
       emailVerified: dto.emailVerified ?? true,
     });
 

@@ -8,7 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { USER_ROLES, UserRole } from '@movie-server/shared';
+import { STAFF_PROFILE_IDS, USER_ROLES, UserRole } from '@movie-server/shared';
 import { NormalizeEmail, Trim } from '../../common/decorators/transform.decorators';
 import { sanitizePlainText } from '../../common/security/sanitize';
 
@@ -38,4 +38,9 @@ export class CreateAdminUserDto {
   @IsOptional()
   @IsBoolean()
   emailVerified?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...STAFF_PROFILE_IDS])
+  staffProfileId?: string;
 }

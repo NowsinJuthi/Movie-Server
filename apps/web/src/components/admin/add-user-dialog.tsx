@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { END_USER_ROLES, USER_ROLES, UserRole } from "@movie-server/shared";
+import {
+  assignableRoleOptions,
+  memberRoleKey,
+  parseAssignableRole,
+  UserRole,
+} from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,15 +17,15 @@ export type CreateUserFormValues = {
   email: string;
   displayName: string;
   password: string;
-  role: UserRole;
+  assignableRole: string;
   emailVerified: boolean;
 };
 
-const emptyForm = (defaultRole: UserRole = UserRole.User): CreateUserFormValues => ({
+const emptyForm = (): CreateUserFormValues => ({
   email: "",
   displayName: "",
   password: "",
-  role: defaultRole,
+  assignableRole: memberRoleKey(UserRole.User),
   emailVerified: true,
 });
 
@@ -52,9 +57,12 @@ export function AddUserDialog({
     }
   }, [open]);
 
-  if (!mounted || !open) return null;
+  const roleOptions = useMemo(
+    () => assignableRoleOptions(allowStaffRoles),
+    [allowStaffRoles],
+  );
 
-  const roleOptions = allowStaffRoles ? USER_ROLES : END_USER_ROLES;
+  if (!mounted || !open) return null;
 
   return createPortal(
     <div
@@ -81,7 +89,7 @@ export function AddUserDialog({
           Add user
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Create an account that can sign in immediately. Password must be at least 6 characters.
+          Create an account that can sign in immediately. Staff roles match Roles &amp; permissions.
         </p>
 
         <form
@@ -135,20 +143,32 @@ export function AddUserDialog({
             <select
               id="add-user-role"
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.role}
-              onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}
+              value={form.assignableRole}
+              onChange={(event) => setForm({ ...form, assignableRole: event.target.value })}
             >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role === UserRole.Vip ? "VIP" : role.replaceAll("_", " ")}
-                </option>
-              ))}
+              {(["Members", "Staff roles"] as const).map((group) => {
+                const options = roleOptions.filter((option) => option.group === group);
+                if (options.length === 0) return null;
+                return (
+                  <optgroup key={group} label={group}>
+                    {options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
             {!allowStaffRoles ? (
               <span className="text-xs text-muted-foreground">
-                Staff roles (admin / super admin) require Super Admin.
+                Staff roles require Super Admin. Configure permissions under Settings → Roles.
               </span>
-            ) : null}
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Staff roles use the same profiles as Roles &amp; permissions.
+              </span>
+            )}
           </label>
 
           <label className="flex items-center gap-2 text-sm">

@@ -11,6 +11,7 @@ export * from './permissions';
 export * from './personalization';
 export * from './playback';
 export * from './profile';
+export * from './role-assignment';
 export * from './search';
 export * from './series';
 export * from './settings';

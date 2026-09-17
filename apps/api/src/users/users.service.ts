@@ -2,7 +2,7 @@ import { ConflictException, ForbiddenException, Injectable } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
-import { ErrorCode, UserRole } from '@movie-server/shared';
+import { ErrorCode, UserRole, isEndUserRole } from '@movie-server/shared';
 import { User, UserDocument } from './schemas/user.schema';
 import { PasswordService } from '../auth/password.service';
 
@@ -45,17 +45,25 @@ export class UsersService {
     password: string;
     displayName: string;
     role?: UserRole;
+    staffProfileId?: string | null;
     emailVerified?: boolean;
   }): Promise<UserDocument> {
     const passwordHash = await this.passwordService.hash(input.password);
-    return this.userModel.create({
+    const role = input.role ?? UserRole.User;
+    const payload: Record<string, unknown> = {
       email: input.email.toLowerCase(),
       passwordHash,
       displayName: input.displayName,
-      role: input.role ?? UserRole.User,
+      role,
       emailVerified: input.emailVerified ?? false,
       tokenVersion: 0,
-    });
+    };
+    if (role === UserRole.SuperAdmin) {
+      payload.staffProfileId = 'super_admin';
+    } else if (role === UserRole.Admin) {
+      payload.staffProfileId = input.staffProfileId?.trim() || 'administrator';
+    }
+    return this.userModel.create(payload);
   }
 
   async incrementFailedLogins(user: UserDocument): Promise<void> {
@@ -99,6 +107,7 @@ export class UsersService {
   async listAdmin(query: {
     q?: string;
     role?: UserRole;
+    staffProfileId?: string;
     isActive?: boolean;
     sort?: 'newest' | 'name' | 'email';
     page?: number;
@@ -108,6 +117,7 @@ export class UsersService {
     const limit = Math.min(Math.max(query.limit ?? 25, 1), 100);
     const filter: Record<string, unknown> = {};
     if (query.role) filter.role = query.role;
+    if (query.staffProfileId) filter.staffProfileId = query.staffProfileId;
     if (query.isActive !== undefined) filter.isActive = query.isActive;
     if (query.q?.trim()) {
       const q = query.q.trim();
@@ -176,6 +186,13 @@ export class UsersService {
       return user;
     }
     user.role = role;
+    if (isEndUserRole(role)) {
+      user.staffProfileId = undefined;
+    } else if (role === UserRole.SuperAdmin) {
+      user.staffProfileId = 'super_admin';
+    } else if (role === UserRole.Admin && !user.staffProfileId?.trim()) {
+      user.staffProfileId = 'administrator';
+    }
     user.tokenVersion += 1;
     await user.save();
     return user;

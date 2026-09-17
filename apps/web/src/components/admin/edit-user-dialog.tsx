@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
-  END_USER_ROLES,
-  STAFF_PROFILE_DEFINITIONS,
-  USER_ROLES,
-  UserRole,
+  assignableRoleOptions,
+  userToAssignableRole,
   type AdminUserRow,
 } from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
@@ -18,8 +16,7 @@ export type EditUserFormValues = {
   displayName: string;
   email: string;
   password: string;
-  role: UserRole;
-  staffProfileId: string;
+  assignableRole: string;
   emailVerified: boolean;
   isActive: boolean;
 };
@@ -54,17 +51,19 @@ export function EditUserDialog({
         displayName: user.displayName,
         email: user.email,
         password: "",
-        role: user.role,
-        staffProfileId: user.staffProfileId ?? "administrator",
+        assignableRole: userToAssignableRole(user),
         emailVerified: user.emailVerified,
         isActive: user.isActive,
       });
     }
   }, [open, user]);
 
-  if (!mounted || !open || !user || !form) return null;
+  const roleOptions = useMemo(
+    () => assignableRoleOptions(allowStaffRoles),
+    [allowStaffRoles],
+  );
 
-  const roleOptions = allowStaffRoles ? USER_ROLES : END_USER_ROLES;
+  if (!mounted || !open || !user || !form) return null;
 
   return createPortal(
     <div
@@ -91,7 +90,7 @@ export function EditUserDialog({
           Edit user
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Update profile, role, or set a new password (leave blank to keep the current one).
+          Update profile, role, or set a new password. Staff roles match Roles &amp; permissions.
         </p>
 
         <form
@@ -145,36 +144,24 @@ export function EditUserDialog({
             <select
               id="edit-user-role"
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.role}
-              onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}
+              value={form.assignableRole}
+              onChange={(event) => setForm({ ...form, assignableRole: event.target.value })}
             >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role === UserRole.Vip ? "VIP" : role.replaceAll("_", " ")}
-                </option>
-              ))}
+              {(["Members", "Staff roles"] as const).map((group) => {
+                const options = roleOptions.filter((option) => option.group === group);
+                if (options.length === 0) return null;
+                return (
+                  <optgroup key={group} label={group}>
+                    {options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </label>
-
-          {form.role === UserRole.Admin ? (
-            <label className="block space-y-2 text-sm">
-              <Label htmlFor="edit-user-staff-profile">Staff permission profile</Label>
-              <select
-                id="edit-user-staff-profile"
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={form.staffProfileId}
-                onChange={(event) => setForm({ ...form, staffProfileId: event.target.value })}
-              >
-                {STAFF_PROFILE_DEFINITIONS.filter((profile) => profile.id !== "super_admin").map(
-                  (profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.label}
-                    </option>
-                  ),
-                )}
-              </select>
-            </label>
-          ) : null}
 
           <label className="flex items-center gap-2 text-sm">
             <input
