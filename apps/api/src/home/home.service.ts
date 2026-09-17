@@ -215,6 +215,15 @@ export class HomeService {
     }
 
     if (cmsRows.length > 0) {
+      const defaultRows = rows;
+      const defaultByKey = new Map<string, HomeRow>();
+      for (const row of defaultRows) {
+        defaultByKey.set(this.homeRowKey(row), row);
+      }
+      const configuredKeys = new Set(
+        cmsRows.map((cfg) => this.homeRowConfigKey(cfg.kind, cfg.genre)),
+      );
+
       const built = await Promise.all(
         cmsRows.map(async (cfg) => {
           const items = await this.cmsRowItems(cfg.kind, {
@@ -238,7 +247,7 @@ export class HomeService {
             entitlement,
             myList,
           });
-          return homeRow(
+          const cmsBuilt = homeRow(
             `cms-${String(cfg._id)}`,
             cfg.title,
             cfg.kind,
@@ -247,19 +256,53 @@ export class HomeService {
             ROW_LIMIT,
             cfg.libraryId ?? null,
           );
+          if (cmsBuilt) return cmsBuilt;
+          const fallback = defaultByKey.get(this.homeRowConfigKey(cfg.kind, cfg.genre));
+          if (!fallback) return null;
+          return {
+            ...fallback,
+            id: `cms-${String(cfg._id)}`,
+            title: cfg.title,
+            ...(cfg.libraryId ? { libraryId: cfg.libraryId } : {}),
+          };
         }),
       );
-      const autoPersonalized = rows.filter(
+
+      const autoPersonalized = defaultRows.filter(
         (row) =>
-          row?.source === HomeRowSource.Personalized &&
+          row.source === HomeRowSource.Personalized &&
           (row.kind === HomeRowKind.RecentlyWatched || row.kind === HomeRowKind.BecauseYouWatched),
       );
-      rows = [...autoPersonalized, ...built].filter((row): row is HomeRow => Boolean(row));
+      const leftover = defaultRows.filter((row) => {
+        if (
+          row.source === HomeRowSource.Personalized &&
+          (row.kind === HomeRowKind.RecentlyWatched || row.kind === HomeRowKind.BecauseYouWatched)
+        ) {
+          return false;
+        }
+        return !configuredKeys.has(this.homeRowKey(row));
+      });
+
+      rows = [...autoPersonalized, ...built, ...leftover].filter((row): row is HomeRow => Boolean(row));
     }
 
     const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };
     await this.redis.client.set(homeCacheKey(profileId, layoutVersion), JSON.stringify(payload), 'PX', CACHE_MS);
     return payload;
+  }
+
+  private homeRowConfigKey(kind: HomeRowKind, genre?: string | null): string {
+    if (kind === HomeRowKind.Genre && genre) {
+      return `genre:${genre}`;
+    }
+    return kind;
+  }
+
+  private homeRowKey(row: HomeRow): string {
+    if (row.kind === HomeRowKind.Genre && row.id.startsWith('genre-')) {
+      return `genre:${row.id.slice('genre-'.length)}`;
+    }
+    return row.kind;
   }
 
   private async hydrateIds(

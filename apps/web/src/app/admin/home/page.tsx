@@ -55,6 +55,18 @@ function rowPayload(values: HomeRowFormValues) {
   };
 }
 
+function presetPayload(preset: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">) {
+  return {
+    title: library?.name ?? preset.defaultTitle,
+    kind: preset.kind,
+    enabled: true,
+    collectionId: null,
+    libraryId: preset.kind === HomeRowKind.Library && library ? library.id : null,
+    genre: preset.genre ?? null,
+    itemIds: [] as string[],
+  };
+}
+
 function rowDetail(row: AdminHomeRow, libraryLabels: Map<string, string>) {
   if (row.kind === HomeRowKind.Library && row.libraryId) {
     return libraryLabels.get(row.libraryId) ?? row.libraryId;
@@ -157,6 +169,11 @@ export default function AdminHomePage() {
       await invalidateRows();
     },
   });
+  const addPreset = useMutation({
+    mutationFn: (input: { preset: HomeRowPreset; library?: Pick<AdminLibrary, "id" | "name"> }) =>
+      adminApi.createHomeRow(presetPayload(input.preset, input.library)),
+    onSuccess: invalidateRows,
+  });
   const update = useMutation({
     mutationFn: ({ id, values }: { id: string; values: HomeRowFormValues }) =>
       adminApi.updateHomeRow(id, rowPayload(values)),
@@ -199,7 +216,9 @@ export default function AdminHomePage() {
           ? create.error.message
           : update.error instanceof ApiError
             ? update.error.message
-            : seedLayout.error instanceof ApiError
+            : addPreset.error instanceof ApiError
+              ? addPreset.error.message
+              : seedLayout.error instanceof ApiError
                 ? seedLayout.error.message
                 : seedLibraries.error instanceof ApiError
                 ? seedLibraries.error.message
@@ -239,10 +258,12 @@ export default function AdminHomePage() {
     if (preset.kind === HomeRowKind.Library) {
       return false;
     }
-    if (preset.kind === HomeRowKind.Genre && preset.genre) {
-      return configuredPresetKeys.has(homeRowPresetKey(preset));
-    }
     return configuredPresetKeys.has(homeRowPresetKey(preset));
+  }
+
+  function addPresetShelf(preset: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">) {
+    if (presetDisabled(preset)) return;
+    addPreset.mutate({ preset, library });
   }
 
   return (
@@ -288,34 +309,6 @@ export default function AdminHomePage() {
             <span className={styles.statValue}>{stats.layoutAvailable}</span>
           </div>
         </div>
-
-        <section className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div>
-              <h2 className={styles.panelTitle}>Standard homepage shelves</h2>
-              <p className={styles.panelHint}>
-                Featured, Trending, Recommended, Recently Added, New Releases, and top genre rows.
-                Click to add — remove from the list above.
-              </p>
-            </div>
-          </div>
-          <div className={styles.presetGrid}>
-            {HOME_LAYOUT_ROW_PRESETS.map((preset) => (
-              <button
-                key={homeRowPresetKey(preset)}
-                type="button"
-                className={styles.presetCard}
-                disabled={presetDisabled(preset)}
-                onClick={() => openCreate(preset)}
-              >
-                <p className={styles.presetLabel}>{preset.defaultTitle}</p>
-                <p className={styles.presetDescription}>
-                  {presetDisabled(preset) ? "On homepage — delete above to remove" : preset.description}
-                </p>
-              </button>
-            ))}
-          </div>
-        </section>
 
         <section className={styles.heroPanel}>
           <div className="mb-3 flex items-center gap-2">
@@ -421,6 +414,34 @@ export default function AdminHomePage() {
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
+              <h2 className={styles.panelTitle}>Standard homepage shelves</h2>
+              <p className={styles.panelHint}>
+                Featured, Trending, Recommended, Recently Added, New Releases, and top genre rows.
+                Click to add instantly — remove from the list above.
+              </p>
+            </div>
+          </div>
+          <div className={styles.presetGrid}>
+            {HOME_LAYOUT_ROW_PRESETS.map((preset) => (
+              <button
+                key={homeRowPresetKey(preset)}
+                type="button"
+                className={styles.presetCard}
+                disabled={presetDisabled(preset) || addPreset.isPending}
+                onClick={() => addPresetShelf(preset)}
+              >
+                <p className={styles.presetLabel}>{preset.defaultTitle}</p>
+                <p className={styles.presetDescription}>
+                  {presetDisabled(preset) ? "On homepage — delete above to remove" : preset.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div>
               <h2 className={styles.panelTitle}>Media libraries</h2>
               <p className={styles.panelHint}>
                 Show scanned library folders as homepage shelves. Each library can appear once.
@@ -451,8 +472,8 @@ export default function AdminHomePage() {
                     key={library.id}
                     type="button"
                     className={styles.presetCard}
-                    disabled={onHomepage || !library.enabled}
-                    onClick={() => openCreate(HOME_LIBRARY_ROW_PRESET, library)}
+                    disabled={onHomepage || !library.enabled || addPreset.isPending}
+                    onClick={() => addPresetShelf(HOME_LIBRARY_ROW_PRESET, library)}
                   >
                     <p className={styles.presetLabel}>{library.name}</p>
                     <p className={styles.presetDescription}>
@@ -485,8 +506,8 @@ export default function AdminHomePage() {
                 key={homeRowPresetKey(preset)}
                 type="button"
                 className={styles.presetCard}
-                disabled={presetDisabled(preset)}
-                onClick={() => openCreate(preset)}
+                disabled={presetDisabled(preset) || addPreset.isPending}
+                onClick={() => addPresetShelf(preset)}
               >
                 <p className={styles.presetLabel}>{preset.label}</p>
                 <p className={styles.presetDescription}>
