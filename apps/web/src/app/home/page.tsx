@@ -130,7 +130,7 @@ export default function AppHomePage() {
           )}
           <div className="relative z-10 -mt-8 space-y-2 pb-16 md:-mt-16">
             {(homeQuery.data?.rows ?? []).map((row, index) => (
-              <LazyMount key={row.id} eager={index < 4}>
+              <LazyMount key={row.id} eager={index < 10}>
                 <MediaCarousel row={row} onToggleList={listToggle.mutate} listPending={listToggle.isPending} />
               </LazyMount>
             ))}

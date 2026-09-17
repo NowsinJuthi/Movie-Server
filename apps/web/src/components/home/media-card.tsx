@@ -12,9 +12,11 @@ import { PosterImage } from "./poster-image";
 export function MediaCard({
   card,
   progress,
+  imagePriority = false,
 }: {
   card: HomeCard;
   progress?: boolean;
+  imagePriority?: boolean;
   onToggleList?: (card: HomeCard) => void;
   listPending?: boolean;
 }) {
@@ -34,6 +36,7 @@ export function MediaCard({
             src={card.posterUrl ?? card.backdropUrl}
             alt=""
             className={styles.posterImage}
+            priority={imagePriority}
           />
           <div className={styles.playOverlay} aria-hidden>
             <span className={styles.playButton}>

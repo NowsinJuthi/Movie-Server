@@ -261,6 +261,15 @@ export class HomeCmsService {
     return (await this.rows.countDocuments({ enabled: true, shuffleItems: true }).exec()) > 0;
   }
 
+  async shuffleRowIds(): Promise<Set<string>> {
+    const rows = await this.rows
+      .find({ enabled: true, shuffleItems: true })
+      .select('_id')
+      .lean()
+      .exec();
+    return new Set(rows.map((row) => String(row._id)));
+  }
+
   async setAllShuffle(shuffleItems: boolean): Promise<HomeRowConfigDocument[]> {
     await this.rows.updateMany({}, { $set: { shuffleItems } });
     await this.bump();

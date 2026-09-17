@@ -58,11 +58,12 @@ export function MediaCarousel({
           ref={scroller}
           className="no-scrollbar flex snap-x gap-2 overflow-x-auto px-3 pb-16 pt-2 sm:px-4 md:gap-3 md:px-5 lg:px-6"
         >
-          {row.items.map((card) => (
+          {row.items.map((card, cardIndex) => (
             <MediaCard
               key={`${row.id}-${card.kind}-${card.id}`}
               card={card}
               progress={isContinue}
+              imagePriority={cardIndex < 8}
               onToggleList={onToggleList}
               listPending={listPending}
             />

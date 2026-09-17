@@ -62,13 +62,11 @@ export class HomeService {
     }
     user.activeProfileId = profileId;
     const layoutVersion = await this.cms.layoutVersion();
-    const shuffleActive = await this.cms.hasShuffleRows();
+    const shuffleRowIds = await this.cms.shuffleRowIds();
     const cacheKey = homeCacheKey(profileId, layoutVersion);
-    if (!shuffleActive) {
-      const cached = await this.redis.client.get(cacheKey);
-      if (cached) {
-        return JSON.parse(cached) as HomeResponse;
-      }
+    const cached = await this.redis.client.get(cacheKey);
+    if (cached) {
+      return this.applyRowShuffle(JSON.parse(cached) as HomeResponse, shuffleRowIds);
     }
 
     const viewer = await this.movies.resolveViewer(user);
@@ -294,10 +292,27 @@ export class HomeService {
     }
 
     const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };
-    if (!shuffleActive) {
-      await this.redis.client.set(cacheKey, JSON.stringify(payload), 'PX', CACHE_MS);
+    await this.redis.client.set(cacheKey, JSON.stringify(payload), 'PX', CACHE_MS);
+    return this.applyRowShuffle(payload, shuffleRowIds);
+  }
+
+  private applyRowShuffle(payload: HomeResponse, shuffleRowIds: Set<string>): HomeResponse {
+    if (shuffleRowIds.size === 0) {
+      return payload;
     }
-    return payload;
+    return {
+      ...payload,
+      rows: payload.rows.map((row) => {
+        if (!row.id.startsWith('cms-')) {
+          return row;
+        }
+        const cmsId = row.id.slice('cms-'.length);
+        if (!shuffleRowIds.has(cmsId)) {
+          return row;
+        }
+        return { ...row, items: shuffleCards(row.items) };
+      }),
+    };
   }
 
   private homeRowConfigKey(kind: HomeRowKind, genre?: string | null): string {
