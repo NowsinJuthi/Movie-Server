@@ -81,6 +81,7 @@ export class HomeCmsService {
     title: string;
     kind: HomeRowKindType;
     enabled?: boolean;
+    shuffleItems?: boolean;
     sortOrder?: number;
     genre?: string | null;
     collectionId?: string | null;
@@ -91,6 +92,7 @@ export class HomeCmsService {
       title: input.title.trim().slice(0, 80),
       kind: input.kind,
       enabled: input.enabled ?? true,
+      shuffleItems: input.shuffleItems ?? input.kind === HomeRowKind.Library,
       sortOrder: input.sortOrder ?? 0,
       genre: input.genre ?? null,
       collectionId: input.collectionId ?? null,
@@ -107,6 +109,7 @@ export class HomeCmsService {
       title: string;
       kind: HomeRowKindType;
       enabled: boolean;
+      shuffleItems: boolean;
       sortOrder: number;
       genre: string | null;
       collectionId: string | null;
@@ -119,6 +122,7 @@ export class HomeCmsService {
     if (input.title !== undefined) row.title = input.title.trim().slice(0, 80);
     if (input.kind !== undefined) row.kind = input.kind;
     if (input.enabled !== undefined) row.enabled = input.enabled;
+    if (input.shuffleItems !== undefined) row.shuffleItems = input.shuffleItems;
     if (input.sortOrder !== undefined) row.sortOrder = input.sortOrder;
     if (input.genre !== undefined) row.genre = input.genre;
     if (input.collectionId !== undefined) row.collectionId = input.collectionId;
@@ -222,6 +226,7 @@ export class HomeCmsService {
         title: library.name,
         kind: HomeRowKind.Library,
         enabled: true,
+        shuffleItems: true,
         sortOrder: order,
         genre: null,
         collectionId: null,
@@ -252,12 +257,23 @@ export class HomeCmsService {
     };
   }
 
+  async hasShuffleRows(): Promise<boolean> {
+    return (await this.rows.countDocuments({ enabled: true, shuffleItems: true }).exec()) > 0;
+  }
+
+  async setAllShuffle(shuffleItems: boolean): Promise<HomeRowConfigDocument[]> {
+    await this.rows.updateMany({}, { $set: { shuffleItems } });
+    await this.bump();
+    return this.listRows();
+  }
+
   toPublicRow(row: HomeRowConfigDocument): AdminHomeRow {
     return {
       id: String(row._id),
       title: row.title,
       kind: row.kind,
       enabled: row.enabled,
+      shuffleItems: row.shuffleItems ?? false,
       sortOrder: row.sortOrder,
       genre: row.genre ?? null,
       collectionId: row.collectionId ?? null,

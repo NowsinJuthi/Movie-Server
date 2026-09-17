@@ -9,6 +9,7 @@ import {
   MonitorPlay,
   Pencil,
   Plus,
+  Shuffle,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -42,6 +43,7 @@ function rowPayload(values: HomeRowFormValues) {
     title: values.title.trim(),
     kind: values.kind,
     enabled: values.enabled,
+    shuffleItems: values.shuffleItems,
     collectionId: values.kind === HomeRowKind.Collection ? values.collectionId.trim() || null : null,
     libraryId: values.kind === HomeRowKind.Library ? values.libraryId.trim() || null : null,
     genre: values.kind === HomeRowKind.Genre ? values.genre.trim() || null : null,
@@ -60,6 +62,7 @@ function presetPayload(preset: HomeRowPreset, library?: Pick<AdminLibrary, "id" 
     title: library?.name ?? preset.defaultTitle,
     kind: preset.kind,
     enabled: true,
+    shuffleItems: preset.kind === HomeRowKind.Library,
     collectionId: null,
     libraryId: preset.kind === HomeRowKind.Library && library ? library.id : null,
     genre: preset.genre ?? null,
@@ -80,7 +83,8 @@ function rowDetail(row: AdminHomeRow, libraryLabels: Map<string, string>) {
   if (row.kind === HomeRowKind.Manual && row.itemIds.length > 0) {
     return `${row.itemIds.length} hand-picked titles`;
   }
-  return homeRowPreset(row.kind)?.description ?? "Catalog shelf";
+  const base = homeRowPreset(row.kind)?.description ?? "Catalog shelf";
+  return row.shuffleItems ? `${base} · Random order` : base;
 }
 
 export default function AdminHomePage() {
@@ -142,10 +146,12 @@ export default function AdminHomePage() {
 
   const stats = useMemo(() => {
     const active = sortedRows.filter((row) => row.enabled).length;
+    const random = sortedRows.filter((row) => row.shuffleItems).length;
     return {
       total: sortedRows.length,
       active,
       hidden: sortedRows.length - active,
+      random,
       layoutAvailable: HOME_LAYOUT_ROW_PRESETS.filter(
         (preset) => !configuredPresetKeys.has(homeRowPresetKey(preset)),
       ).length,
@@ -187,6 +193,15 @@ export default function AdminHomePage() {
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => adminApi.updateHomeRow(id, { enabled }),
     onSuccess: invalidateRows,
   });
+  const toggleShuffle = useMutation({
+    mutationFn: ({ id, shuffleItems }: { id: string; shuffleItems: boolean }) =>
+      adminApi.updateHomeRow(id, { shuffleItems }),
+    onSuccess: invalidateRows,
+  });
+  const setAllShuffle = useMutation({
+    mutationFn: (shuffleItems: boolean) => adminApi.setHomeRowShuffleMode(shuffleItems),
+    onSuccess: invalidateRows,
+  });
   const reorder = useMutation({
     mutationFn: (ids: string[]) => adminApi.reorderHomeRows(ids),
     onSuccess: invalidateRows,
@@ -218,6 +233,10 @@ export default function AdminHomePage() {
             ? update.error.message
             : addPreset.error instanceof ApiError
               ? addPreset.error.message
+              : toggleShuffle.error instanceof ApiError
+                ? toggleShuffle.error.message
+                : setAllShuffle.error instanceof ApiError
+                  ? setAllShuffle.error.message
               : seedLayout.error instanceof ApiError
                 ? seedLayout.error.message
                 : seedLibraries.error instanceof ApiError
@@ -305,8 +324,8 @@ export default function AdminHomePage() {
             <span className={styles.statValue}>{stats.hidden}</span>
           </div>
           <div className={styles.stat}>
-            <span className={styles.statLabel}>Shelves to add</span>
-            <span className={styles.statValue}>{stats.layoutAvailable}</span>
+            <span className={styles.statLabel}>Random order</span>
+            <span className={styles.statValue}>{stats.random}</span>
           </div>
         </div>
 
@@ -356,8 +375,30 @@ export default function AdminHomePage() {
             <div>
               <h2 className={styles.panelTitle}>Homepage shelves</h2>
               <p className={styles.panelHint}>
-                These rows appear on the public home page in the order shown below.
+                These rows appear on the public home page in the order shown below. Turn on{" "}
+                <strong>Random</strong> to shuffle movies on each visit.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={setAllShuffle.isPending || sortedRows.length === 0}
+                onClick={() => setAllShuffle.mutate(true)}
+              >
+                <Shuffle className="mr-1.5 h-3.5 w-3.5" />
+                Randomize all
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={setAllShuffle.isPending || stats.random === 0}
+                onClick={() => setAllShuffle.mutate(false)}
+              >
+                Catalog order all
+              </Button>
             </div>
           </div>
           {sortedRows.length === 0 ? (
@@ -397,6 +438,15 @@ export default function AdminHomePage() {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: row.id, enabled: !row.enabled })}>
                       {row.enabled ? "Hide" : "Show"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={row.shuffleItems ? "default" : "outline"}
+                      disabled={toggleShuffle.isPending}
+                      onClick={() => toggleShuffle.mutate({ id: row.id, shuffleItems: !row.shuffleItems })}
+                    >
+                      <Shuffle className="mr-1 h-3.5 w-3.5" />
+                      {row.shuffleItems ? "Random" : "Ordered"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
                       <Pencil className="h-3.5 w-3.5" />

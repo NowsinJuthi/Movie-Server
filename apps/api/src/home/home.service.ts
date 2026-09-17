@@ -29,10 +29,12 @@ import {
   movieToHomeCard,
   seriesContinueToCard,
   seriesToHomeCard,
+  shuffleCards,
 } from './home-card.util';
 
 const CACHE_MS = 30_000;
 const ROW_LIMIT = 18;
+const SHUFFLE_POOL_LIMIT = 72;
 
 @Injectable()
 export class HomeService {
@@ -60,9 +62,13 @@ export class HomeService {
     }
     user.activeProfileId = profileId;
     const layoutVersion = await this.cms.layoutVersion();
-    const cached = await this.redis.client.get(homeCacheKey(profileId, layoutVersion));
-    if (cached) {
-      return JSON.parse(cached) as HomeResponse;
+    const shuffleActive = await this.cms.hasShuffleRows();
+    const cacheKey = homeCacheKey(profileId, layoutVersion);
+    if (!shuffleActive) {
+      const cached = await this.redis.client.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached) as HomeResponse;
+      }
     }
 
     const viewer = await this.movies.resolveViewer(user);
@@ -243,6 +249,7 @@ export class HomeService {
             collectionId: cfg.collectionId,
             libraryId: cfg.libraryId,
             itemIds: cfg.itemIds,
+            shuffleItems: cfg.shuffleItems ?? false,
             viewer,
             entitlement,
             myList,
@@ -287,7 +294,9 @@ export class HomeService {
     }
 
     const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };
-    await this.redis.client.set(homeCacheKey(profileId, layoutVersion), JSON.stringify(payload), 'PX', CACHE_MS);
+    if (!shuffleActive) {
+      await this.redis.client.set(cacheKey, JSON.stringify(payload), 'PX', CACHE_MS);
+    }
     return payload;
   }
 
@@ -434,24 +443,50 @@ export class HomeService {
       collectionId?: string | null;
       libraryId?: string | null;
       itemIds: string[];
+      shuffleItems: boolean;
       viewer: { maturity: import('@movie-server/shared').MaturityLevel; isKids: boolean };
       entitlement: SubscriptionEntitlement | null;
       myList: Set<string>;
     },
   ): Promise<HomeCard[]> {
+    const poolLimit = ctx.shuffleItems ? SHUFFLE_POOL_LIMIT : ROW_LIMIT;
     switch (kind) {
       case HomeRowKind.Featured:
-        return ctx.featured;
+        return ctx.shuffleItems ? shuffleCards(ctx.featured) : ctx.featured;
       case HomeRowKind.Trending:
-        return ctx.trending;
+        return ctx.shuffleItems ? shuffleCards(ctx.trending) : ctx.trending;
       case HomeRowKind.PopularMovies:
-        return ctx.popularMovies;
+        return ctx.shuffleItems ? shuffleCards(ctx.popularMovies) : ctx.popularMovies;
       case HomeRowKind.PopularSeries:
-        return ctx.popularSeries;
-      case HomeRowKind.RecentlyAdded:
-        return ctx.recentlyAdded;
-      case HomeRowKind.NewReleases:
-        return ctx.newReleases;
+        return ctx.shuffleItems ? shuffleCards(ctx.popularSeries) : ctx.popularSeries;
+      case HomeRowKind.RecentlyAdded: {
+        if (!ctx.shuffleItems) return ctx.recentlyAdded;
+        const [movies, series] = await Promise.all([
+          this.movies.list(
+            { sort: MovieSort.Newest, limit: poolLimit, page: 1 },
+            { admin: false, ...ctx.viewer, entitlement: ctx.entitlement },
+          ),
+          this.series.list({ sort: SeriesSort.Newest, limit: poolLimit, page: 1 }, { admin: false, ...ctx.viewer }),
+        ]);
+        return shuffleCards([
+          ...movies.items.map((item) => movieToHomeCard(item, ctx.myList)),
+          ...series.items.map((item) => seriesToHomeCard(item, ctx.myList)),
+        ]);
+      }
+      case HomeRowKind.NewReleases: {
+        if (!ctx.shuffleItems) return ctx.newReleases;
+        const [movies, series] = await Promise.all([
+          this.movies.list(
+            { sort: MovieSort.Year, limit: poolLimit, page: 1 },
+            { admin: false, ...ctx.viewer, entitlement: ctx.entitlement },
+          ),
+          this.series.list({ sort: SeriesSort.Year, limit: poolLimit, page: 1 }, { admin: false, ...ctx.viewer }),
+        ]);
+        return shuffleCards([
+          ...movies.items.map((item) => movieToHomeCard(item, ctx.myList)),
+          ...series.items.map((item) => seriesToHomeCard(item, ctx.myList)),
+        ]);
+      }
       case HomeRowKind.Continue:
         return ctx.continueCards;
       case HomeRowKind.MyList:
@@ -459,7 +494,7 @@ export class HomeService {
       case HomeRowKind.Favorites:
         return ctx.hydratedFavorites;
       case HomeRowKind.Recommended:
-        return ctx.recommended;
+        return ctx.shuffleItems ? shuffleCards(ctx.recommended) : ctx.recommended;
       case HomeRowKind.RecentlyWatched:
         return ctx.recentlyWatched;
       case HomeRowKind.Manual:
@@ -468,18 +503,19 @@ export class HomeService {
         if (!ctx.genre) return [];
         const [movies, series] = await Promise.all([
           this.movies.list(
-            { genre: ctx.genre, sort: MovieSort.Featured, limit: ROW_LIMIT, page: 1 },
+            { genre: ctx.genre, sort: MovieSort.Featured, limit: poolLimit, page: 1 },
             { admin: false, ...ctx.viewer, entitlement: ctx.entitlement },
           ),
           this.series.list(
-            { genre: ctx.genre, sort: SeriesSort.Featured, limit: ROW_LIMIT, page: 1 },
+            { genre: ctx.genre, sort: SeriesSort.Featured, limit: poolLimit, page: 1 },
             { admin: false, ...ctx.viewer },
           ),
         ]);
-        return [
+        const genreItems = [
           ...movies.items.map((item) => movieToHomeCard(item, ctx.myList)),
           ...series.items.map((item) => seriesToHomeCard(item, ctx.myList)),
         ];
+        return ctx.shuffleItems ? shuffleCards(genreItems) : genreItems;
       }
       case HomeRowKind.Collection: {
         if (!ctx.collectionId) return ctx.collectionRows[0]?.items ?? [];
@@ -490,10 +526,14 @@ export class HomeService {
         if (!ctx.libraryId) return [];
         try {
           const { items } = await this.libraries.browsePublic(ctx.libraryId, ctx.entitlement);
-          return items.slice(0, ROW_LIMIT).map((card) => ({
+          const libraryItems = items.map((card) => ({
             ...card,
             inMyList: ctx.myList.has(card.id),
           }));
+          if (ctx.shuffleItems) {
+            return shuffleCards(libraryItems);
+          }
+          return libraryItems.slice(0, ROW_LIMIT);
         } catch {
           return [];
         }

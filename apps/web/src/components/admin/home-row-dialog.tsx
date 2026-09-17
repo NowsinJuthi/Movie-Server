@@ -19,6 +19,7 @@ export type HomeRowFormValues = {
   title: string;
   kind: AdminHomeRow["kind"];
   enabled: boolean;
+  shuffleItems: boolean;
   collectionId: string;
   libraryId: string;
   genre: string;
@@ -26,10 +27,12 @@ export type HomeRowFormValues = {
 };
 
 function emptyForm(preset?: HomeRowPreset, library?: Pick<AdminLibrary, "id" | "name">): HomeRowFormValues {
+  const kind = preset?.kind ?? HomeRowKind.Featured;
   return {
     title: library?.name ?? preset?.defaultTitle ?? "Featured",
-    kind: preset?.kind ?? HomeRowKind.Featured,
+    kind,
     enabled: true,
+    shuffleItems: kind === HomeRowKind.Library,
     collectionId: "",
     libraryId: library?.id ?? "",
     genre: preset?.genre ?? MOVIE_GENRES[0] ?? "action",
@@ -42,6 +45,7 @@ function fromRow(row: AdminHomeRow): HomeRowFormValues {
     title: row.title,
     kind: row.kind,
     enabled: row.enabled,
+    shuffleItems: row.shuffleItems,
     collectionId: row.collectionId ?? "",
     libraryId: row.libraryId ?? "",
     genre: row.genre ?? MOVIE_GENRES[0] ?? "action",
@@ -209,6 +213,21 @@ export function HomeRowDialog({
               onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
             />
             Visible on home page
+          </label>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.shuffleItems}
+              onChange={(event) => setForm({ ...form, shuffleItems: event.target.checked })}
+            />
+            <span>
+              Random order
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Pick and shuffle titles on each home page load. Great for media library shelves.
+              </span>
+            </span>
           </label>
 
           <div className="flex justify-end gap-2 pt-2">

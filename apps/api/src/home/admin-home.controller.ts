@@ -9,6 +9,7 @@ import {
   CreateHomeRowDto,
   UpdateHomeRowDto,
   ReorderHomeRowsDto,
+  SetHomeRowShuffleDto,
 } from './dto/home-cms.dto';
 
 @Controller('admin/home')
@@ -57,6 +58,12 @@ export class AdminHomeController {
   @Post('rows/seed-layout')
   async seedLayoutRows() {
     const rows = await this.cms.seedLayoutRows();
+    return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
+  }
+
+  @Post('rows/shuffle-mode')
+  async setShuffleMode(@Body() dto: SetHomeRowShuffleDto) {
+    const rows = await this.cms.setAllShuffle(dto.shuffleItems);
     return { rows: rows.map((row) => this.cms.toPublicRow(row)) };
   }
 

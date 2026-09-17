@@ -16,6 +16,9 @@ export class HomeRowConfig {
   @Prop({ default: true, index: true })
   enabled!: boolean;
 
+  @Prop({ default: false })
+  shuffleItems!: boolean;
+
   @Prop({ default: 0 })
   sortOrder!: number;
 

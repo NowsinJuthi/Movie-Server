@@ -172,5 +172,10 @@ export const adminApi = {
     apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/seed-layout", { method: "POST" }),
   seedHomeLibraryRows: () =>
     apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/seed-libraries", { method: "POST" }),
+  setHomeRowShuffleMode: (shuffleItems: boolean) =>
+    apiFetch<{ rows: AdminHomeRow[] }>("/admin/home/rows/shuffle-mode", {
+      method: "POST",
+      body: JSON.stringify({ shuffleItems }),
+    }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
 };

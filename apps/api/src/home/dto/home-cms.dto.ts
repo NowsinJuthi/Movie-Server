@@ -65,6 +65,10 @@ export class CreateHomeRowDto {
   enabled?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  shuffleItems?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -112,6 +116,10 @@ export class UpdateHomeRowDto {
   enabled?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  shuffleItems?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -140,6 +148,11 @@ export class UpdateHomeRowDto {
   @ArrayMaxSize(40)
   @IsString({ each: true })
   itemIds?: string[];
+}
+
+export class SetHomeRowShuffleDto {
+  @IsBoolean()
+  shuffleItems!: boolean;
 }
 
 export class ReorderHomeRowsDto {

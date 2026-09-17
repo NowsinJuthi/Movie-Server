@@ -131,6 +131,15 @@ export function dedupeCards(items: HomeCard[]): HomeCard[] {
   return out;
 }
 
+export function shuffleCards<T>(items: T[]): T[] {
+  const out = [...items];
+  for (let index = out.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [out[index], out[swapIndex]] = [out[swapIndex]!, out[index]!];
+  }
+  return out;
+}
+
 function movieBadges(movie: PublicMovie): string[] {
   const badges: string[] = [];
   if (movie.releaseYear >= CURRENT_YEAR) badges.push('New');

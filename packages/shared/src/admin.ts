@@ -108,6 +108,8 @@ export type AdminHomeRow = {
   title: string;
   kind: HomeRowKind;
   enabled: boolean;
+  /** When true, shelf titles are picked and ordered randomly on each home load. */
+  shuffleItems: boolean;
   sortOrder: number;
   genre: string | null;
   collectionId: string | null;
