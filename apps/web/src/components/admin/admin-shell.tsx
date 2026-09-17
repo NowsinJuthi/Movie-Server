@@ -151,11 +151,17 @@ const NAV: NavSection[] = [
       },
       {
         href: "/admin/featured",
-        label: "Discovery",
+        label: "Featured / trending",
+        icon: Heart,
+      },
+      {
+        href: "/admin/home",
+        label: "Homepage",
         icon: MonitorPlay,
         children: [
-          { href: "/admin/featured", label: "Featured / trending", icon: Heart },
-          { href: "/admin/home", label: "Homepage", icon: MonitorPlay },
+          { href: "/admin/home", label: "Layout & rows", icon: MonitorPlay },
+          { href: "/admin/collections", label: "Movie collections", icon: FolderKanban },
+          { href: "/admin/series-collections", label: "Series collections", icon: Library },
         ],
       },
     ],

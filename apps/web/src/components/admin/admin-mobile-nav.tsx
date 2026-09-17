@@ -67,6 +67,7 @@ export function AdminMobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
     pathname?.startsWith("/admin/movies") ||
     pathname?.startsWith("/admin/series") ||
     pathname?.startsWith("/admin/collections") ||
+    pathname?.startsWith("/admin/series-collections") ||
     pathname?.startsWith("/admin/genres") ||
     pathname?.startsWith("/admin/tags") ||
     pathname?.startsWith("/admin/tracks") ||

@@ -407,19 +407,21 @@ export default function AdminFileManagerPage() {
                     </p>
                   </div>
                   <div className={styles.toolbar}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => test.mutate(selected.id)}
-                      disabled={test.isPending}
-                    >
-                      {test.isPending ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <PlugZap className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      Test connection
-                    </Button>
+                    {canManageSmb ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => test.mutate(selected.id)}
+                        disabled={test.isPending}
+                      >
+                        {test.isPending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <PlugZap className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Test connection
+                      </Button>
+                    ) : null}
                     {canRemoveSmbServer ? (
                       <Button
                         size="sm"

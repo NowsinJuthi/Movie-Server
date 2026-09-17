@@ -110,7 +110,7 @@ export class AdminSmbController {
   }
 
   @Post(':id/test')
-  @PermissionsAny('upload_smb_files', 'manage_smb_files')
+  @Permissions('manage_smb_files')
   test(@Param('id', ParseObjectIdPipe) id: string) {
     return this.smb.test(id);
   }
