@@ -890,6 +890,7 @@ export class MoviesService {
         deviceId: extras?.deviceId,
         deviceLabel: extras?.deviceLabel,
         clientIp: extras?.clientIp,
+        mediaTitle: movie.title,
         clientHevc: extras?.hevcDirectStream,
         forceVideoTranscode: extras?.forceVideoTranscode,
         movieId: String(movie._id),

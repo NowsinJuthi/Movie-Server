@@ -580,6 +580,7 @@ export class SeriesService {
       deviceId: extras?.deviceId,
       deviceLabel: extras?.deviceLabel,
       clientIp: extras?.clientIp,
+      mediaTitle: `${detail.series.title} · S${detail.episode.seasonNumber}E${detail.episode.episodeNumber} · ${detail.episode.title}`,
       clientHevc: extras?.hevcDirectStream,
       forceVideoTranscode: extras?.forceVideoTranscode,
       episodeId,

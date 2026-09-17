@@ -9,6 +9,7 @@ export function toPublicPlayback(item: StoredPlaybackSession): PublicPlaybackSes
     deviceName: item.deviceLabel ?? null,
     mediaType: item.mediaType,
     mediaId: item.mediaId,
+    mediaTitle: item.mediaTitle?.trim() || null,
     quality: item.quality,
     startedAt: new Date(item.createdAt).toISOString(),
     lastHeartbeatAt: new Date(item.lastHeartbeat).toISOString(),

@@ -5,8 +5,8 @@ import { RequestUser } from '../auth/auth.types';
 import { DevicesService } from './devices.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { PlaybackSessionStore } from '../stream/playback-session.store';
+import { StreamService } from '../stream/stream.service';
 import { SubscriptionAccessService } from '../subscriptions/subscription-access.service';
-import { toPublicPlayback } from '../stream/playback-public';
 import { toPublicSession } from '../sessions/session.mapper';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import type { DeviceSecurityOverview } from '@movie-server/shared';
@@ -17,6 +17,7 @@ export class DevicesController {
     private readonly devices: DevicesService,
     private readonly sessions: SessionsService,
     @Inject(forwardRef(() => PlaybackSessionStore)) private readonly streams: PlaybackSessionStore,
+    @Inject(forwardRef(() => StreamService)) private readonly streamService: StreamService,
     private readonly access: SubscriptionAccessService,
   ) {}
 
@@ -35,7 +36,7 @@ export class DevicesController {
         this.devices.toPublic(item, { currentDeviceKey: currentKey, playingKeys }),
       ),
       sessions: sessionDocs.map((item) => toPublicSession(item, user.sessionId)),
-      streams: streams.map(toPublicPlayback),
+      streams: await this.streamService.publicPlaybackSessions(streams),
       maxDevices: entitlement.maxDevices,
       maxStreams: entitlement.maxStreams,
       deviceCount: deviceDocs.filter((item) => item.countsTowardLimit).length,

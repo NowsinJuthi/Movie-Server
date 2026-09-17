@@ -20,6 +20,7 @@ import {
   MediaKind,
   PlaybackQualityOption,
   PlaybackSessionInfo,
+  PublicPlaybackSession,
   RESOLUTION_TO_QUALITY,
   VIDEO_RESOLUTIONS,
   VideoQuality,
@@ -37,6 +38,7 @@ import { MediaLibrary, MediaLibraryDocument } from '../library/schemas/media-lib
 import { Series, SeriesDocument } from '../series/schemas/series.schema';
 import { Episode, EpisodeDocument } from '../series/schemas/episode.schema';
 import { StorageFactory } from '../library/storage/storage.factory';
+import { toPublicPlayback } from './playback-public';
 import { PlaybackSessionStore } from './playback-session.store';
 import { StoredPlaybackSession, StoredPlaybackTrack, StoredPlaybackVariant } from './playback-session.types';
 import { buildMediaPlaylist, variantBandwidth } from './hls-playlist';
@@ -89,6 +91,7 @@ export class StreamService {
     deviceId?: string;
     deviceLabel?: string;
     clientIp?: string;
+    mediaTitle?: string;
     movieId?: string;
     episodeId?: string;
     seriesId?: string;
@@ -248,6 +251,7 @@ export class StreamService {
         transcodeEncodeAudio: transcodePlan?.encodeAudio ?? false,
         transcodeAudioOrdinal: transcodePlan?.audioOrdinal ?? 0,
         sourceVideoCodec: transcodePlan?.probe.videoCodec ?? null,
+        mediaTitle: input.mediaTitle?.trim().slice(0, 160) || undefined,
       };
 
       const session = existing
@@ -376,6 +380,68 @@ export class StreamService {
 
   async listActive(userId: string) {
     return this.sessions.listActive(userId);
+  }
+
+  async publicPlaybackSessions(sessions: StoredPlaybackSession[]): Promise<PublicPlaybackSession[]> {
+    if (sessions.length === 0) {
+      return [];
+    }
+    const missingMovies = [
+      ...new Set(
+        sessions
+          .filter((item) => !item.mediaTitle?.trim() && item.mediaType === 'movie')
+          .map((item) => item.mediaId),
+      ),
+    ];
+    const missingEpisodes = [
+      ...new Set(
+        sessions
+          .filter((item) => !item.mediaTitle?.trim() && item.mediaType === 'episode')
+          .map((item) => item.mediaId),
+      ),
+    ];
+    const [movieDocs, episodeDocs] = await Promise.all([
+      missingMovies.length
+        ? this.movies.find({ _id: { $in: missingMovies.map((id) => new Types.ObjectId(id)) } }).select('title').lean()
+        : Promise.resolve([]),
+      missingEpisodes.length
+        ? this.episodes
+            .find({ _id: { $in: missingEpisodes.map((id) => new Types.ObjectId(id)) } })
+            .select('title seasonNumber episodeNumber seriesId')
+            .lean()
+        : Promise.resolve([]),
+    ]);
+    const seriesIds = [
+      ...new Set(episodeDocs.map((item) => String(item.seriesId)).filter(Boolean)),
+    ];
+    const seriesDocs =
+      seriesIds.length > 0
+        ? await this.series
+            .find({ _id: { $in: seriesIds.map((id) => new Types.ObjectId(id)) } })
+            .select('title')
+            .lean()
+        : [];
+    const movieTitleById = new Map(movieDocs.map((item) => [String(item._id), item.title]));
+    const seriesTitleById = new Map(seriesDocs.map((item) => [String(item._id), item.title]));
+    const episodeTitleById = new Map(
+      episodeDocs.map((item) => {
+        const seriesTitle = seriesTitleById.get(String(item.seriesId));
+        const episodeLabel = `S${item.seasonNumber}E${item.episodeNumber} · ${item.title}`;
+        return [String(item._id), seriesTitle ? `${seriesTitle} · ${episodeLabel}` : episodeLabel];
+      }),
+    );
+
+    return sessions.map((session) => {
+      const base = toPublicPlayback(session);
+      if (base.mediaTitle) {
+        return base;
+      }
+      const resolved =
+        session.mediaType === 'movie'
+          ? movieTitleById.get(session.mediaId) ?? null
+          : episodeTitleById.get(session.mediaId) ?? null;
+      return { ...base, mediaTitle: resolved };
+    });
   }
 
   async selectTracks(

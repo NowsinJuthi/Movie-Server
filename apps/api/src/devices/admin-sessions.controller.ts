@@ -5,9 +5,9 @@ import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { SessionsService } from '../sessions/sessions.service';
 import { DevicesService } from './devices.service';
 import { PlaybackSessionStore } from '../stream/playback-session.store';
+import { StreamService } from '../stream/stream.service';
 import { UsersService } from '../users/users.service';
 import { toPublicSession } from '../sessions/session.mapper';
-import { toPublicPlayback } from '../stream/playback-public';
 import type { AdminAuthSession, AdminPlaybackSession, AdminSessionMonitor } from '@movie-server/shared';
 
 @Controller('admin')
@@ -17,6 +17,7 @@ export class AdminSessionsController {
     private readonly authSessions: SessionsService,
     private readonly devices: DevicesService,
     @Inject(forwardRef(() => PlaybackSessionStore)) private readonly liveStreams: PlaybackSessionStore,
+    @Inject(forwardRef(() => StreamService)) private readonly streamService: StreamService,
     private readonly users: UsersService,
   ) {}
 
@@ -41,10 +42,11 @@ export class AdminSessionsController {
       userId: String(session.userId),
       userEmail: emailById.get(String(session.userId)) ?? '',
     });
-    const streams: AdminPlaybackSession[] = live.map((item) => ({
-      ...toPublicPlayback(item),
-      userId: item.userId,
-      userEmail: emailById.get(item.userId) ?? '',
+    const publicStreams = await this.streamService.publicPlaybackSessions(live);
+    const streams: AdminPlaybackSession[] = publicStreams.map((item, index) => ({
+      ...item,
+      userId: live[index]?.userId ?? '',
+      userEmail: emailById.get(live[index]?.userId ?? '') ?? '',
     }));
     return {
       sessions: sessionDocs.map(withUser),

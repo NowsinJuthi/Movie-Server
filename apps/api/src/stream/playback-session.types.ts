@@ -59,6 +59,7 @@ export type StoredPlaybackSession = {
   createdAt: number;
   lastHeartbeat: number;
   deviceLabel?: string;
+  mediaTitle?: string;
 };
 
 export const STREAM_PREFIX = 'stream:session:';

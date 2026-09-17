@@ -74,6 +74,7 @@ export type PublicPlaybackSession = {
   deviceName: string | null;
   mediaType: 'movie' | 'episode';
   mediaId: string;
+  mediaTitle: string | null;
   quality: string;
   startedAt: string;
   lastHeartbeatAt: string;

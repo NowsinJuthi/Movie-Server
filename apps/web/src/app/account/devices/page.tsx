@@ -19,6 +19,16 @@ function formatTime(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function formatDeviceLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Unknown device";
+  }
+  if (value.length <= 48) {
+    return value;
+  }
+  return `${value.slice(0, 45)}…`;
+}
+
 export default function DevicesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -250,9 +260,10 @@ export default function DevicesPage() {
               {data?.streams.map((stream) => (
                 <li key={stream.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-4 py-3">
                   <div>
-                    <p className="font-medium">{stream.deviceName || stream.deviceKey}</p>
+                    <p className="font-medium">{stream.mediaTitle || "Unknown title"}</p>
                     <p className="text-sm text-muted-foreground">
-                      {stream.mediaType} · {stream.quality} · started {formatTime(stream.startedAt)}
+                      {stream.quality.toUpperCase()} · {formatDeviceLabel(stream.deviceName || stream.deviceKey)} · started{" "}
+                      {formatTime(stream.startedAt)}
                     </p>
                   </div>
                   <Button variant="secondary" size="sm" disabled={stopStream.isPending} onClick={() => stopStream.mutate(stream.id)}>

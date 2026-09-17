@@ -23,7 +23,6 @@ import { Public } from '../common/decorators/public.decorator';
 import { RequireSubscription } from '../subscriptions/decorators/subscription.decorators';
 import { SkipSubscription } from '../subscriptions/decorators/skip-subscription.decorator';
 import { StreamService, isSessionId } from './stream.service';
-import { toPublicPlayback } from './playback-public';
 import { buildMasterPlaylist } from './hls-playlist';
 import { HlsPackagerService } from './hls-packager.service';
 import { SelectPlaybackTracksDto } from './dto/select-tracks.dto';
@@ -40,7 +39,7 @@ export class StreamController {
   @Get('active')
   async active(@CurrentUser() user: RequestUser) {
     const sessions = await this.streams.listActive(user.id);
-    return { streams: sessions.map(toPublicPlayback) };
+    return { streams: await this.streams.publicPlaybackSessions(sessions) };
   }
 
   @Public()

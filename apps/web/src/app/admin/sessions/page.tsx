@@ -71,7 +71,7 @@ export default function AdminSessionsPage() {
                   <tr>
                     <th className="px-4 py-3">User</th>
                     <th className="px-4 py-3">Device</th>
-                    <th className="px-4 py-3">Title</th>
+                    <th className="px-4 py-3">Playing</th>
                     <th className="px-4 py-3">Quality</th>
                     <th className="px-4 py-3">Heartbeat</th>
                   </tr>
@@ -81,9 +81,7 @@ export default function AdminSessionsPage() {
                     <tr key={item.id} className="border-t border-border">
                       <td className="px-4 py-3">{item.userEmail || item.userId}</td>
                       <td className="px-4 py-3">{item.deviceName || item.deviceKey}</td>
-                      <td className="px-4 py-3">
-                        {item.mediaType} {item.mediaId.slice(0, 8)}
-                      </td>
+                      <td className="px-4 py-3">{item.mediaTitle || `${item.mediaType} ${item.mediaId.slice(0, 8)}`}</td>
                       <td className="px-4 py-3">{item.quality}</td>
                       <td className="px-4 py-3">{formatTime(item.lastHeartbeatAt)}</td>
                     </tr>
