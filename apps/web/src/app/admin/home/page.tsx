@@ -16,10 +16,8 @@ import { useMemo, useState } from "react";
 import {
   HOME_ADVANCED_ROW_PRESETS,
   HOME_AUTO_PERSONALIZED_ROW_PRESETS,
-  HOME_CATALOG_ROW_PRESETS,
   HOME_LAYOUT_ROW_PRESETS,
   HOME_LIBRARY_ROW_PRESET,
-  HOME_MORE_GENRE_ROW_PRESETS,
   HOME_PERSONALIZED_ROW_PRESETS,
   HomeRowKind,
   genreDisplayName,
@@ -466,31 +464,6 @@ export default function AdminHomePage() {
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
-              <h2 className={styles.panelTitle}>Catalog shelves</h2>
-              <p className={styles.panelHint}>Quick-add the same lists that appear on your home page today.</p>
-            </div>
-          </div>
-          <div className={styles.presetGrid}>
-            {HOME_CATALOG_ROW_PRESETS.map((preset) => (
-              <button
-                key={preset.kind}
-                type="button"
-                className={styles.presetCard}
-                disabled={presetDisabled(preset)}
-                onClick={() => openCreate(preset)}
-              >
-                <p className={styles.presetLabel}>{preset.label}</p>
-                <p className={styles.presetDescription}>
-                  {presetDisabled(preset) ? "Already on homepage" : preset.description}
-                </p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div>
               <h2 className={styles.panelTitle}>Media libraries</h2>
               <p className={styles.panelHint}>
                 Show scanned library folders as homepage shelves. Each library can appear once.
@@ -551,31 +524,6 @@ export default function AdminHomePage() {
               <button key={preset.kind} type="button" className={styles.presetCard} onClick={() => openCreate(preset)}>
                 <p className={styles.presetLabel}>{preset.label}</p>
                 <p className={styles.presetDescription}>{preset.description}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.panel}>
-          <div className={styles.panelHead}>
-            <div>
-              <h2 className={styles.panelTitle}>More genre shelves</h2>
-              <p className={styles.panelHint}>Add additional genre rows beyond Action, Drama, Adventure, and Thriller.</p>
-            </div>
-          </div>
-          <div className={styles.presetGrid}>
-            {HOME_MORE_GENRE_ROW_PRESETS.map((preset) => (
-              <button
-                key={homeRowPresetKey(preset)}
-                type="button"
-                className={styles.presetCard}
-                disabled={presetDisabled(preset)}
-                onClick={() => openCreate(preset)}
-              >
-                <p className={styles.presetLabel}>{preset.label}</p>
-                <p className={styles.presetDescription}>
-                  {presetDisabled(preset) ? "Already on homepage" : preset.description}
-                </p>
               </button>
             ))}
           </div>
