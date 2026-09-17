@@ -18,6 +18,7 @@ import os from 'os';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { ErrorCode, UserRole } from '@movie-server/shared';
+import { Permissions, PermissionsAny } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { SmbService } from './smb.service';
@@ -42,21 +43,25 @@ export class AdminSmbController {
   constructor(private readonly smb: SmbService) {}
 
   @Get()
+  @PermissionsAny('upload_smb_files', 'manage_smb_files')
   list() {
     return this.smb.list();
   }
 
   @Post()
+  @Permissions('manage_smb_files')
   create(@Body() dto: UpsertSmbServerDto) {
     return this.smb.create(dto);
   }
 
   @Post('libraries')
+  @Permissions('manage_smb_files')
   addLibrary(@Body() dto: AddSmbLibraryDto) {
     return this.smb.addLibrary(dto);
   }
 
   @Post(':id/credentials')
+  @PermissionsAny('upload_smb_files', 'manage_smb_files')
   updateCredentials(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateSmbCredentialsDto,
@@ -65,6 +70,7 @@ export class AdminSmbController {
   }
 
   @Post(':id/upload')
+  @PermissionsAny('upload_smb_files', 'manage_smb_files')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -92,21 +98,25 @@ export class AdminSmbController {
   }
 
   @Patch(':id')
+  @Permissions('manage_smb_files')
   update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateSmbServerDto) {
     return this.smb.update(id, dto);
   }
 
   @Delete(':id')
+  @Permissions('manage_smb_files')
   remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.smb.remove(id);
   }
 
   @Post(':id/test')
+  @PermissionsAny('upload_smb_files', 'manage_smb_files')
   test(@Param('id', ParseObjectIdPipe) id: string) {
     return this.smb.test(id);
   }
 
   @Get(':id/browse')
+  @PermissionsAny('upload_smb_files', 'manage_smb_files')
   browse(@Param('id', ParseObjectIdPipe) id: string, @Query() query: BrowseSmbDto) {
     return this.smb.browse(id, query.path ?? '');
   }

@@ -46,6 +46,7 @@ export function permissionForAdminRoute(href: string): PermissionKey {
 /** Routes that open when the user has any one of these permissions. */
 const ROUTE_ANY_PERMISSIONS: Partial<Record<string, PermissionKey[]>> = {
   "/admin/subscriptions": ["view_subscriptions", "manage_subscriptions"],
+  "/admin/file-manager": ["upload_smb_files", "manage_smb_files"],
 };
 
 export function canAccessAdminRoute(

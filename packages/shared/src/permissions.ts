@@ -9,6 +9,7 @@ export const PERMISSION_KEYS = [
   'manage_genres_tags',
   'manage_home_curation',
   'manage_libraries',
+  'upload_smb_files',
   'manage_smb_files',
   'view_stream_sessions',
   'view_users',
@@ -33,6 +34,7 @@ export const STAFF_PROFILE_IDS = [
   'administrator',
   'content_manager',
   'library_manager',
+  'media_uploader',
   'billing_manager',
   'support_staff',
 ] as const;
@@ -115,9 +117,14 @@ export const PERMISSION_GROUPS: Array<{
         description: 'Add libraries and run scans',
       },
       {
+        key: 'upload_smb_files',
+        label: 'Samba upload',
+        description: 'Browse shares and upload videos (no server setup or delete)',
+      },
+      {
         key: 'manage_smb_files',
         label: 'Samba file manager',
-        description: 'Browse and upload files on Samba shares',
+        description: 'Connect Samba servers, link libraries, and remove servers',
       },
       {
         key: 'view_stream_sessions',
@@ -269,6 +276,17 @@ export const STAFF_PROFILE_DEFINITIONS: Array<{
     ],
   },
   {
+    id: 'media_uploader',
+    label: 'Media uploader',
+    description: 'Upload videos via Samba without delete or catalog access.',
+    locked: false,
+    summary: [
+      'Browse configured Samba shares and upload video files.',
+      'Cannot remove servers, link libraries, or delete movies.',
+      'No access to movies, billing, or user management.',
+    ],
+  },
+  {
     id: 'billing_manager',
     label: 'Billing manager',
     description: 'Plans, subscriptions, and payments.',
@@ -322,8 +340,14 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: Record<
     admin_panel_access: true,
     dashboard_analytics: true,
     manage_libraries: true,
+    upload_smb_files: true,
     manage_smb_files: true,
     view_stream_sessions: true,
+  },
+  media_uploader: {
+    ...allPermissions(false),
+    admin_panel_access: true,
+    upload_smb_files: true,
   },
   billing_manager: {
     ...allPermissions(false),

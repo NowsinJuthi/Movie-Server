@@ -37,6 +37,7 @@ import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api";
 import { smbApi } from "@/lib/smb-api";
@@ -47,6 +48,9 @@ export default function AdminFileManagerPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, status } = useAuthStore();
+  const { can, canAny, isLoading: permissionsLoading } = useAdminPermissions();
+  const canManageSmb = can("manage_smb_files");
+  const canUseSmb = canAny("upload_smb_files", "manage_smb_files");
   const [error, setError] = useState<string | null>(null);
   const [showConnectForm, setShowConnectForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -82,8 +86,10 @@ export default function AdminFileManagerPage() {
       router.replace("/login?next=/admin/file-manager");
     } else if (user && !hasMinimumRole(user.role, UserRole.Admin)) {
       router.replace("/unauthorized");
+    } else if (user && hasMinimumRole(user.role, UserRole.Admin) && !permissionsLoading && !canUseSmb) {
+      router.replace("/unauthorized");
     }
-  }, [status, user, router]);
+  }, [status, user, router, permissionsLoading, canUseSmb]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -194,7 +200,7 @@ export default function AdminFileManagerPage() {
     ? `\\\\${selected.host}\\${selected.share}${browsePath ? `\\${browsePath.replace(/\//g, "\\")}` : ""}`
     : "";
 
-  if (!user || !hasMinimumRole(user.role, UserRole.Admin)) {
+  if (!user || !hasMinimumRole(user.role, UserRole.Admin) || permissionsLoading || !canUseSmb) {
     return <ScreenMessage>Checking access...</ScreenMessage>;
   }
 
@@ -209,31 +215,37 @@ export default function AdminFileManagerPage() {
   return (
     <AdminPage
       title="Samba file manager"
-      description="Connect network storage, browse shares, upload videos, and link folders to media libraries."
+      description={
+        canManageSmb
+          ? "Connect network storage, browse shares, upload videos, and link folders to media libraries."
+          : "Browse configured Samba shares and upload videos. Server setup and delete require Library manager access."
+      }
       error={pageError}
       actions={
-        <Button
-          type="button"
-          size="sm"
-          variant={showConnectForm ? "ghost" : "outline"}
-          onClick={() => setShowConnectForm((open) => !open)}
-        >
-          {showConnectForm ? (
-            <>
-              <X className="mr-2 h-4 w-4" />
-              Close
-            </>
-          ) : (
-            <>
-              <Plus className="mr-2 h-4 w-4" />
-              Connect server
-            </>
-          )}
-        </Button>
+        canManageSmb ? (
+          <Button
+            type="button"
+            size="sm"
+            variant={showConnectForm ? "ghost" : "outline"}
+            onClick={() => setShowConnectForm((open) => !open)}
+          >
+            {showConnectForm ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                Close
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Connect server
+              </>
+            )}
+          </Button>
+        ) : null
       }
     >
       <div className={styles.layout}>
-        {showConnectForm ? (
+        {showConnectForm && canManageSmb ? (
           <section className={styles.connectPanel}>
             <div className={styles.connectHead}>
               <div>
@@ -407,19 +419,21 @@ export default function AdminFileManagerPage() {
                       )}
                       Test connection
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (confirm(`Remove "${selected.name}" from AmarPin? Linked libraries must be deleted first.`)) {
-                          remove.mutate(selected.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Remove
-                    </Button>
+                    {canManageSmb ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm(`Remove "${selected.name}" from AmarPin? Linked libraries must be deleted first.`)) {
+                            remove.mutate(selected.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                        Remove
+                      </Button>
+                    ) : null}
                   </div>
                 </header>
 
@@ -509,25 +523,27 @@ export default function AdminFileManagerPage() {
                     )}
                     Refresh
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setPendingDir({
-                        name: browsePath ? browsePath.split("/").pop() || selected.share : selected.share,
-                        path: browsePath,
-                        kind: "directory",
-                        sizeBytes: null,
-                        isVideo: false,
-                      });
-                      setLibraryName(
-                        browsePath ? browsePath.split("/").pop() || selected.share : selected.name,
-                      );
-                    }}
-                  >
-                    <FolderPlus className="mr-1.5 h-3.5 w-3.5" />
-                    Library from current folder
-                  </Button>
+                  {canManageSmb ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPendingDir({
+                          name: browsePath ? browsePath.split("/").pop() || selected.share : selected.share,
+                          path: browsePath,
+                          kind: "directory",
+                          sizeBytes: null,
+                          isVideo: false,
+                        });
+                        setLibraryName(
+                          browsePath ? browsePath.split("/").pop() || selected.share : selected.name,
+                        );
+                      }}
+                    >
+                      <FolderPlus className="mr-1.5 h-3.5 w-3.5" />
+                      Library from current folder
+                    </Button>
+                  ) : null}
                 </div>
 
                 <SmbUploadPanel
@@ -587,7 +603,7 @@ export default function AdminFileManagerPage() {
                               {entry.sizeBytes != null ? formatBytes(entry.sizeBytes) : "—"}
                             </td>
                             <td className="text-right">
-                              {entry.kind === "directory" ? (
+                              {canManageSmb && entry.kind === "directory" ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -624,7 +640,7 @@ export default function AdminFileManagerPage() {
                   ) : null}
                 </div>
 
-                {pendingDir ? (
+                {pendingDir && canManageSmb ? (
                   <div className={styles.librarySheet}>
                     <h3 className={styles.librarySheetTitle}>Create media library</h3>
                     <p className={styles.librarySheetPath}>

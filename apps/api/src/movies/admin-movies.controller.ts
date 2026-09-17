@@ -14,6 +14,7 @@ import {
 import { ErrorCode, UserRole } from '@movie-server/shared';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { MoviesService } from './movies.service';
@@ -42,6 +43,7 @@ export class AdminMoviesController {
   }
 
   @Post('bulk')
+  @Permissions('manage_movies')
   async bulk(@Body() dto: BulkMoviesDto) {
     const result = await this.movies.bulk(dto.ids, dto.action);
     return { ...result, action: dto.action };
@@ -67,6 +69,7 @@ export class AdminMoviesController {
   }
 
   @Delete(':id')
+  @Permissions('manage_movies')
   async remove(@Param('id', ParseObjectIdPipe) id: string) {
     await this.movies.remove(id);
     return { deleted: true };
@@ -115,6 +118,7 @@ export class AdminMoviesController {
   }
 
   @Delete(':id/media/:assetId')
+  @Permissions('manage_movies')
   async removeMedia(
     @Param('id', ParseObjectIdPipe) id: string,
     @Param('assetId', ParseObjectIdPipe) assetId: string,

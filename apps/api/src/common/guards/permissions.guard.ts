@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { ErrorCode, PermissionKey, UserRole } from '@movie-server/shared';
 import { RequestUser } from '../../auth/auth.types';
 import { RolePermissionsService } from '../../role-permissions/role-permissions.service';
-import { PERMISSIONS_KEY } from '../constants';
+import { PERMISSIONS_ANY_KEY, PERMISSIONS_KEY } from '../constants';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -22,7 +22,11 @@ export class PermissionsGuard implements CanActivate {
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (!required?.length) {
+    const requiredAny = this.reflector.getAllAndOverride<PermissionKey[] | undefined>(
+      PERMISSIONS_ANY_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (!required?.length && !requiredAny?.length) {
       return true;
     }
 
@@ -39,7 +43,19 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    for (const permission of required) {
+    if (requiredAny?.length) {
+      for (const permission of requiredAny) {
+        if (await this.rolePermissions.userHasPermission(user, permission)) {
+          return true;
+        }
+      }
+      throw new ForbiddenException({
+        error: ErrorCode.Forbidden,
+        message: 'Insufficient permissions.',
+      });
+    }
+
+    for (const permission of required!) {
       const allowed = await this.rolePermissions.userHasPermission(user, permission);
       if (!allowed) {
         throw new ForbiddenException({

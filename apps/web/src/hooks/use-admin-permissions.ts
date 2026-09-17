@@ -28,10 +28,16 @@ export function useAdminPermissions() {
     return hasAdminPermission(query.data, key);
   };
 
+  const canAny = (...keys: PermissionKey[]) => {
+    if (user?.role === UserRole.SuperAdmin) return true;
+    return keys.some((key) => hasAdminPermission(query.data, key));
+  };
+
   return {
     permissions: query.data,
     isLoading: query.isLoading,
     can,
+    canAny,
     canAccessAdminPanel: can("admin_panel_access"),
   };
 }
