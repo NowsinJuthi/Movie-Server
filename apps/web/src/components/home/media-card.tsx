@@ -39,16 +39,6 @@ export function MediaCard({
               <Play className="h-5 w-5 fill-current" />
             </span>
           </div>
-          <div className="absolute left-2 top-2 flex flex-wrap gap-1">
-            {card.badges.slice(0, 2).map((badge) => (
-              <span
-                key={badge}
-                className="rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-              >
-                {badge}
-              </span>
-            ))}
-          </div>
           {progress && card.progressRatio != null ? (
             <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
               <div className="h-full bg-primary" style={{ width: `${Math.round(card.progressRatio * 100)}%` }} />
