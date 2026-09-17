@@ -35,6 +35,16 @@ export class SmbMountService {
     return !/^(0|false|no|off)$/i.test(raw.trim());
   }
 
+  /** CIFS mounts must appear as the API user so uploads/scans can write. */
+  private cifsOwnerOptions(): { uid: string; gid: string } {
+    const uid = this.config.get<string>('SMB_MOUNT_UID')?.trim();
+    const gid = this.config.get<string>('SMB_MOUNT_GID')?.trim();
+    if (uid && gid) {
+      return { uid, gid };
+    }
+    return { uid: String(process.getuid()), gid: String(process.getgid()) };
+  }
+
   uncPath(auth: SmbAuth, remotePath = ''): string {
     const share = `\\\\${auth.host}\\${auth.share}`;
     const cleaned = remotePath.replace(/\//g, '\\').replace(/^\\+/, '').replace(/\\+$/, '');
@@ -485,13 +495,14 @@ export class SmbMountService {
     port?: number,
   ): Promise<void> {
     const shareSource = port && port !== 445 ? `${source}:${port}` : source;
+    const owner = this.cifsOwnerOptions();
     const baseOpts = [
       `credentials=${credFile}`,
-      'uid=0',
-      'gid=0',
+      `uid=${owner.uid}`,
+      `gid=${owner.gid}`,
       'iocharset=utf8',
-      'file_mode=0644',
-      'dir_mode=0755',
+      'file_mode=0664',
+      'dir_mode=0775',
       'noserverino',
       'sec=ntlmssp',
       'cache=loose',

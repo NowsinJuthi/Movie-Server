@@ -64,7 +64,14 @@ if [[ "$PORT" != "445" && -n "$PORT" ]]; then
   SOURCE="${SOURCE}:${PORT}"
 fi
 
-BASE_OPTS="credentials=${CRED_REAL},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,noserverino,sec=ntlmssp,cache=loose,actimeo=60"
+API_USER="${AMARPIN_API_USER:-www}"
+if ! id "$API_USER" >/dev/null 2>&1; then
+  echo "API user not found: ${API_USER} (set AMARPIN_API_USER if different)." >&2
+  exit 1
+fi
+WWW_UID="$(id -u "$API_USER")"
+WWW_GID="$(id -g "$API_USER")"
+BASE_OPTS="credentials=${CRED_REAL},uid=${WWW_UID},gid=${WWW_GID},iocharset=utf8,file_mode=0664,dir_mode=0775,noserverino,sec=ntlmssp,cache=loose,actimeo=60"
 VERS_ATTEMPTS=(3.0 3.1.1 2.1)
 
 for vers in "${VERS_ATTEMPTS[@]}"; do

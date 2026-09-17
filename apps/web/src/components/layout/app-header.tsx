@@ -87,7 +87,7 @@ export function AppHeader({
     <button
       type="button"
       className={styles.logoBtn}
-      onClick={() => router.push(variant === "admin" ? "/admin" : "/home")}
+      onClick={() => router.push("/home")}
     >
       {logoSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -96,7 +96,7 @@ export function AppHeader({
         <>
           {siteName}
           {variant === "admin" ? (
-            <span className="ml-1.5 text-sm font-semibold text-white/55">Admin</span>
+            <span className="ml-1.5 text-sm font-semibold text-muted-foreground">Admin</span>
           ) : null}
         </>
       )}
@@ -164,7 +164,7 @@ export function AppHeader({
                 className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
                 onClick={openMobileMenu}
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             ) : null}
             <div className={cn(variant === "admin" ? "block" : "hidden lg:block")}>{logoButton}</div>
@@ -209,7 +209,7 @@ export function AppHeader({
                 ) : null}
               </nav>
             ) : (
-              <p className="hidden text-sm font-semibold text-white/70 lg:block">Administration</p>
+              <p className="hidden text-sm font-semibold text-muted-foreground lg:block">Administration</p>
             )}
           </div>
 

@@ -32,7 +32,10 @@ if ! command -v mount.cifs >/dev/null 2>&1; then
   apt-get update -qq && apt-get install -y cifs-utils
 fi
 
-BASE_OPTS="credentials=${CRED},uid=0,gid=0,iocharset=utf8,file_mode=0644,dir_mode=0755,vers=3.0,noserverino"
+API_USER="${AMARPIN_API_USER:-www}"
+WWW_UID="$(id -u "$API_USER")"
+WWW_GID="$(id -g "$API_USER")"
+BASE_OPTS="credentials=${CRED},uid=${WWW_UID},gid=${WWW_GID},iocharset=utf8,file_mode=0664,dir_mode=0775,vers=3.0,noserverino"
 FAST_OPTS="${BASE_OPTS},cache=loose,actimeo=60"
 
 if mount -t cifs "//${HOST}/${SHARE}" "$MP" -o "$FAST_OPTS" 2>/dev/null; then

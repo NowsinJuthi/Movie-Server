@@ -55,3 +55,7 @@ echo "Done. Samba mounts from Admin → File manager will use sudo automatically
 echo "Mount root: ${MOUNT_ROOT}"
 echo "Verify: sudo -u ${API_USER} sudo ${HELPER_DST} 2>&1 | head -1 || true"
 echo "Restart API: systemctl restart amarpin-api"
+echo ""
+echo "If Samba was mounted before this update, remount so files are owned by ${API_USER}:"
+echo "  sudo umount ${MOUNT_ROOT}/<server-id>   # for each active mount"
+echo "  Then browse the share again in Admin → File manager."

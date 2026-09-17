@@ -278,6 +278,8 @@ sudo chown -R www:www apps/web/.next/standalone
 | MongoDB empty after reset | Atlas DB recreated | `npm run bootstrap:admin`, re-add libraries & Samba |
 | API crash `ECONNREFUSED 6379` | Redis not running | `sudo systemctl start redis` or install Redis |
 | `Too many authentication attempts` | Rate limit (production) | Wait 15 min; or dev: `REDIS_HOST=memory` locally |
+| Samba upload `HTTP 413` | Nginx body limit (aaPanel default ~50MB) | Set `client_max_body_size 0;` on `movies.amarpin.com` (see `nginx-web.conf`) and reload nginx |
+| Samba upload `EACCES permission denied` | CIFS mount owned by root (`uid=0`) | Re-run `install-smb-mount-helper.sh`, `umount` old mounts, browse share to remount as `www` |
 
 ---
 

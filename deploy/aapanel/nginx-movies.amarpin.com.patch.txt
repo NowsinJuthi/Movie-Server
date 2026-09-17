@@ -1,0 +1,34 @@
+# aaPanel: DO NOT replace the whole nginx file.
+# Open your EXISTING config and INSERT only the blocks below.
+# Do not delete or edit any #SSL-START, #error_page 404/404.html, #ERROR-PAGE-START lines.
+
+# =============================================================================
+# INSERT 1 — paste immediately AFTER this line (do not remove #SSL-END):
+#     #SSL-END
+# =============================================================================
+
+    client_max_body_size 0;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_connect_timeout 60s;
+
+# =============================================================================
+# INSERT 2 — paste immediately BEFORE this line (keep the include line as-is):
+#     include /www/server/panel/vhost/nginx/proxy/movies.amarpin.com/*.conf;
+# =============================================================================
+
+    location ^~ /api/smb-upload/ {
+        client_max_body_size 0;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Do NOT add location ^~ /api/v1/ here — aaPanel proxy include already has it.
