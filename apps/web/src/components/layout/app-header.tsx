@@ -189,14 +189,16 @@ export function AppHeader({
 
             {variant === "browse" ? (
               <nav className={styles.desktopNav} aria-label="Main">
-                <HeaderLink href="/home" active={homeActive}>
+                <div className={styles.browseNavPanel}>
+                <HeaderLink href="/home" active={homeActive} icon={Home}>
                   Home
                 </HeaderLink>
-                <HeaderLink href="/home/welcome" active={discoverActive}>
+                <HeaderLink href="/home/welcome" active={discoverActive} icon={Sparkles}>
                   Discover
                 </HeaderLink>
                 <NavMenu
                   label="Movies"
+                  icon={Film}
                   active={moviesActive}
                   items={movieLibraries.map((library) => ({
                     id: library.id,
@@ -219,9 +221,11 @@ export function AppHeader({
                   }
                 />
                 {tvLibraries.length > 0 ? (
-                  <NavMenu
-                    label="TV Shows"
-                    active={tvActive}
+                <NavMenu
+                  label="TV Shows"
+                  icon={Tv}
+                  itemIcon={Tv}
+                  active={tvActive}
                     items={tvLibraries.map((library) => ({
                       id: library.id,
                       label: library.name,
@@ -245,6 +249,7 @@ export function AppHeader({
                 {movieRequestsEnabled ? (
                   <NavMenu
                     label="Upload Request"
+                    icon={Clapperboard}
                     active={requestsNavActive}
                     items={[]}
                     emptyHint={undefined}
@@ -265,6 +270,7 @@ export function AppHeader({
                     footerOnly
                   />
                 ) : null}
+                </div>
               </nav>
             ) : (
               <p className="hidden text-sm font-semibold text-muted-foreground lg:block">Administration</p>
@@ -334,6 +340,13 @@ function BrowseMobileDrawer({
           </button>
         </div>
         <nav className={cn(styles.mobileNavScroll, "brand-scrollbar")} aria-label="Browse libraries">
+          <div className={styles.browseMenuPanel}>
+            <div className={styles.browseSectionHead}>
+              <span className={styles.browseSectionIcon} aria-hidden>
+                <Clapperboard className="h-3.5 w-3.5" />
+              </span>
+              <p className={styles.browseSectionLabel}>Browse</p>
+            </div>
           <ul className={styles.mobileNavList}>
             <li>
               <MobileNavLink active={homeActive} icon={Home} onClick={() => onNavigate("/home")}>
@@ -480,6 +493,7 @@ function BrowseMobileDrawer({
               </li>
             ) : null}
           </ul>
+          </div>
 
           {movieLibraries.length === 0 && tvLibraries.length === 0 ? (
             <p className="px-3 py-4 text-sm text-muted-foreground">No libraries available yet.</p>
@@ -511,7 +525,11 @@ function MobileNavLink({
       className={cn(styles.mobileNavLink, active && styles.mobileNavLinkActive)}
       onClick={onClick}
     >
-      {active ? <span className={styles.mobileNavIndicator} aria-hidden /> : null}
+      <span
+        className={styles.mobileNavIndicator}
+        aria-hidden
+        style={{ visibility: active ? "visible" : "hidden" }}
+      />
       <span className={cn(styles.mobileNavIconBox, active && styles.mobileNavIconBoxActive)}>
         <Icon className="h-4 w-4" />
       </span>
@@ -535,13 +553,49 @@ export function BrowseHeader(props: {
   return <AppHeader {...props} variant="browse" />;
 }
 
+function BrowseNavItemContent({
+  icon: Icon,
+  active,
+  children,
+  chevron,
+  chevronOpen,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  active?: boolean;
+  children: ReactNode;
+  chevron?: boolean;
+  chevronOpen?: boolean;
+}) {
+  return (
+    <>
+      <span
+        className={styles.navIndicator}
+        aria-hidden
+        style={{ visibility: active ? "visible" : "hidden" }}
+      />
+      <span className={styles.navIconBox}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className={styles.navLabel}>{children}</span>
+      {chevron ? (
+        <ChevronDown
+          className={cn(styles.navDropdownChevron, chevronOpen && styles.navDropdownChevronOpen)}
+          aria-hidden
+        />
+      ) : null}
+    </>
+  );
+}
+
 function HeaderLink({
   href,
   active,
+  icon,
   children,
 }: {
   href: string;
   active?: boolean;
+  icon: ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -551,7 +605,9 @@ function HeaderLink({
       className={cn(styles.navLink, active && styles.navLinkActive)}
       onClick={() => router.push(href)}
     >
-      {children}
+      <BrowseNavItemContent icon={icon} active={active}>
+        {children}
+      </BrowseNavItemContent>
     </button>
   );
 }
@@ -794,6 +850,8 @@ type NavFooterItem = {
 
 function NavMenu({
   label,
+  icon,
+  itemIcon: ItemIcon = Film,
   items,
   emptyHint,
   active,
@@ -801,6 +859,8 @@ function NavMenu({
   footerOnly,
 }: {
   label: string;
+  icon: ComponentType<{ className?: string }>;
+  itemIcon?: ComponentType<{ className?: string }>;
   items: Array<{ id: string; label: string; href: string; active?: boolean }>;
   emptyHint?: string;
   active?: boolean;
@@ -865,11 +925,9 @@ function NavMenu({
           setOpen((value) => !value);
         }}
       >
-        <span>{label}</span>
-        <ChevronDown
-          className={cn(styles.navDropdownChevron, open && styles.navDropdownChevronOpen)}
-          aria-hidden
-        />
+        <BrowseNavItemContent icon={icon} active={active} chevron chevronOpen={open}>
+          {label}
+        </BrowseNavItemContent>
       </button>
       {open ? (
         <div className={styles.navDropdownMenu} role="menu">
@@ -890,7 +948,15 @@ function NavMenu({
                       router.push(item.href);
                     }}
                   >
-                    {item.label}
+                    <span
+                      className={styles.navIndicator}
+                      aria-hidden
+                      style={{ visibility: item.active ? "visible" : "hidden" }}
+                    />
+                    <span className={styles.navDropdownIconBox} aria-hidden>
+                      <ItemIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 truncate">{item.label}</span>
                   </button>
                 ))
               )
@@ -912,8 +978,12 @@ function NavMenu({
                         router.push(item.href);
                       }}
                     >
-                      {Icon ? <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden /> : null}
-                      {item.label}
+                      {Icon ? (
+                        <span className={styles.navDropdownIconBox} aria-hidden>
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 truncate">{item.label}</span>
                     </button>
                   );
                 })}
