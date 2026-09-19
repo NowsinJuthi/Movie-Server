@@ -411,6 +411,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
       <div className={styles.shell}>
+        <div className={styles.mobileMenuBar}>
+          <button
+            type="button"
+            className={styles.mobileMenuTrigger}
+            aria-label="Open admin menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
         <aside className={cn(styles.sidebar, mobileNavOpen && styles.sidebarOpen)}>
           <nav className={styles.sidebarNav} aria-label="Admin">
             <div className={styles.menuPanel}>
@@ -598,10 +609,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-      <AdminMobileNav
-        menuOpen={mobileNavOpen}
-        onOpenMenu={() => setMobileNavOpen(true)}
-      />
+      <AdminMobileNav />
     </div>
   );
 }

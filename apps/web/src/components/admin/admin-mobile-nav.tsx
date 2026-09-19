@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Clapperboard,
-  LayoutDashboard,
-  Menu,
-  Users,
-} from "lucide-react";
+import { Clapperboard, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -52,13 +47,7 @@ function AdminNavTab({
   );
 }
 
-export function AdminMobileNav({
-  menuOpen,
-  onOpenMenu,
-}: {
-  menuOpen?: boolean;
-  onOpenMenu: () => void;
-}) {
+export function AdminMobileNav() {
   const pathname = usePathname();
 
   const isDashboard = pathname === "/admin";
@@ -81,19 +70,6 @@ export function AdminMobileNav({
     pathname?.startsWith("/admin/home") ||
     pathname?.startsWith("/admin/slider") ||
     false;
-  const isMenu =
-    Boolean(menuOpen) ||
-    pathname?.startsWith("/admin/menu") ||
-    pathname?.startsWith("/admin/health") ||
-    pathname?.startsWith("/admin/settings") ||
-    pathname?.startsWith("/admin/license") ||
-    pathname?.startsWith("/admin/jobs") ||
-    pathname?.startsWith("/admin/audit") ||
-    pathname?.startsWith("/admin/libraries") ||
-    pathname?.startsWith("/admin/file-manager") ||
-    pathname?.startsWith("/admin/sessions") ||
-    false;
-
   return (
     <nav
       aria-label="Admin mobile navigation"
@@ -117,12 +93,6 @@ export function AdminMobileNav({
           label="Catalog"
           active={isCatalog}
           icon={<Clapperboard className={cn("h-5 w-5", isCatalog && "stroke-[2.5]")} />}
-        />
-        <AdminNavTab
-          label="Menu"
-          active={isMenu}
-          icon={<Menu className={cn("h-5 w-5", isMenu && "stroke-[2.5]")} />}
-          onClick={onOpenMenu}
         />
       </div>
     </nav>
