@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { PLAN_FEATURES, PLAN_TIERS, VIDEO_QUALITIES, type PublicPlan } from "@movie-server/shared";
+import {
+  PLAN_FEATURE_LABELS,
+  PLAN_FEATURES,
+  PLAN_TIERS,
+  VIDEO_QUALITIES,
+  buildPlanFeatureLines,
+  defaultPlanFeatureLines,
+  featureBulletsFromText,
+  featureBulletsToText,
+  type PlanFeature,
+  type PublicPlan,
+  type VideoQuality,
+} from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +41,7 @@ export type EditPlanFormValues = {
   trialDays: number;
   sortOrder: number;
   features: string[];
+  featureBullets: string[];
   isActive: boolean;
 };
 
@@ -48,10 +61,21 @@ export function EditPlanDialog({
   onSubmit: (values: EditPlanFormValues) => void;
 }) {
   const [mounted, setMounted] = useState(false);
-  type PlanFormState = Omit<EditPlanFormValues, "monthlyPriceCents" | "yearlyPriceCents"> & {
+  type PlanFormState = Omit<EditPlanFormValues, "monthlyPriceCents" | "yearlyPriceCents" | "featureBullets"> & {
     monthlyPrice: number;
     yearlyPrice: number;
+    useCustomFeatureBullets: boolean;
+    featureBulletsText: string;
   };
+
+  function planLineInput(state: PlanFormState) {
+    return {
+      maxVideoQuality: state.maxVideoQuality as VideoQuality,
+      maxStreams: state.maxStreams,
+      maxDevices: state.maxDevices,
+      features: state.features as PlanFeature[],
+    };
+  }
 
   const [form, setForm] = useState<PlanFormState | null>(null);
 
@@ -75,9 +99,30 @@ export function EditPlanDialog({
         sortOrder: plan.sortOrder,
         features: [...plan.features],
         isActive: plan.isActive,
+        useCustomFeatureBullets: (plan.featureBullets?.length ?? 0) > 0,
+        featureBulletsText:
+          (plan.featureBullets?.length ?? 0) > 0
+            ? featureBulletsToText(plan.featureBullets)
+            : defaultPlanFeatureLines({
+                maxVideoQuality: plan.maxVideoQuality,
+                maxStreams: plan.maxStreams,
+                maxDevices: plan.maxDevices,
+                features: plan.features,
+              }).join("\n"),
       });
     }
   }, [open, plan]);
+
+  const subscriptionFeaturePreview = useMemo(() => {
+    if (!form) return [];
+    if (form.useCustomFeatureBullets) {
+      return buildPlanFeatureLines({
+        ...planLineInput(form),
+        featureBullets: featureBulletsFromText(form.featureBulletsText),
+      });
+    }
+    return defaultPlanFeatureLines(planLineInput(form));
+  }, [form]);
 
   if (!mounted || !open || !plan || !form) return null;
 
@@ -129,6 +174,9 @@ export function EditPlanDialog({
               ...form,
               monthlyPriceCents: centsFromMajorUnits(form.monthlyPrice),
               yearlyPriceCents: centsFromMajorUnits(form.yearlyPrice),
+              featureBullets: form.useCustomFeatureBullets
+                ? featureBulletsFromText(form.featureBulletsText)
+                : [],
             });
           }}
         >
@@ -265,19 +313,101 @@ export function EditPlanDialog({
           </label>
 
           <div className="md:col-span-2">
-            <Label>Features</Label>
-            <div className="mt-2 flex flex-wrap gap-3">
+            <Label>Entitlements</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Controls API access (quality, downloads, etc.). Used to build the subscription card list when custom
+              bullets are off.
+            </p>
+            <div className="mt-2 flex flex-col gap-2">
               {PLAN_FEATURES.map((feature) => (
-                <label key={feature} className="flex items-center gap-2 text-sm">
+                <label key={feature} className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"
+                    className="mt-1"
                     checked={form.features.includes(feature)}
                     onChange={() => toggleFeature(feature)}
                   />
-                  {feature}
+                  <span>
+                    <span className="font-mono text-xs text-muted-foreground">{feature}</span>
+                    <span className="block text-foreground">{PLAN_FEATURE_LABELS[feature as PlanFeature]}</span>
+                  </span>
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 p-4">
+            <Label>Subscription page — All features</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shown on /account/subscription and /subscribe. One line per row when using a custom list.
+            </p>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.useCustomFeatureBullets}
+                onChange={(event) =>
+                  setForm((current) =>
+                    current
+                      ? {
+                          ...current,
+                          useCustomFeatureBullets: event.target.checked,
+                          featureBulletsText: event.target.checked
+                            ? current.featureBulletsText ||
+                              defaultPlanFeatureLines(planLineInput(current)).join("\n")
+                            : current.featureBulletsText,
+                        }
+                      : current,
+                  )
+                }
+              />
+              Use custom feature list
+            </label>
+            {form.useCustomFeatureBullets ? (
+              <label className="mt-3 block space-y-2 text-sm">
+                <span className="text-muted-foreground">Lines (shown in order)</span>
+                <textarea
+                  value={form.featureBulletsText}
+                  onChange={(event) => setForm({ ...form, featureBulletsText: event.target.value })}
+                  rows={10}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm leading-relaxed"
+                  placeholder={"Up to UHD video quality\n4 simultaneous streams\n..."}
+                />
+              </label>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Auto-generated from max quality, devices, streams, and entitlements above.
+              </p>
+            )}
+            <div className="mt-4">
+              <p className="text-xs font-medium text-muted-foreground">Preview</p>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {subscriptionFeaturePreview.map((line) => (
+                  <li key={line} className="flex gap-2">
+                    <span className="text-primary" aria-hidden>
+                      ✓
+                    </span>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {!form.useCustomFeatureBullets ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    useCustomFeatureBullets: true,
+                    featureBulletsText: defaultPlanFeatureLines(planLineInput(form)).join("\n"),
+                  })
+                }
+              >
+                Customize list
+              </Button>
+            ) : null}
           </div>
 
           <div className="flex gap-2 md:col-span-2">

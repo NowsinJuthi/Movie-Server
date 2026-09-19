@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  BillingCycle,
-  PlanFeature,
-  PlanTier,
-  type PublicPlan,
-} from "@movie-server/shared";
+import { BillingCycle, PlanTier, buildPlanFeatureLines, type PublicPlan } from "@movie-server/shared";
 import { Alert } from "@/components/ui/alert";
 import { formatCents } from "@/lib/subscription-api";
 import { cn } from "@/lib/utils";
@@ -17,29 +12,6 @@ const TIER_TAGLINE: Record<PlanVisualVariant, string> = {
   standard: "Best balance for families and shared accounts",
   premium: "Maximum quality, streams, and premium extras",
 };
-
-const FEATURE_LABELS: Record<PlanFeature, string> = {
-  [PlanFeature.Catalog]: "Full catalog access",
-  [PlanFeature.Hd]: "HD streaming included",
-  [PlanFeature.Uhd]: "Ultra HD (4K) streaming",
-  [PlanFeature.Downloads]: "Offline downloads",
-  [PlanFeature.Hdr]: "HDR playback",
-  [PlanFeature.SpatialAudio]: "Spatial audio",
-};
-
-function planFeatureLines(plan: PublicPlan): string[] {
-  const lines = [
-    `Up to ${plan.maxVideoQuality.toUpperCase()} video quality`,
-    `${plan.maxStreams} simultaneous stream${plan.maxStreams === 1 ? "" : "s"}`,
-    `${plan.maxDevices} registered device${plan.maxDevices === 1 ? "" : "s"}`,
-  ];
-  for (const feature of Object.values(PlanFeature)) {
-    if (plan.features.includes(feature)) {
-      lines.push(FEATURE_LABELS[feature]);
-    }
-  }
-  return lines;
-}
 
 function isFeaturedPlan(plan: PublicPlan, plans: PublicPlan[]): boolean {
   if (plan.tier === PlanTier.Standard) return true;
@@ -146,7 +118,7 @@ export function SubscribePricingSection({
           const price =
             cycle === BillingCycle.Yearly ? plan.yearlyPriceCents : plan.monthlyPriceCents;
           const isCurrent = hasCurrentPlan && currentSlug === plan.slug;
-          const features = planFeatureLines(plan);
+          const features = buildPlanFeatureLines(plan);
           const displayBadge = isCurrent ? "Your plan" : badge;
 
           return (

@@ -1,4 +1,17 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import {
   PLAN_FEATURES,
   PLAN_TIERS,
@@ -67,6 +80,13 @@ export class AdminUpsertPlanDto {
 
   @IsIn([...PLAN_FEATURES], { each: true })
   features!: PlanFeature[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  featureBullets?: string[];
 
   @IsOptional()
   @IsInt()
@@ -145,6 +165,13 @@ export class AdminUpdatePlanDto {
   @IsOptional()
   @IsIn([...PLAN_FEATURES], { each: true })
   features?: PlanFeature[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  featureBullets?: string[];
 
   @IsOptional()
   @IsInt()
