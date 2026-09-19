@@ -80,31 +80,48 @@
   }
 }
 
-.iconBtn {
+.iconBtn,
+.headerCircleBtn {
   display: grid;
-  height: 2rem;
-  width: 2rem;
+  height: 2.375rem;
+  width: 2.375rem;
   flex-shrink: 0;
   place-items: center;
-  border-radius: var(--radius);
-  border: 1px solid color-mix(in oklch, var(--primary) 24%, transparent);
-  background: color-mix(in oklch, var(--secondary) 88%, transparent);
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--primary) 26%, var(--border));
+  background: color-mix(in oklch, var(--card) 48%, transparent);
   color: var(--primary);
-  transition: border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s;
+  backdrop-filter: blur(14px) saturate(130%);
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.04) inset,
-    0 4px 12px rgb(0 0 0 / 0.12);
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 6px 18px -10px rgb(0 0 0 / 0.45),
+    0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
 }
 
-.iconBtn:hover {
-  border-color: color-mix(in oklch, var(--primary) 45%, transparent);
-  background: color-mix(in oklch, var(--secondary) 96%, transparent);
+.iconBtn:hover,
+.headerCircleBtn:hover {
+  border-color: color-mix(in oklch, var(--primary) 48%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
   color: var(--brand-soft);
   transform: translateY(-1px);
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.05) inset,
-    0 6px 16px rgb(0 0 0 / 0.12),
-    0 0 12px -6px color-mix(in oklch, var(--primary) 35%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 8px 22px -10px rgb(0 0 0 / 0.5),
+    0 0 20px -8px color-mix(in oklch, var(--primary) 42%, transparent);
+}
+
+@media (min-width: 640px) {
+  .iconBtn,
+  .headerCircleBtn {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
 }
 
 .logoBtn {
@@ -411,7 +428,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 @media (min-width: 640px) {
@@ -428,49 +445,84 @@
 
 .accountBtn {
   --nav-accent: var(--primary);
-  display: flex;
-  min-height: 2.25rem;
-  min-width: 2.25rem;
+  display: inline-flex;
+  min-height: 2.375rem;
+  min-width: 2.375rem;
   touch-action: manipulation;
   align-items: center;
-  gap: 0.5rem;
-  border-radius: 0.5rem;
-  border: 1px solid color-mix(in oklch, var(--nav-accent) 28%, transparent);
-  background: linear-gradient(
-    165deg,
-    color-mix(in oklch, var(--nav-accent) 10%, transparent) 0%,
-    color-mix(in oklch, var(--secondary) 82%, transparent) 100%
-  );
-  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--nav-accent) 28%, var(--border));
+  background: color-mix(in oklch, var(--card) 48%, transparent);
+  padding: 0.2rem;
+  backdrop-filter: blur(14px) saturate(130%);
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.04) inset,
-    0 4px 14px -10px color-mix(in oklch, var(--nav-accent) 24%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 6px 18px -10px rgb(0 0 0 / 0.45),
+    0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
   transition:
     border-color 0.2s ease,
     background 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
   cursor: pointer;
 }
 
 .accountBtn:hover,
 .accountBtnOpen {
-  border-color: color-mix(in oklch, var(--nav-accent) 42%, transparent);
-  background: linear-gradient(
-    165deg,
-    color-mix(in oklch, var(--nav-accent) 16%, transparent) 0%,
-    color-mix(in oklch, var(--card) 88%, transparent) 100%
-  );
+  border-color: color-mix(in oklch, var(--nav-accent) 45%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.05) inset,
-    0 0 18px -8px color-mix(in oklch, var(--nav-accent) 32%, transparent);
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 0 22px -8px color-mix(in oklch, var(--nav-accent) 38%, transparent);
+  transform: translateY(-1px);
 }
 
-@media (max-width: 639px) {
-  .accountBtn :global(.h-10.w-10) {
-    height: 1.625rem;
-    width: 1.625rem;
-    font-size: 0.6875rem;
+@media (min-width: 640px) {
+  .accountBtn {
+    min-height: 2.5rem;
+    padding: 0.22rem 0.55rem 0.22rem 0.22rem;
   }
+}
+
+@media (min-width: 1024px) {
+  .accountBtn {
+    min-height: 2.625rem;
+    padding: 0.25rem 0.7rem 0.25rem 0.25rem;
+  }
+}
+
+.accountAvatarWrap {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  height: 2rem;
+  width: 2rem;
+  padding: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklch, var(--primary) 85%, white) 0%,
+    color-mix(in oklch, var(--brand-deep) 90%, black) 100%
+  );
+  box-shadow: 0 0 16px -6px color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+@media (min-width: 640px) {
+  .accountAvatarWrap {
+    height: 2.125rem;
+    width: 2.125rem;
+  }
+}
+
+.accountAvatarWrap :global(.h-10),
+.accountAvatarWrap :global(.w-10),
+.accountAvatarWrap :global(img) {
+  height: 100% !important;
+  width: 100% !important;
+  border-radius: 9999px !important;
+  font-size: 0.8125rem !important;
 }
 
 .accountLabel {
@@ -484,36 +536,24 @@
   color: color-mix(in oklch, var(--foreground) 85%, transparent);
 }
 
-@media (min-width: 640px) {
-  .accountBtn {
-    min-height: 2.5rem;
-    min-width: 2.5rem;
-  }
-}
-
 @media (min-width: 1024px) {
   .accountLabel {
     display: inline;
-  }
-
-  .accountBtn {
-    min-height: 2.75rem;
-    min-width: 2.75rem;
   }
 }
 
 .accountAvatar {
   display: inline-flex;
-  height: 1.625rem;
-  width: 1.625rem;
+  height: 100%;
+  width: 100%;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 0.5rem;
-  background: color-mix(in oklch, var(--primary) 18%, transparent);
-  font-size: 0.75rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 22%, var(--secondary));
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--foreground);
 }
 
 .accountMenuDropdown {

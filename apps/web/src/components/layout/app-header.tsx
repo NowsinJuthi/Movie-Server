@@ -142,7 +142,7 @@ export function AppHeader({
           <div className={cn(styles.iconBtn, "opacity-70")} aria-hidden />
         }
       >
-        <SearchBox triggerClassName={styles.iconBtn} />
+        <SearchBox triggerClassName={styles.headerCircleBtn} />
       </Suspense>
       {planLabel && variant !== "admin" && !/^staff$/i.test(planLabel) && !/^admin$/i.test(planLabel) ? (
         <Button
@@ -713,11 +713,13 @@ function AccountMenu({
         aria-label="Account menu"
         onClick={() => setOpen((value) => !value)}
       >
-        {profile ? (
-          <ProfileAvatar profile={profile} size="sm" />
-        ) : (
-          <span className={styles.accountAvatar}>{accountInitial}</span>
-        )}
+        <span className={styles.accountAvatarWrap}>
+          {profile ? (
+            <ProfileAvatar profile={profile} size="sm" />
+          ) : (
+            <span className={styles.accountAvatar}>{accountInitial}</span>
+          )}
+        </span>
         <span className={styles.accountLabel}>{accountLabel}</span>
         <ChevronDown
           className={cn(
