@@ -120,7 +120,7 @@ export default function RequestMoviePage() {
           </div>
           <p className={styles.eyebrow}>
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            Member requests
+            AmarPin request studio
           </p>
           <h1 className={styles.title}>Request a movie</h1>
           <p className={styles.lead}>

@@ -1,8 +1,8 @@
 .page {
   position: relative;
   margin: 0 auto;
-  max-width: 52rem;
-  padding: 0.5rem 1rem 4rem;
+  max-width: 56rem;
+  padding: 0 1rem 2rem;
 }
 
 @media (min-width: 640px) {
@@ -14,18 +14,19 @@
 .shell {
   position: relative;
   overflow: hidden;
-  border-radius: 1.25rem;
-  border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  border-radius: 1.35rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
   background: linear-gradient(
-    165deg,
-    color-mix(in oklch, var(--primary) 12%, transparent) 0%,
-    color-mix(in oklch, var(--card) 92%, transparent) 55%,
-    color-mix(in oklch, var(--background) 98%, transparent) 100%
+    155deg,
+    color-mix(in oklch, var(--primary) 22%, transparent) 0%,
+    color-mix(in oklch, var(--card) 90%, transparent) 42%,
+    color-mix(in oklch, var(--background) 95%, transparent) 100%
   );
   padding: 1.75rem 1.25rem 2rem;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 24px 48px -32px rgb(0 0 0 / 0.45);
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 0 0 1px color-mix(in oklch, var(--primary) 8%, transparent),
+    0 32px 64px -36px color-mix(in oklch, var(--primary) 35%, black);
   animation: shellIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
