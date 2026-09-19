@@ -26,6 +26,21 @@
   }
 }
 
+.pricingAccount {
+  padding: 1.35rem 1.15rem 2rem;
+}
+
+@media (min-width: 640px) {
+  .pricingAccount {
+    padding: 1.75rem 1.5rem 2.25rem;
+  }
+}
+
+.subtitleStrong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
 .gridBg {
   pointer-events: none;
   position: absolute;
@@ -154,6 +169,52 @@
 .card:hover {
   transform: translateY(-3px);
   border-color: color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.cardCurrent {
+  z-index: 2;
+  border-color: color-mix(in oklch, var(--primary) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 22%, transparent) 0%,
+    color-mix(in oklch, var(--card) 92%, transparent) 42%,
+    color-mix(in oklch, var(--card) 88%, transparent) 100%
+  );
+  box-shadow:
+    0 0 0 2px color-mix(in oklch, var(--primary) 38%, transparent),
+    0 24px 48px -22px color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.cardCurrent:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--primary) 80%, transparent);
+}
+
+@media (min-width: 900px) {
+  .cardCurrent {
+    transform: scale(1.04);
+  }
+
+  .cardCurrent:hover {
+    transform: scale(1.04) translateY(-2px);
+  }
+}
+
+.currentGlow {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+.badgeCurrent {
+  left: 0.85rem;
+  right: auto;
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 6px 16px -6px color-mix(in oklch, var(--primary) 55%, transparent);
 }
 
 .cardFeatured {
@@ -464,6 +525,28 @@
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
+}
+
+.ctaCurrent:disabled {
+  opacity: 1;
+  cursor: default;
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--primary) 42%, transparent) 0%,
+    color-mix(in oklch, var(--primary) 24%, transparent) 100%
+  );
+  color: var(--foreground);
+  box-shadow: 0 8px 20px -10px color-mix(in oklch, var(--primary) 40%, transparent);
+}
+
+.ctaCheck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary-foreground) 18%, transparent);
+  padding: 0.15rem;
 }
 
 @keyframes planIconRingPulse {

@@ -10,89 +10,85 @@
   }
 }
 
-.heroCard {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1.15rem;
-  border: 1px solid color-mix(in oklch, var(--primary) 32%, var(--border));
+.statusBar {
+  display: grid;
+  gap: 1rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
   background: linear-gradient(
-    145deg,
-    color-mix(in oklch, var(--primary) 18%, transparent) 0%,
-    color-mix(in oklch, var(--card) 94%, transparent) 48%,
-    color-mix(in oklch, var(--background) 98%, transparent) 100%
+    135deg,
+    color-mix(in oklch, var(--primary) 12%, transparent) 0%,
+    color-mix(in oklch, var(--card) 92%, transparent) 100%
   );
-  padding: 1.35rem 1.15rem 1.5rem;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.06),
-    0 20px 40px -28px color-mix(in oklch, var(--primary) 45%, black);
+  padding: 1.15rem 1.1rem;
   animation: cardIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@media (min-width: 640px) {
-  .heroCard {
-    padding: 1.75rem 1.65rem 1.85rem;
+@media (min-width: 768px) {
+  .statusBar {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    padding: 1.25rem 1.35rem;
   }
 }
 
-.heroGrid {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  opacity: 0.22;
-  background-image:
-    linear-gradient(color-mix(in oklch, var(--primary) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklch, var(--primary) 8%, transparent) 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 20%, transparent 100%);
+.statusMain {
+  min-width: 0;
 }
 
-.heroInner {
-  position: relative;
-  z-index: 1;
-}
-
-.heroTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.eyebrow {
+.statusEyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-bottom: 0.65rem;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
-  background: color-mix(in oklch, var(--primary) 10%, transparent);
-  padding: 0.3rem 0.75rem;
-  font-size: 0.65rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--primary);
+  letter-spacing: -0.02em;
+  color: var(--foreground);
 }
 
-.planName {
-  font-size: clamp(1.5rem, 3.5vw, 2rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-}
-
-.planMeta {
+.statusMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
   margin-top: 0.45rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted-foreground);
 }
 
-.planPrice {
-  margin-top: 0.35rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--foreground);
+.statusChip {
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+  background: color-mix(in oklch, var(--background) 50%, transparent);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.statusDot {
+  opacity: 0.45;
+}
+
+.statusRenewal {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.statusActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  padding-top: 0.35rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+}
+
+@media (min-width: 768px) {
+  .statusActions {
+    grid-column: 1 / -1;
+  }
 }
 
 .statusPill {
@@ -115,63 +111,6 @@
   border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
   background: color-mix(in oklch, var(--muted) 45%, transparent);
   color: var(--muted-foreground);
-}
-
-.stats {
-  display: grid;
-  gap: 0.65rem;
-  margin-top: 1.35rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (min-width: 640px) {
-  .stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.stat {
-  border-radius: 0.75rem;
-  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-  background: color-mix(in oklch, var(--background) 55%, transparent);
-  padding: 0.65rem 0.75rem;
-}
-
-.statLabel {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
-}
-
-.statValue {
-  margin-top: 0.25rem;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.notice {
-  margin-top: 1rem;
-  border-radius: 0.65rem;
-  border: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
-  background: color-mix(in oklch, var(--primary) 8%, transparent);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--muted-foreground);
-}
-
-.notice strong {
-  color: var(--foreground);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 1.35rem;
-  padding-top: 1.15rem;
-  border-top: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
 }
 
 .quickLinks {
@@ -319,7 +258,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .heroCard,
+  .statusBar,
   .historySection {
     animation: none;
   }

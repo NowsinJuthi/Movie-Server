@@ -2,16 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CreditCard,
-  MonitorSmartphone,
-  Sparkles,
-  Tv,
-  Wallet,
-} from "lucide-react";
-import { PlanFeature, type PublicSubscription } from "@movie-server/shared";
+import { CreditCard, MonitorSmartphone, Sparkles, Wallet } from "lucide-react";
+import { BillingCycle, type PublicSubscription } from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api";
@@ -19,16 +13,8 @@ import { cn } from "@/lib/utils";
 import { formatCents, subscriptionApi } from "@/lib/subscription-api";
 import { billingApi } from "@/lib/billing-api";
 import { PageShell } from "@/components/layout/page-shell";
+import { SubscribePricingSection } from "@/components/subscribe/subscribe-pricing-section";
 import styles from "./subscription-page.module.css";
-
-const FEATURE_LABELS: Record<PlanFeature, string> = {
-  [PlanFeature.Catalog]: "Full catalog",
-  [PlanFeature.Hd]: "HD streaming",
-  [PlanFeature.Uhd]: "4K Ultra HD",
-  [PlanFeature.Downloads]: "Downloads",
-  [PlanFeature.Hdr]: "HDR",
-  [PlanFeature.SpatialAudio]: "Spatial audio",
-};
 
 function formatStatus(status: string) {
   return status.replaceAll("_", " ");
@@ -38,6 +24,10 @@ export default function ManageSubscriptionPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { status } = useAuthStore();
+  const [cycle, setCycle] = useState<BillingCycle>(BillingCycle.Monthly);
+  const [planError, setPlanError] = useState<string | null>(null);
+
+  const plansQuery = useQuery({ queryKey: ["plans"], queryFn: subscriptionApi.plans });
   const meQuery = useQuery({
     queryKey: ["subscription-me"],
     queryFn: subscriptionApi.me,
@@ -53,6 +43,15 @@ export default function ManageSubscriptionPage() {
     queryFn: subscriptionApi.changes,
     enabled: status === "authenticated",
   });
+
+  const sub = meQuery.data?.subscription;
+  const entitlement = meQuery.data?.entitlement;
+
+  useEffect(() => {
+    if (sub?.billingCycle) {
+      setCycle(sub.billingCycle);
+    }
+  }, [sub?.billingCycle]);
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -74,7 +73,54 @@ export default function ManageSubscriptionPage() {
     },
   });
 
-  const error =
+  const start = useMutation({
+    mutationFn: async ({ slug }: { slug: string }) => {
+      const started = await subscriptionApi.start(slug, cycle);
+      if (started.paymentRequired) {
+        const checkout = await billingApi.checkout({ subscriptionId: started.subscription.id });
+        return { checkoutUrl: checkout.checkoutUrl };
+      }
+      return { checkoutUrl: null as string | null };
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ["subscription-me"] });
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+    },
+    onError: (err: unknown) => {
+      setPlanError(err instanceof ApiError ? err.message : "Unable to start a subscription.");
+    },
+  });
+
+  const change = useMutation({
+    mutationFn: ({ slug }: { slug: string }) => subscriptionApi.change(slug, cycle),
+    onSuccess: async () => {
+      setPlanError(null);
+      await queryClient.invalidateQueries({ queryKey: ["subscription-me"] });
+      await queryClient.invalidateQueries({ queryKey: ["subscription-changes"] });
+    },
+    onError: (err: unknown) => {
+      setPlanError(err instanceof ApiError ? err.message : "Unable to change plan.");
+    },
+  });
+
+  const plans = useMemo(
+    () => [...(plansQuery.data?.plans ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+    [plansQuery.data],
+  );
+
+  const handleSelectPlan = (slug: string) => {
+    setPlanError(null);
+    if (sub) {
+      change.mutate({ slug });
+      return;
+    }
+    start.mutate({ slug });
+  };
+
+  const manageError =
     cancel.error instanceof ApiError
       ? cancel.error.message
       : resume.error instanceof ApiError
@@ -92,20 +138,13 @@ export default function ManageSubscriptionPage() {
     );
   }
 
-  const sub = meQuery.data?.subscription;
-  const entitlement = meQuery.data?.entitlement;
-
   return (
     <PageShell
       title="Subscription"
-      description="Your plan, renewal dates, and account access in one place."
-      error={error}
+      description="Your plan, renewal dates, and switches — all on one page."
+      error={manageError}
       actions={
         <div className={styles.quickLinks}>
-          <Link href="/subscribe" className={styles.quickLink}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            Change plan
-          </Link>
           <Link href="/account/billing" className={styles.quickLink}>
             <Wallet className="h-3.5 w-3.5" aria-hidden />
             Billing
@@ -118,23 +157,38 @@ export default function ManageSubscriptionPage() {
       }
     >
       <div className={styles.wrap}>
-        {!sub ? (
-          <section className={styles.emptyCard}>
-            <CreditCard className="mx-auto h-10 w-10 text-primary" aria-hidden />
-            <h2 className={styles.emptyTitle}>No active subscription</h2>
-            <p className={styles.emptyLead}>
-              Pick a plan to unlock streaming on AmarPin. You can switch or cancel anytime.
-            </p>
-            <Button className="mt-5" asChild>
-              <Link href="/subscribe">View plans</Link>
-            </Button>
-          </section>
-        ) : (
-          <PlanHero
+        {sub ? (
+          <SubscriptionStatusBar
             sub={sub}
             entitled={Boolean(entitlement?.entitled)}
             cancel={cancel}
             resume={resume}
+          />
+        ) : (
+          <section className={styles.emptyCard}>
+            <CreditCard className="mx-auto h-10 w-10 text-primary" aria-hidden />
+            <h2 className={styles.emptyTitle}>No subscription yet</h2>
+            <p className={styles.emptyLead}>
+              Choose a plan below — the card you pick becomes your account plan after checkout.
+            </p>
+          </section>
+        )}
+
+        {plansQuery.isLoading ? (
+          <p className="text-center text-sm text-muted-foreground">Loading plans…</p>
+        ) : plans.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground">No plans available yet.</p>
+        ) : (
+          <SubscribePricingSection
+            layout="account"
+            plans={plans}
+            cycle={cycle}
+            onCycleChange={setCycle}
+            error={planError}
+            currentSlug={sub?.plan.slug}
+            entitled={Boolean(entitlement?.entitled)}
+            busy={start.isPending || change.isPending}
+            onSelectPlan={handleSelectPlan}
           />
         )}
 
@@ -148,7 +202,7 @@ export default function ManageSubscriptionPage() {
   );
 }
 
-function PlanHero({
+function SubscriptionStatusBar({
   sub,
   entitled,
   cancel,
@@ -159,63 +213,28 @@ function PlanHero({
   cancel: { mutate: () => void; isPending: boolean };
   resume: { mutate: () => void; isPending: boolean };
 }) {
-  const features =
-    sub.plan.features.length > 0
-      ? sub.plan.features.map((f) => FEATURE_LABELS[f]).join(", ")
-      : "Catalog access";
-
   return (
-    <section className={styles.heroCard}>
-      <div className={styles.heroGrid} aria-hidden />
-      <div className={styles.heroInner}>
-        <div className={styles.heroTop}>
-          <div className="min-w-0">
-            <p className={styles.eyebrow}>
-              <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Current plan
-            </p>
-            <h2 className={styles.planName}>{sub.plan.name}</h2>
-            <p className={cn(styles.planMeta, "capitalize")}>
-              {formatStatus(sub.status)} · {sub.billingCycle} billing
-            </p>
-            <p className={styles.planPrice}>{formatCents(sub.priceCents, sub.currency)}</p>
-          </div>
-          <span
-            className={cn(
-              styles.statusPill,
-              entitled ? styles.statusActive : styles.statusMuted,
-            )}
-          >
-            {entitled ? "Streaming active" : "No access"}
+    <section className={styles.statusBar} aria-label="Current subscription status">
+      <div className={styles.statusMain}>
+        <p className={styles.statusEyebrow}>
+          <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          You are on {sub.plan.name}
+        </p>
+        <p className={styles.statusMeta}>
+          <span className={cn(styles.statusChip, "capitalize")}>{formatStatus(sub.status)}</span>
+          <span className={styles.statusDot} aria-hidden>
+            ·
           </span>
-        </div>
-
-        <div className={styles.stats}>
-          <div className={styles.stat}>
-            <p className={styles.statLabel}>Quality</p>
-            <p className={styles.statValue}>{sub.plan.maxVideoQuality.toUpperCase()}</p>
-          </div>
-          <div className={styles.stat}>
-            <p className={styles.statLabel}>Streams</p>
-            <p className={styles.statValue}>{sub.plan.maxStreams}</p>
-          </div>
-          <div className={styles.stat}>
-            <p className={styles.statLabel}>Devices</p>
-            <p className={styles.statValue}>{sub.plan.maxDevices}</p>
-          </div>
-          <div className={styles.stat}>
-            <p className={styles.statLabel}>Features</p>
-            <p className={styles.statValue}>{features}</p>
-          </div>
-        </div>
-
-        <p className={styles.notice}>
-          <strong>Current period ends</strong> {new Date(sub.currentPeriodEnd).toLocaleString()}
+          <span>{formatCents(sub.priceCents, sub.currency)}</span>
+          <span className={styles.statusDot} aria-hidden>
+            ·
+          </span>
+          <span className="capitalize">{sub.billingCycle} billing</span>
+        </p>
+        <p className={styles.statusRenewal}>
+          Period ends {new Date(sub.currentPeriodEnd).toLocaleString()}
           {sub.trialEnd ? (
-            <>
-              {" "}
-              · <strong>Trial ends</strong> {new Date(sub.trialEnd).toLocaleString()}
-            </>
+            <> · Trial ends {new Date(sub.trialEnd).toLocaleString()}</>
           ) : null}
           {sub.scheduledPlanId ? (
             <>
@@ -227,34 +246,40 @@ function PlanHero({
             </>
           ) : null}
         </p>
-
-        <div className={styles.actions}>
-          {sub.status === "pending" ? (
-            <PayButton label="Complete payment" kind="checkout" />
-          ) : null}
-          {sub.status === "suspended" || sub.status === "expired" ? (
-            <PayButton label="Pay to renew" kind="renewal" />
-          ) : null}
-          {sub.status === "cancelled" ? (
-            <Button onClick={() => resume.mutate()} disabled={resume.isPending}>
-              Resume subscription
-            </Button>
-          ) : sub.status === "expired" ? (
-            <Button asChild>
-              <Link href="/subscribe">Start a new plan</Link>
-            </Button>
-          ) : sub.status !== "pending" ? (
-            <Button variant="destructive" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-              Cancel at period end
-            </Button>
-          ) : null}
-          <Button variant="outline" asChild>
-            <Link href="/subscribe">
-              <Tv className="mr-1.5 h-4 w-4" aria-hidden />
-              Compare plans
-            </Link>
+      </div>
+      <span
+        className={cn(
+          styles.statusPill,
+          entitled ? styles.statusActive : styles.statusMuted,
+        )}
+      >
+        {entitled ? "Streaming active" : "No access"}
+      </span>
+      <div className={styles.statusActions}>
+        {sub.status === "pending" ? (
+          <PayButton label="Complete payment" kind="checkout" />
+        ) : null}
+        {sub.status === "suspended" || sub.status === "expired" ? (
+          <PayButton label="Pay to renew" kind="renewal" />
+        ) : null}
+        {sub.status === "cancelled" ? (
+          <Button size="sm" onClick={() => resume.mutate()} disabled={resume.isPending}>
+            Resume subscription
           </Button>
-        </div>
+        ) : sub.status === "expired" ? (
+          <Button size="sm" asChild>
+            <Link href="#account-plans-heading">Choose a new plan</Link>
+          </Button>
+        ) : sub.status !== "pending" ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => cancel.mutate()}
+            disabled={cancel.isPending}
+          >
+            Cancel at period end
+          </Button>
+        ) : null}
       </div>
     </section>
   );
@@ -307,7 +332,7 @@ function PayButton({ label, kind }: { label: string; kind: "checkout" | "renewal
     },
   });
   return (
-    <Button onClick={() => pay.mutate()} disabled={pay.isPending}>
+    <Button size="sm" onClick={() => pay.mutate()} disabled={pay.isPending}>
       {pay.isPending ? "Redirecting…" : label}
     </Button>
   );
