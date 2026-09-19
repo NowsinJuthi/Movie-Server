@@ -156,7 +156,7 @@ export default function AdminSeriesEditPage() {
         </section>
         <section className="space-y-3">
           <h2 className="text-xl font-medium">Episodes</h2>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Number</Label>
               <Input type="number" value={episodeNumber} onChange={(e) => setEpisodeNumber(Number(e.target.value))} />
@@ -194,7 +194,7 @@ export default function AdminSeriesEditPage() {
             <h2 className="text-xl font-medium">Skip intro / recap</h2>
             <form
               key={selectedEpisode}
-              className="grid gap-3 md:grid-cols-5"
+              className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-5"
               onSubmit={(event) => {
                 event.preventDefault();
                 const data = new FormData(event.currentTarget);
@@ -233,7 +233,7 @@ export default function AdminSeriesEditPage() {
         ) : null}
         <section className="space-y-3">
           <h2 className="text-xl font-medium">Episode media</h2>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3">
             <select
               className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm"
               value={mediaKind}

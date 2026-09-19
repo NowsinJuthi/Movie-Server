@@ -48,7 +48,7 @@ export default function AdminSeriesPage() {
     <AdminPage title="TV series" description="Create series, then open a title to manage seasons, episodes, and tracks." error={error}>
       <div className="space-y-8">
         <form
-          className="grid gap-4 rounded-xl border border-border p-5 md:grid-cols-2"
+          className="admin-card admin-grid-1-sm-2 gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();

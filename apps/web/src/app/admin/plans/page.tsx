@@ -105,7 +105,7 @@ export default function AdminPlansPage() {
     >
       <div className="space-y-8">
         <form
-          className="grid gap-4 rounded-xl border border-border bg-card p-6 md:grid-cols-2"
+          className="admin-card admin-grid-1-sm-2 gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();

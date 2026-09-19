@@ -337,7 +337,7 @@ export default function AdminHomePage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Leave the media id empty to use automatic featured/trending fallback.
           </p>
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

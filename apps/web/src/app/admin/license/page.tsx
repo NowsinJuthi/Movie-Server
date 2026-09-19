@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AdminPage } from "@/components/admin/admin-page";
+import { AdminMetricGrid, AdminStatCard } from "@/components/admin/admin-ui";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   licenseKey: z.string().min(20, "Paste a full CV1… license key."),
@@ -62,15 +64,15 @@ export default function AdminLicensePage() {
       {!status ? (
         <p className="text-sm text-muted-foreground">Loading license status...</p>
       ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatusCard label="Mode" value={status.mode} ok={!status.locked} />
-            <StatusCard
+        <>
+          <AdminMetricGrid variant="lg4">
+            <AdminStatCard label="Mode" value={status.mode} valueClassName={cn("capitalize", status.locked && "text-destructive")} />
+            <AdminStatCard
               label="Edition"
               value={status.edition ?? "—"}
-              ok={!status.locked}
+              valueClassName={cn("capitalize", status.locked && "text-destructive")}
             />
-            <StatusCard
+            <AdminStatCard
               label={status.licensed ? "License expires" : "Trial ends"}
               value={
                 status.licensed
@@ -79,20 +81,16 @@ export default function AdminLicensePage() {
                     : "Lifetime"
                   : new Date(status.trialEndsAt).toLocaleDateString()
               }
-              ok={!status.locked}
+              valueClassName={cn("text-base sm:text-2xl", status.locked && "text-destructive")}
             />
-            <StatusCard
+            <AdminStatCard
               label={status.licensed ? "Status" : "Trial days left"}
-              value={
-                status.licensed
-                  ? "Active"
-                  : String(status.trialDaysRemaining)
-              }
-              ok={!status.locked}
+              value={status.licensed ? "Active" : String(status.trialDaysRemaining)}
+              valueClassName={status.locked ? "text-destructive" : undefined}
             />
-          </div>
+          </AdminMetricGrid>
 
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="admin-card">
             <p className="text-sm text-muted-foreground">{status.message}</p>
             <p className="mt-3 text-xs text-muted-foreground">
               Install ID: <span className="font-mono text-foreground">{status.installId}</span>
@@ -105,9 +103,9 @@ export default function AdminLicensePage() {
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+          <div className="admin-grid-1-lg-2">
             <form
-              className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5"
+              className="admin-card flex h-full flex-col space-y-4"
               onSubmit={form.handleSubmit((values) => {
                 setFormError(null);
                 setFormSuccess(null);
@@ -118,29 +116,19 @@ export default function AdminLicensePage() {
                 <h2 className="text-base font-semibold">Activate license key</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Paste the key from your vendor (starts with <code className="text-xs">CV1.</code>).
-                  Keys are verified on the API with HMAC — they cannot be forged from the browser.
                 </p>
               </div>
-              {formError ? <Alert>{formError}</Alert> : null}
-              {formSuccess ? (
-                <Alert className="border-emerald-500/40 text-emerald-300">{formSuccess}</Alert>
-              ) : null}
               <div className="space-y-2">
                 <Label htmlFor="licenseKey">License key</Label>
-                <Input
-                  id="licenseKey"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="CV1...."
-                  className="font-mono text-sm"
-                  {...form.register("licenseKey")}
-                />
+                <Input id="licenseKey" {...form.register("licenseKey")} placeholder="CV1…" autoComplete="off" />
                 {form.formState.errors.licenseKey ? (
-                  <p className="text-xs text-destructive">{form.formState.errors.licenseKey.message}</p>
+                  <p className="text-sm text-destructive">{form.formState.errors.licenseKey.message}</p>
                 ) : null}
               </div>
-              <Button type="submit" className="mt-auto w-fit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Activating..." : "Activate license"}
+              {formError ? <Alert>{formError}</Alert> : null}
+              {formSuccess ? <Alert>{formSuccess}</Alert> : null}
+              <Button type="submit" disabled={mutation.isPending} className="w-full sm:w-auto">
+                {mutation.isPending ? "Activating..." : "Activate"}
               </Button>
             </form>
 
@@ -148,17 +136,8 @@ export default function AdminLicensePage() {
               <LicenseContactPanel />
             </div>
           </div>
-        </div>
+        </>
       )}
     </AdminPage>
-  );
-}
-
-function StatusCard({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-xl font-semibold capitalize ${ok ? "" : "text-destructive"}`}>{value}</p>
-    </div>
   );
 }

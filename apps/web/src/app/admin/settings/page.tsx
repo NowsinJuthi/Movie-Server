@@ -203,8 +203,8 @@ export default function AdminSettingsPage() {
             <Alert className="border-emerald-500/40 text-emerald-300">{success}</Alert>
           ) : null}
 
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-            <section className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5">
+          <div className="admin-grid-1-lg-2">
+            <section className="admin-card flex h-full flex-col space-y-4">
               <div>
                 <h2 className="text-base font-semibold">Website branding</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -221,7 +221,7 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
-              <div className="grid flex-1 gap-4 sm:grid-cols-2">
+              <div className="grid flex-1 grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-3 rounded-lg border border-border/70 p-4">
                   <p className="text-sm font-medium">Logo</p>
                   {settings.logoUrl ? (
@@ -305,7 +305,7 @@ export default function AdminSettingsPage() {
               </div>
             </section>
 
-            <section className="flex h-full flex-col space-y-4 rounded-xl border border-border bg-card p-5">
+            <section className="admin-card flex h-full flex-col space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold">Email / SMTP</h2>
@@ -336,7 +336,7 @@ export default function AdminSettingsPage() {
                 Use SMTP settings from this panel
               </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="smtpHost">SMTP host</Label>
                   <Input

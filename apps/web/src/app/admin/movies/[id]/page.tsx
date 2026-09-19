@@ -111,7 +111,7 @@ export default function AdminMovieEditPage() {
       }
     >
         <form
-          className="grid gap-4 md:grid-cols-2"
+          className="admin-grid-1-sm-2 gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
@@ -230,7 +230,7 @@ export default function AdminMovieEditPage() {
           <p className="text-sm text-muted-foreground">
             Register video, audio, and subtitle tracks by opaque storage keys. File paths are never stored in API responses.
           </p>
-          <div className="grid gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-5">
             <select
               className="h-10 rounded-md border border-input bg-background/60 px-3 text-sm"
               value={media.kind}

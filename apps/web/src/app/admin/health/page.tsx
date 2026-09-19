@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AdminPage } from "@/components/admin/admin-page";
+import { AdminMetricGrid, AdminStatCard } from "@/components/admin/admin-ui";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 
@@ -15,23 +16,18 @@ export default function AdminHealthPage() {
       {!data ? (
         <p className="text-sm text-muted-foreground">Checking services...</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <HealthCard label="Overall" value={data.status} ok={data.status === "ok"} />
-          <HealthCard label="MongoDB" value={data.mongo} ok={data.mongo === "up"} />
-          <HealthCard label="Redis" value={data.redis} ok={data.redis === "up"} />
-          <HealthCard label="Queues" value={data.queues.enabled ? data.queues.names.join(", ") : "disabled"} ok={data.status === "ok"} />
-          <HealthCard label="Uptime" value={`${Math.floor(data.uptimeSeconds / 60)} min`} ok />
-        </div>
+        <AdminMetricGrid variant="lg4">
+          <AdminStatCard label="Overall" value={data.status} valueClassName={data.status === "ok" ? "" : "text-destructive capitalize"} />
+          <AdminStatCard label="MongoDB" value={data.mongo} valueClassName={data.mongo === "up" ? "capitalize" : "text-destructive capitalize"} />
+          <AdminStatCard label="Redis" value={data.redis} valueClassName={data.redis === "up" ? "capitalize" : "text-destructive capitalize"} />
+          <AdminStatCard
+            label="Queues"
+            value={data.queues.enabled ? data.queues.names.join(", ") : "disabled"}
+            valueClassName="text-base sm:text-xl capitalize"
+          />
+          <AdminStatCard label="Uptime" value={`${Math.floor(data.uptimeSeconds / 60)} min`} />
+        </AdminMetricGrid>
       )}
     </AdminPage>
-  );
-}
-
-function HealthCard({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-xl font-semibold capitalize ${ok ? "" : "text-destructive"}`}>{value}</p>
-    </div>
   );
 }

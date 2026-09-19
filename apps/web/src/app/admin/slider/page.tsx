@@ -124,7 +124,7 @@ export default function AdminSliderPage() {
       description={`Pick up to ${MAX_SLIDER} movies for the home page hero slider. Drag order with the arrows — first item shows first.`}
       error={loadError}
     >
-      <section className="mb-6 rounded-xl border border-border bg-card p-5">
+      <section className="admin-card mb-4 sm:mb-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Selected ({itemIds.length}/{MAX_SLIDER})</h2>
@@ -216,7 +216,7 @@ export default function AdminSliderPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="admin-card">
         <h2 className="text-lg font-semibold">Add movies</h2>
         <div className="mt-3">
           <Label htmlFor="slider-search">Search catalog</Label>
@@ -230,7 +230,7 @@ export default function AdminSliderPage() {
         </div>
 
         {search ? (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
             {(searchQuery.data?.items ?? []).map((movie) => {
               const already = selectedSet.has(movie.id);
               const full = itemIds.length >= MAX_SLIDER && !already;

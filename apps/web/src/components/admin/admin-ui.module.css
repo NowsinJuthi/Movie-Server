@@ -1,24 +1,173 @@
-.layout {
+.pageStack {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
 }
 
 @media (min-width: 640px) {
-  .layout {
+  .pageStack {
     gap: 1.25rem;
   }
 }
 
-.statsGrid {
+.adminBody {
+  --admin-card-pad: 0.875rem;
+}
+
+@media (max-width: 639px) {
+  .adminBody {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+.metricGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.625rem;
 }
 
 @media (min-width: 640px) {
-  .statsGrid {
+  .metricGrid {
     gap: 0.875rem;
+  }
+}
+
+.metricGridLg4 {
+  composes: metricGrid;
+}
+
+@media (min-width: 1024px) {
+  .metricGridLg4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.metricGridLg5 {
+  composes: metricGrid;
+}
+
+@media (min-width: 1024px) {
+  .metricGridLg5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.metricGridXl3 {
+  composes: metricGrid;
+}
+
+@media (min-width: 1280px) {
+  .metricGridXl3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.metricGridMd4 {
+  composes: metricGrid;
+}
+
+@media (min-width: 768px) {
+  .metricGridMd4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.metricGridMd5 {
+  composes: metricGrid;
+}
+
+@media (min-width: 768px) {
+  .metricGridMd5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.metricGridMd3 {
+  composes: metricGrid;
+}
+
+@media (min-width: 768px) {
+  .metricGridMd3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.statsGrid {
+  composes: metricGrid;
+}
+
+.statCardStatic {
+  cursor: default;
+}
+
+.statCardStatic:active {
+  transform: none;
+}
+
+.section {
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+}
+
+.sectionHead {
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 65%, transparent);
+  padding: 0.75rem 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .section {
+    border-radius: 1rem;
+  }
+
+  .sectionHead {
+    padding: 0.875rem 1rem;
+  }
+}
+
+.sectionTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.sectionDesc {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.sectionBody {
+  padding: 0.75rem 0.875rem 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .sectionBody {
+    padding: 1rem;
+  }
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.formGridXl5 {
+  composes: formGrid;
+}
+
+@media (min-width: 1280px) {
+  .formGridXl5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

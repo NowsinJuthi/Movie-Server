@@ -10,6 +10,7 @@ import {
   type AdminSubscriptionRow,
 } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
+import { AdminMetricGrid, AdminSection, AdminStatCard, adminUiStyles } from "@/components/admin/admin-ui";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminSelect } from "@/components/admin/admin-filters";
 import { AdminUserSearch } from "@/components/admin/admin-user-search";
@@ -80,16 +81,6 @@ function UsageMeter({ used, max, label }: { used: number; max: number; label: st
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -217,24 +208,21 @@ export default function AdminSubscriptionsPage() {
       description="Grant access, monitor device and stream usage, and manage billing status. Limits are enforced on playback."
       error={error}
     >
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Listed" value={stats.total} hint="Up to 200 recent rows" />
-        <StatCard label="Active" value={stats.active} />
-        <StatCard label="Trial" value={stats.trial} />
-        <StatCard label="Pending" value={stats.pending} />
-        <StatCard label="At device limit" value={stats.atDeviceLimit} hint={`${stats.suspended} suspended`} />
-      </div>
+      <AdminMetricGrid variant="lg5">
+        <AdminStatCard label="Listed" value={stats.total} hint="Up to 200 recent rows" />
+        <AdminStatCard label="Active" value={stats.active} />
+        <AdminStatCard label="Trial" value={stats.trial} />
+        <AdminStatCard label="Pending" value={stats.pending} />
+        <AdminStatCard label="At device limit" value={stats.atDeviceLimit} hint={`${stats.suspended} suspended`} />
+      </AdminMetricGrid>
 
       {canManage ? (
-      <section className="mb-8 rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3">
-          <h2 className="font-medium">Grant complimentary access</h2>
-          <p className="text-sm text-muted-foreground">
-            Replaces the user&apos;s current subscription. Device and stream limits follow the selected plan.
-          </p>
-        </div>
+      <AdminSection
+        title="Grant complimentary access"
+        description="Replaces the user's current subscription. Device and stream limits follow the selected plan."
+      >
         <form
-          className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5"
+          className={adminUiStyles.formGridXl5}
           onSubmit={(event) => {
             event.preventDefault();
             if (!grant.userId) return;
@@ -291,7 +279,7 @@ export default function AdminSubscriptionsPage() {
           </div>
         </form>
         {selectedPlan ? (
-          <div className="border-t border-border/60 px-4 py-3 text-sm text-muted-foreground">
+          <div className="mt-3 border-t border-border/60 pt-3 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{selectedPlan.name}</span>
             {" · "}
             {formatCents(
@@ -307,8 +295,8 @@ export default function AdminSubscriptionsPage() {
             up to {selectedPlan.maxVideoQuality.toUpperCase()}
           </div>
         ) : null}
-        {formError ? <p className="px-4 pb-3 text-sm text-destructive">{formError}</p> : null}
-      </section>
+        {formError ? <p className="pt-2 text-sm text-destructive">{formError}</p> : null}
+      </AdminSection>
       ) : null}
 
       <div className="mb-4 flex flex-wrap items-end gap-3">

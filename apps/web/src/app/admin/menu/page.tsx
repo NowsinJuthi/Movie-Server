@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Film, HardDrive, Menu, Tv } from "lucide-react";
 import Link from "next/link";
 import { AdminPage } from "@/components/admin/admin-page";
+import { AdminMetricGrid } from "@/components/admin/admin-ui";
 import { ApiError } from "@/lib/api";
 import { libraryApi } from "@/lib/library-api";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ export default function AdminMenuPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <AdminMetricGrid variant="xl3">
           {libraries.map((library) => {
             const Icon = library.kind === "tv" ? Tv : Film;
             return (
@@ -53,7 +54,7 @@ export default function AdminMenuPage() {
                 key={library.id}
                 href={`/admin/menu/${library.id}`}
                 className={cn(
-                  "group rounded-xl border border-border bg-card p-4 transition-colors",
+                  "group admin-card-compact min-h-[4.5rem] touch-manipulation transition-colors",
                   "hover:border-primary/45 hover:bg-secondary/40",
                 )}
               >
@@ -86,7 +87,7 @@ export default function AdminMenuPage() {
               </Link>
             );
           })}
-        </div>
+        </AdminMetricGrid>
       )}
     </AdminPage>
   );

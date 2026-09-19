@@ -165,3 +165,21 @@ body {
   color: #26bfb0;
 }
 
+@layer components {
+  .admin-card {
+    @apply rounded-xl border border-border bg-card p-3 sm:p-5;
+  }
+
+  .admin-card-compact {
+    @apply rounded-xl border border-border bg-card p-3 sm:p-4;
+  }
+
+  .admin-grid-1-lg-2 {
+    @apply grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-6;
+  }
+
+  .admin-grid-1-sm-2 {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4;
+  }
+}
+

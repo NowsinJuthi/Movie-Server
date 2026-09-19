@@ -53,5 +53,9 @@ export function AdminSelect({
 
 /** Wrap admin filter rows for consistent spacing on list pages */
 export function AdminFilterRow({ children }: { children: ReactNode }) {
-  return <div className="mb-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">{children}</div>;
+  return (
+    <div className="mb-3 grid grid-cols-1 gap-2.5 sm:mb-4 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+      {children}
+    </div>
+  );
 }
