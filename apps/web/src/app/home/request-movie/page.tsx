@@ -51,7 +51,7 @@ const KIND_COPY: Record<
   { title: string; lead: string; fieldLabel: string; placeholder: string; notePlaceholder: string }
 > = {
   [ContentUploadRequestKind.Movie]: {
-    title: "Request a movie",
+    title: "Upload Request",
     lead: "Missing a film? Tell us the title and we'll add it when the file is available.",
     fieldLabel: "Movie title",
     placeholder: "e.g. John Wick",

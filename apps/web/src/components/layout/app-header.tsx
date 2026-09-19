@@ -210,7 +210,7 @@ export function AppHeader({
                       ? [
                           {
                             id: "request-movie",
-                            label: "Request a movie",
+                            label: "Upload Request",
                             href: "/home/request-movie?kind=movie",
                             icon: Film,
                           },
@@ -244,14 +244,14 @@ export function AppHeader({
                 ) : null}
                 {movieRequestsEnabled ? (
                   <NavMenu
-                    label="Requests"
+                    label="Upload Request"
                     active={requestsNavActive}
                     items={[]}
                     emptyHint={undefined}
                     footerItems={[
                       {
                         id: "req-movie",
-                        label: "Request a movie",
+                        label: "Upload Request",
                         href: "/home/request-movie?kind=movie",
                         icon: Film,
                       },
@@ -380,7 +380,7 @@ function BrowseMobileDrawer({
                           icon={Clapperboard}
                           onClick={() => onNavigate("/home/request-movie?kind=movie")}
                         >
-                          Request a movie
+                          Upload Request
                         </MobileNavLink>
                       </li>
                     ) : null}
@@ -393,7 +393,7 @@ function BrowseMobileDrawer({
                   icon={Film}
                   onClick={() => onNavigate("/home/request-movie?kind=movie")}
                 >
-                  Request a movie
+                  Upload Request
                 </MobileNavLink>
               </li>
             ) : null}
@@ -455,7 +455,7 @@ function BrowseMobileDrawer({
                   expanded={requestsOpen}
                   onClick={() => setRequestsOpen((value) => !value)}
                 >
-                  Requests
+                  Upload Request
                 </MobileNavLink>
                 {requestsOpen ? (
                   <ul className={styles.mobileSubmenu}>
@@ -464,7 +464,7 @@ function BrowseMobileDrawer({
                         icon={Film}
                         onClick={() => onNavigate("/home/request-movie?kind=movie")}
                       >
-                        Request a movie
+                        Upload Request
                       </MobileNavLink>
                     </li>
                     <li>

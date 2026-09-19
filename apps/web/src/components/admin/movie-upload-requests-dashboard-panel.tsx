@@ -60,7 +60,7 @@ export function MovieUploadRequestsDashboardPanel({
               onChange={(e) => toggleMutation.mutate(e.target.checked)}
             />
             <span>
-              Show <strong>Request movie</strong> in the site header and allow submissions
+              Show <strong>Upload Request</strong> in the site header and allow submissions
             </span>
           </label>
         </div>
