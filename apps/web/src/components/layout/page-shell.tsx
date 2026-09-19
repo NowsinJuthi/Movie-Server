@@ -35,10 +35,10 @@ export function PageShell({
     >
       <div
         className={cn(
-          "flex min-w-0 flex-col overflow-hidden",
+          "flex min-w-0 flex-col",
           fillHeight
-            ? "min-h-0 flex-1 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent lg:rounded-xl lg:border lg:border-border lg:bg-card/40"
-            : "flex-1 rounded-xl border border-border bg-card/40",
+            ? "min-h-0 flex-1 overflow-hidden max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent lg:rounded-xl lg:border lg:border-border lg:bg-card/40"
+            : "rounded-xl border border-border bg-card/40",
         )}
       >
         {title || description || actions ? (
@@ -72,7 +72,9 @@ export function PageShell({
         ) : null}
         <div
           className={cn(
-            "min-h-0 flex-1 space-y-4 overflow-auto overscroll-y-contain p-3 sm:space-y-6 sm:p-5 brand-scrollbar",
+            "space-y-4 p-3 sm:space-y-6 sm:p-5",
+            fillHeight &&
+              "min-h-0 flex-1 overflow-auto overscroll-y-contain brand-scrollbar",
             "[&_input]:min-h-10 [&_select]:min-h-10 [&_textarea]:min-h-10",
             bodyClassName,
           )}
