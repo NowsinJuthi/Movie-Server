@@ -21,7 +21,6 @@ import {
   Menu,
   MonitorSmartphone,
   Settings,
-  Sparkles,
   Tv,
   UserRound,
   X,
@@ -108,7 +107,6 @@ export function AppHeader({
   };
 
   const homeActive = pathname === "/home";
-  const discoverActive = pathname === "/home/welcome";
   const activeLibraryId = pathname?.startsWith("/home/library/")
     ? pathname.split("/")[3]
     : null;
@@ -229,9 +227,6 @@ export function AppHeader({
                 <HeaderLink href="/home" active={homeActive} icon={Home}>
                   Home
                 </HeaderLink>
-                <HeaderLink href="/home/welcome" active={discoverActive} icon={Sparkles}>
-                  Discover
-                </HeaderLink>
                 <NavMenu
                   label="Movies"
                   icon={Film}
@@ -321,7 +316,6 @@ export function AppHeader({
       {variant === "browse" && browseMenuOpen ? (
         <BrowseMobileDrawer
           homeActive={homeActive}
-          discoverActive={discoverActive}
           showRequestMenu={movieRequestsEnabled}
           requestsNavActive={requestsNavActive}
           activeLibraryId={activeLibraryId ?? undefined}
@@ -340,7 +334,6 @@ export function AppHeader({
 
 function BrowseMobileDrawer({
   homeActive,
-  discoverActive,
   showRequestMenu,
   requestsNavActive,
   activeLibraryId,
@@ -350,7 +343,6 @@ function BrowseMobileDrawer({
   onNavigate,
 }: {
   homeActive: boolean;
-  discoverActive: boolean;
   showRequestMenu: boolean;
   requestsNavActive: boolean;
   activeLibraryId?: string;
@@ -387,15 +379,6 @@ function BrowseMobileDrawer({
             <li>
               <MobileNavLink active={homeActive} icon={Home} onClick={() => onNavigate("/home")}>
                 Home
-              </MobileNavLink>
-            </li>
-            <li>
-              <MobileNavLink
-                active={discoverActive}
-                icon={Sparkles}
-                onClick={() => onNavigate("/home/welcome")}
-              >
-                Discover
               </MobileNavLink>
             </li>
 
