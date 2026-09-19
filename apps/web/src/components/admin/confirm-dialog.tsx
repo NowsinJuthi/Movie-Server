@@ -40,7 +40,7 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
       role="presentation"
       onClick={onClose}
     >
@@ -48,18 +48,23 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
-        className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+        className="max-h-[min(90dvh,32rem)] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:max-w-md sm:rounded-xl sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="confirm-title" className="text-xl font-semibold">
           {title}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={pending}>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="ghost" className="min-h-11 w-full touch-manipulation sm:w-auto" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
+          <Button
+            variant="destructive"
+            className="min-h-11 w-full touch-manipulation sm:w-auto"
+            onClick={onConfirm}
+            disabled={pending}
+          >
             {pending ? "Working..." : confirmLabel}
           </Button>
         </div>

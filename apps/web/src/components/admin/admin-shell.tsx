@@ -26,6 +26,7 @@ import {
   ListMusic,
   Menu,
   MonitorPlay,
+  X,
   Settings2,
   Shield,
   Tags,
@@ -288,6 +289,22 @@ function useGroupOpenState(pathname: string | null) {
   return { isGroupOpen, toggleGroup, expandGroup };
 }
 
+function adminMobileTitle(pathname: string | null): string {
+  if (!pathname || pathname === "/admin") return "Dashboard";
+  const segments = pathname.replace(/^\/admin\/?/, "").split("/").filter(Boolean);
+  const last = segments[segments.length - 1] ?? "Admin";
+  if (/^[a-f0-9]{24}$/i.test(last) && segments.length >= 2) {
+    return segments[segments.length - 2]!
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+  return last
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function filterNavByPermissions(
   sections: NavSection[],
   can: (key: PermissionKey) => boolean,
@@ -352,6 +369,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     () => filterNavByPermissions(nav, can),
     [nav, can],
   );
+
+  const mobileTitle = useMemo(() => adminMobileTitle(pathname), [pathname]);
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -420,8 +439,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
+          <p className={styles.mobileMenuTitle}>{mobileTitle}</p>
         </div>
         <aside className={cn(styles.sidebar, mobileNavOpen && styles.sidebarOpen)}>
+          <div className={styles.sidebarMobileHead}>
+            <p className={styles.sidebarMobileHeadTitle}>Admin menu</p>
+            <button
+              type="button"
+              className={styles.mobileMenuTrigger}
+              aria-label="Close admin menu"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
           <nav className={styles.sidebarNav} aria-label="Admin">
             <div className={styles.menuPanel}>
                   <div className={cn(styles.menuScroll, "brand-scrollbar")}>
@@ -604,8 +635,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </p>
         </aside>
 
-        <div className={cn(styles.content, "brand-scrollbar")}>
-          {children}
+        <div className={styles.content}>
+          <div className={styles.contentInner}>{children}</div>
         </div>
       </div>
     </div>

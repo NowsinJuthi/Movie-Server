@@ -11,9 +11,10 @@ export function AdminTable({
 }) {
   const hasRows = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 sm:mx-0 sm:px-0">
-      <div className="overflow-hidden rounded-xl border border-border">
-        <table className="w-full min-w-[640px] text-left text-sm">
+    <div className="admin-table-scroll -mx-1 px-1 sm:mx-0 sm:px-0">
+      <p className="mb-2 text-xs text-muted-foreground lg:hidden">Swipe sideways to see all columns.</p>
+      <div className="overflow-x-auto overscroll-x-contain rounded-xl border border-border [-webkit-overflow-scrolling:touch]">
+        <table className="w-full min-w-[520px] text-left text-sm sm:min-w-[640px]">
           <thead className="bg-secondary text-muted-foreground">
             <tr>
               {columns.map((column) => (

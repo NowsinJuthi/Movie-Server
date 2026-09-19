@@ -37,7 +37,7 @@ export default function AdminDashboardPage() {
 
       <Link
         href="/admin/slider"
-        className="mb-4 block rounded-xl border border-border bg-card p-5 hover:border-primary/40"
+        className="mb-4 block rounded-xl border border-border bg-card p-4 hover:border-primary/40 sm:p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
         </div>
       </Link>
 
-      <section className="mb-4 rounded-xl border border-border bg-card p-5">
+      <section className="mb-4 rounded-xl border border-border bg-card p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
 
 function Stat({ href, label, value, hint }: { href: string; label: string; value: number; hint?: string }) {
   return (
-    <Link href={href} className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+    <Link href={href} className="rounded-xl border border-border bg-card p-4 hover:border-primary/40 sm:p-5">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-3xl font-semibold">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}

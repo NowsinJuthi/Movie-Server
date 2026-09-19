@@ -26,25 +26,40 @@ export function PageShell({
   return (
     <main
       className={cn(
-        "flex w-full flex-col bg-background p-2 sm:p-4 md:p-5 lg:p-6",
-        fillHeight ? "h-full min-h-0 overflow-hidden" : "min-h-dvh pt-20",
+        "flex w-full min-w-0 flex-col bg-background",
+        fillHeight
+          ? "h-full min-h-0 overflow-hidden p-0 max-lg:overflow-x-hidden lg:p-2 xl:p-4"
+          : "min-h-dvh p-2 pt-20 sm:p-4 md:p-5 lg:p-6",
         className,
       )}
     >
       <div
         className={cn(
-          "flex flex-col overflow-hidden rounded-xl border border-border bg-card/40",
-          fillHeight ? "min-h-0 flex-1" : "flex-1",
+          "flex min-w-0 flex-col overflow-hidden",
+          fillHeight
+            ? "min-h-0 flex-1 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent lg:rounded-xl lg:border lg:border-border lg:bg-card/40"
+            : "flex-1 rounded-xl border border-border bg-card/40",
         )}
       >
         {title || description || actions ? (
-          <header className="flex shrink-0 flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:px-5">
-            <div className="min-w-0">
-              {title ? <h1 className="text-lg font-semibold sm:text-2xl">{title}</h1> : null}
-              {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          <header
+            className={cn(
+              "flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3 sm:px-5 sm:py-3",
+              fillHeight && "max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-background/95 max-lg:backdrop-blur-md",
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              {title ? (
+                <h1 className="text-base font-semibold leading-snug sm:text-2xl">{title}</h1>
+              ) : null}
+              {description ? (
+                <p className="mt-0.5 line-clamp-3 text-xs text-muted-foreground sm:mt-1 sm:line-clamp-none sm:text-sm">
+                  {description}
+                </p>
+              ) : null}
             </div>
             {actions ? (
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto [&_button]:min-h-10 [&_button]:touch-manipulation">
+              <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto sm:justify-end [&_button]:min-h-10 [&_button]:touch-manipulation [&_a]:min-h-10 [&_a]:touch-manipulation">
                 {actions}
               </div>
             ) : null}
@@ -57,7 +72,8 @@ export function PageShell({
         ) : null}
         <div
           className={cn(
-            "min-h-0 flex-1 space-y-4 overflow-auto p-3 sm:space-y-6 sm:p-5 brand-scrollbar",
+            "min-h-0 flex-1 space-y-4 overflow-auto overscroll-y-contain p-3 sm:space-y-6 sm:p-5 brand-scrollbar",
+            "[&_input]:min-h-10 [&_select]:min-h-10 [&_textarea]:min-h-10",
             bodyClassName,
           )}
         >

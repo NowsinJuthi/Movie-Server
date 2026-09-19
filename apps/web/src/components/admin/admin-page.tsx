@@ -15,7 +15,14 @@ export function AdminPage({
   children: ReactNode;
 }) {
   return (
-    <PageShell title={title} description={description} actions={actions} error={error} fillHeight>
+    <PageShell
+      title={title}
+      description={description}
+      actions={actions}
+      error={error}
+      fillHeight
+      className="h-full min-h-0"
+    >
       {children}
     </PageShell>
   );
