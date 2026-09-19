@@ -1,12 +1,20 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { MovieUploadRequestStatus } from '@movie-server/shared';
+import { ContentUploadRequestKind, MovieUploadRequestStatus } from '@movie-server/shared';
 
 @Schema({
   timestamps: true,
   collection: 'movie_upload_requests',
 })
 export class MovieUploadRequest {
+  @Prop({
+    type: String,
+    enum: Object.values(ContentUploadRequestKind),
+    default: ContentUploadRequestKind.Movie,
+    index: true,
+  })
+  kind!: ContentUploadRequestKind;
+
   @Prop({ required: true, trim: true, maxlength: 200 })
   title!: string;
 

@@ -1,9 +1,10 @@
-import type { MovieUploadRequestRow } from '@movie-server/shared';
+import { ContentUploadRequestKind, type MovieUploadRequestRow } from '@movie-server/shared';
 import { MovieUploadRequestDocument } from './schemas/movie-upload-request.schema';
 
 export function toMovieUploadRequestRow(doc: MovieUploadRequestDocument): MovieUploadRequestRow {
   return {
     id: String(doc._id),
+    kind: doc.kind ?? ContentUploadRequestKind.Movie,
     title: doc.title,
     year: doc.year ?? null,
     note: doc.note ?? null,

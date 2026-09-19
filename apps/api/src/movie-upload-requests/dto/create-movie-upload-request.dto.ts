@@ -1,7 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { CONTENT_UPLOAD_REQUEST_KINDS } from '@movie-server/shared';
 
 export class CreateMovieUploadRequestDto {
+  @IsOptional()
+  @IsIn(CONTENT_UPLOAD_REQUEST_KINDS)
+  kind?: (typeof CONTENT_UPLOAD_REQUEST_KINDS)[number];
+
   @IsString()
   @MinLength(1)
   @MaxLength(200)

@@ -119,6 +119,42 @@
   color: var(--muted-foreground);
 }
 
+.kindToggle {
+  display: inline-flex;
+  margin-top: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--background) 70%, transparent);
+  padding: 0.25rem;
+  gap: 0.15rem;
+}
+
+.kindBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border-radius: 9999px;
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.kindBtn:hover {
+  color: var(--foreground);
+}
+
+.kindBtnActive {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 6px 20px -10px color-mix(in oklch, var(--primary) 70%, black);
+}
+
 .steps {
   position: relative;
   z-index: 1;
@@ -384,6 +420,15 @@
 .historyItem:hover {
   border-color: color-mix(in oklch, var(--primary) 30%, transparent);
   transform: translateX(3px);
+}
+
+.historyKind {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 0.15rem;
 }
 
 .historyMovie {

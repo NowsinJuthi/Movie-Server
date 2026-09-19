@@ -271,6 +271,32 @@
   color: var(--primary);
 }
 
+.navDropdownDivider {
+  margin: 0.35rem 0.25rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+}
+
+.navDropdownFooterItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.navDropdownFooterItem:hover {
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+}
+
 .actions {
   display: flex;
   align-items: center;

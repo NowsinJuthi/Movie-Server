@@ -1,16 +1,22 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Clapperboard,
   Film,
   SendHorizonal,
   Sparkles,
+  Tv,
   UserRound,
 } from "lucide-react";
-import { MovieUploadRequestStatus } from "@movie-server/shared";
+import {
+  ContentUploadRequestKind,
+  MovieUploadRequestStatus,
+  type ContentUploadRequestKind as Kind,
+} from "@movie-server/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,19 +41,53 @@ const STATUS_CLASS: Record<MovieUploadRequestStatus, string> = {
 };
 
 const STEPS = [
-  { title: "Submit title", body: "Tell us the movie name and optional release year." },
+  { title: "Pick type", body: "Choose movie or TV show, then enter the title." },
   { title: "Team review", body: "We queue your request and check library availability." },
   { title: "Go live", body: "When the file is ready, it appears in your catalog." },
 ] as const;
 
+const KIND_COPY: Record<
+  Kind,
+  { title: string; lead: string; fieldLabel: string; placeholder: string; notePlaceholder: string }
+> = {
+  [ContentUploadRequestKind.Movie]: {
+    title: "Request a movie",
+    lead: "Missing a film? Tell us the title and we'll add it when the file is available.",
+    fieldLabel: "Movie title",
+    placeholder: "e.g. John Wick",
+    notePlaceholder: "Language, quality, or TMDB link…",
+  },
+  [ContentUploadRequestKind.Tv]: {
+    title: "Request a TV show",
+    lead: "Missing a series? Send the show name and we'll add it when episodes are ready.",
+    fieldLabel: "TV show title",
+    placeholder: "e.g. Breaking Bad",
+    notePlaceholder: "Season, language, or TMDB link…",
+  },
+};
+
+function parseKind(raw: string | null): Kind {
+  return raw === ContentUploadRequestKind.Tv ? ContentUploadRequestKind.Tv : ContentUploadRequestKind.Movie;
+}
+
 export default function RequestMoviePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const activeProfile = useProfileStore((s) => s.activeProfile);
+  const kind = parseKind(searchParams.get("kind"));
+  const copy = KIND_COPY[kind];
+
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    setSuccess(null);
+  }, [kind]);
 
   const featuresQuery = useQuery({
     queryKey: ["site-features"],
@@ -64,6 +104,7 @@ export default function RequestMoviePage() {
   const createMutation = useMutation({
     mutationFn: () =>
       movieUploadRequestApi.create({
+        kind,
         title: title.trim(),
         year: year.trim() ? Number(year) : undefined,
         note: note.trim() || undefined,
@@ -83,6 +124,10 @@ export default function RequestMoviePage() {
     },
   });
 
+  const setKind = (next: Kind) => {
+    router.replace(`/home/request-movie?kind=${next}`);
+  };
+
   if (featuresQuery.isLoading) {
     return (
       <div className={styles.page}>
@@ -100,13 +145,14 @@ export default function RequestMoviePage() {
         <div className={styles.offShell}>
           <Clapperboard className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden />
           <h1 className={styles.offTitle}>Requests paused</h1>
-          <p className={styles.offLead}>Movie upload requests are turned off for now. Please check back later.</p>
+          <p className={styles.offLead}>Content requests are turned off for now. Please check back later.</p>
         </div>
       </div>
     );
   }
 
   const history = mineQuery.data ?? [];
+  const HeroIcon = kind === ContentUploadRequestKind.Tv ? Tv : Film;
 
   return (
     <div className={styles.page}>
@@ -116,17 +162,33 @@ export default function RequestMoviePage() {
 
         <header className={styles.hero}>
           <div className={styles.iconRing}>
-            <Film className="h-6 w-6" aria-hidden />
+            <HeroIcon className="h-6 w-6" aria-hidden />
           </div>
           <p className={styles.eyebrow}>
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             AmarPin request studio
           </p>
-          <h1 className={styles.title}>Request a movie</h1>
-          <p className={styles.lead}>
-            Missing a title from the library? Send a request and our team will add it when the media file is
-            available.
-          </p>
+          <h1 className={styles.title}>{copy.title}</h1>
+          <p className={styles.lead}>{copy.lead}</p>
+
+          <div className={styles.kindToggle} role="group" aria-label="Content type">
+            <button
+              type="button"
+              className={cn(styles.kindBtn, kind === ContentUploadRequestKind.Movie && styles.kindBtnActive)}
+              onClick={() => setKind(ContentUploadRequestKind.Movie)}
+            >
+              <Film className="h-4 w-4" aria-hidden />
+              Movie
+            </button>
+            <button
+              type="button"
+              className={cn(styles.kindBtn, kind === ContentUploadRequestKind.Tv && styles.kindBtnActive)}
+              onClick={() => setKind(ContentUploadRequestKind.Tv)}
+            >
+              <Tv className="h-4 w-4" aria-hidden />
+              TV show
+            </button>
+          </div>
         </header>
 
         <div className={styles.steps}>
@@ -173,12 +235,12 @@ export default function RequestMoviePage() {
             }}
           >
             <div className={styles.field}>
-              <Label htmlFor="req-title">Movie title</Label>
+              <Label htmlFor="req-title">{copy.fieldLabel}</Label>
               <Input
                 id="req-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. John Wick"
+                placeholder={copy.placeholder}
                 required
                 maxLength={200}
                 autoComplete="off"
@@ -201,7 +263,7 @@ export default function RequestMoviePage() {
                 className={styles.textarea}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Preferred language, quality, or a TMDB link…"
+                placeholder={copy.notePlaceholder}
                 maxLength={2000}
                 rows={4}
               />
@@ -245,6 +307,9 @@ export default function RequestMoviePage() {
                   style={{ animationDelay: `${0.08 * index}s` }}
                 >
                   <div className="min-w-0">
+                    <p className={styles.historyKind}>
+                      {row.kind === ContentUploadRequestKind.Tv ? "TV show" : "Movie"}
+                    </p>
                     <p className={styles.historyMovie}>
                       {row.title}
                       {row.year ? ` (${row.year})` : ""}

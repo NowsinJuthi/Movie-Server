@@ -11,6 +11,7 @@ import type {
   AdminTrackRow,
   AdminUserRow,
   AdminSubscriptionRow,
+  ContentUploadRequestKind,
   MovieUploadRequestRow,
   MovieUploadRequestStatus,
   PublicInvoice,
@@ -198,7 +199,13 @@ export const adminApi = {
       body: JSON.stringify({ shuffleItems }),
     }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
-  movieUploadRequests: (query: { q?: string; status?: MovieUploadRequestStatus; page?: number; limit?: number } = {}) =>
+  movieUploadRequests: (query: {
+    q?: string;
+    status?: MovieUploadRequestStatus;
+    kind?: ContentUploadRequestKind;
+    page?: number;
+    limit?: number;
+  } = {}) =>
     apiFetch<AdminPage<MovieUploadRequestRow>>(`/admin/movie-upload-requests${qs(query)}`),
   patchMovieUploadRequest: (
     id: string,

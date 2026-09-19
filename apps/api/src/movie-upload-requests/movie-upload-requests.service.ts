@@ -8,6 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   ErrorCode,
+  ContentUploadRequestKind,
   MovieUploadRequestStatus,
   type AdminPage,
   type MovieUploadRequestRow,
@@ -72,7 +73,13 @@ export class MovieUploadRequestsService {
       profileName = profile.name;
     }
 
+    const kind =
+      dto.kind === ContentUploadRequestKind.Tv
+        ? ContentUploadRequestKind.Tv
+        : ContentUploadRequestKind.Movie;
+
     const doc = await this.model.create({
+      kind,
       title,
       year: dto.year ?? null,
       note: dto.note?.trim() || null,
@@ -99,6 +106,9 @@ export class MovieUploadRequestsService {
     const filter: Record<string, unknown> = {};
     if (query.status) {
       filter.status = query.status;
+    }
+    if (query.kind) {
+      filter.kind = query.kind;
     }
     if (query.q?.trim()) {
       const q = query.q.trim();

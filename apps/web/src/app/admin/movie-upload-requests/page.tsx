@@ -2,7 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MOVIE_UPLOAD_REQUEST_STATUSES, type MovieUploadRequestStatus } from "@movie-server/shared";
+import {
+  CONTENT_UPLOAD_REQUEST_KINDS,
+  ContentUploadRequestKind,
+  MOVIE_UPLOAD_REQUEST_STATUSES,
+  type ContentUploadRequestKind as Kind,
+  type MovieUploadRequestStatus,
+} from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminPagination } from "@/components/admin/admin-pagination";
@@ -22,14 +28,16 @@ export default function AdminMovieUploadRequestsPage() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<MovieUploadRequestStatus | "">("");
+  const [kind, setKind] = useState<Kind | "">("");
   const [page, setPage] = useState(1);
 
   const query = useQuery({
-    queryKey: ["admin-movie-upload-requests", q, status, page],
+    queryKey: ["admin-movie-upload-requests", q, status, kind, page],
     queryFn: () =>
       adminApi.movieUploadRequests({
         q: q || undefined,
         status: status || undefined,
+        kind: kind || undefined,
         page,
         limit: 25,
       }),
@@ -48,8 +56,8 @@ export default function AdminMovieUploadRequestsPage() {
 
   return (
     <AdminPage
-      title="Movie upload requests"
-      description="Member requests for titles to add to the library. Update status as you upload or reject."
+      title="Content upload requests"
+      description="Member requests for movies and TV shows. Update status as you upload or reject."
       error={error}
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -76,12 +84,30 @@ export default function AdminMovieUploadRequestsPage() {
             </option>
           ))}
         </select>
+        <select
+          className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+          value={kind}
+          onChange={(e) => {
+            setKind(e.target.value as Kind | "");
+            setPage(1);
+          }}
+        >
+          <option value="">All types</option>
+          {CONTENT_UPLOAD_REQUEST_KINDS.map((value) => (
+            <option key={value} value={value}>
+              {value === ContentUploadRequestKind.Tv ? "TV show" : "Movie"}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <AdminTable columns={["Submitted", "Title", "Member", "Profile", "Status", "Actions"]}>
+      <AdminTable columns={["Submitted", "Type", "Title", "Member", "Profile", "Status", "Actions"]}>
         {(query.data?.items ?? []).map((item) => (
           <tr key={item.id}>
             <AdminTd>{new Date(item.createdAt).toLocaleString()}</AdminTd>
+            <AdminTd className="capitalize">
+              {item.kind === ContentUploadRequestKind.Tv ? "TV show" : "Movie"}
+            </AdminTd>
             <AdminTd>
               {item.title}
               {item.year ? ` (${item.year})` : ""}

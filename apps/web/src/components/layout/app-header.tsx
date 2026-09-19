@@ -9,7 +9,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Clapperboard, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "@/components/profiles/profile-avatar";
 import { SearchBox } from "@/components/search/search-box";
@@ -60,7 +60,7 @@ export function AppHeader({
   });
 
   const movieRequestsEnabled = Boolean(featuresQuery.data?.movieUploadRequestsEnabled);
-  const requestMovieActive = pathname === "/home/request-movie";
+  const requestsNavActive = pathname === "/home/request-movie";
 
   const libraries = librariesQuery.data?.libraries ?? [];
   const movieLibraries = libraries.filter((library) => library.kind === LibraryKind.Movies);
@@ -205,6 +205,18 @@ export function AppHeader({
                     active: library.id === activeLibraryId,
                   }))}
                   emptyHint="Add a movie library in Admin → Media libraries"
+                  footerItems={
+                    movieRequestsEnabled
+                      ? [
+                          {
+                            id: "request-movie",
+                            label: "Request a movie",
+                            href: "/home/request-movie?kind=movie",
+                            icon: Film,
+                          },
+                        ]
+                      : undefined
+                  }
                 />
                 {tvLibraries.length > 0 ? (
                   <NavMenu
@@ -216,12 +228,42 @@ export function AppHeader({
                       href: `/home/library/${library.id}`,
                       active: library.id === activeLibraryId,
                     }))}
+                    footerItems={
+                      movieRequestsEnabled
+                        ? [
+                            {
+                              id: "request-tv",
+                              label: "Request a TV show",
+                              href: "/home/request-movie?kind=tv",
+                              icon: Tv,
+                            },
+                          ]
+                        : undefined
+                    }
                   />
                 ) : null}
                 {movieRequestsEnabled ? (
-                  <HeaderLink href="/home/request-movie" active={requestMovieActive}>
-                    Request movie
-                  </HeaderLink>
+                  <NavMenu
+                    label="Requests"
+                    active={requestsNavActive}
+                    items={[]}
+                    emptyHint={undefined}
+                    footerItems={[
+                      {
+                        id: "req-movie",
+                        label: "Request a movie",
+                        href: "/home/request-movie?kind=movie",
+                        icon: Film,
+                      },
+                      {
+                        id: "req-tv",
+                        label: "Request a TV show",
+                        href: "/home/request-movie?kind=tv",
+                        icon: Tv,
+                      },
+                    ]}
+                    footerOnly
+                  />
                 ) : null}
               </nav>
             ) : (
@@ -238,8 +280,8 @@ export function AppHeader({
         <BrowseMobileDrawer
           homeActive={homeActive}
           discoverActive={discoverActive}
-          requestMovieActive={requestMovieActive}
-          showRequestMovie={movieRequestsEnabled}
+          showRequestMenu={movieRequestsEnabled}
+          requestsNavActive={requestsNavActive}
           activeLibraryId={activeLibraryId ?? undefined}
           movieLibraries={movieLibraries}
           tvLibraries={tvLibraries}
@@ -257,8 +299,8 @@ export function AppHeader({
 function BrowseMobileDrawer({
   homeActive,
   discoverActive,
-  requestMovieActive,
-  showRequestMovie,
+  showRequestMenu,
+  requestsNavActive,
   activeLibraryId,
   movieLibraries,
   tvLibraries,
@@ -267,8 +309,8 @@ function BrowseMobileDrawer({
 }: {
   homeActive: boolean;
   discoverActive: boolean;
-  requestMovieActive: boolean;
-  showRequestMovie: boolean;
+  showRequestMenu: boolean;
+  requestsNavActive: boolean;
   activeLibraryId?: string;
   movieLibraries: Array<{ id: string; name: string }>;
   tvLibraries: Array<{ id: string; name: string }>;
@@ -277,6 +319,7 @@ function BrowseMobileDrawer({
 }) {
   const [moviesOpen, setMoviesOpen] = useState(false);
   const [tvOpen, setTvOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const moviesActive = movieLibraries.some((library) => library.id === activeLibraryId);
   const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
@@ -307,18 +350,6 @@ function BrowseMobileDrawer({
               </MobileNavLink>
             </li>
 
-            {showRequestMovie ? (
-              <li>
-                <MobileNavLink
-                  active={requestMovieActive}
-                  icon={Clapperboard}
-                  onClick={() => onNavigate("/home/request-movie")}
-                >
-                  Request movie
-                </MobileNavLink>
-              </li>
-            ) : null}
-
             {movieLibraries.length > 0 ? (
               <li>
                 <MobileNavLink
@@ -343,8 +374,27 @@ function BrowseMobileDrawer({
                         </MobileNavLink>
                       </li>
                     ))}
+                    {showRequestMenu ? (
+                      <li>
+                        <MobileNavLink
+                          icon={Clapperboard}
+                          onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                        >
+                          Request a movie
+                        </MobileNavLink>
+                      </li>
+                    ) : null}
                   </ul>
                 ) : null}
+              </li>
+            ) : showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  icon={Film}
+                  onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                >
+                  Request a movie
+                </MobileNavLink>
               </li>
             ) : null}
 
@@ -372,6 +422,59 @@ function BrowseMobileDrawer({
                         </MobileNavLink>
                       </li>
                     ))}
+                    {showRequestMenu ? (
+                      <li>
+                        <MobileNavLink
+                          icon={Clapperboard}
+                          onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                        >
+                          Request a TV show
+                        </MobileNavLink>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+              </li>
+            ) : showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  icon={Tv}
+                  onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                >
+                  Request a TV show
+                </MobileNavLink>
+              </li>
+            ) : null}
+
+            {showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  active={requestsNavActive}
+                  icon={Clapperboard}
+                  chevron
+                  expanded={requestsOpen}
+                  onClick={() => setRequestsOpen((value) => !value)}
+                >
+                  Requests
+                </MobileNavLink>
+                {requestsOpen ? (
+                  <ul className={styles.mobileSubmenu}>
+                    <li>
+                      <MobileNavLink
+                        icon={Film}
+                        onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                      >
+                        Request a movie
+                      </MobileNavLink>
+                    </li>
+                    <li>
+                      <MobileNavLink
+                        icon={Tv}
+                        onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                      >
+                        Request a TV show
+                      </MobileNavLink>
+                    </li>
                   </ul>
                 ) : null}
               </li>
@@ -682,16 +785,28 @@ function MenuItem({
   );
 }
 
+type NavFooterItem = {
+  id: string;
+  label: string;
+  href: string;
+  icon?: ComponentType<{ className?: string }>;
+};
+
 function NavMenu({
   label,
   items,
   emptyHint,
   active,
+  footerItems,
+  footerOnly,
 }: {
   label: string;
   items: Array<{ id: string; label: string; href: string; active?: boolean }>;
   emptyHint?: string;
   active?: boolean;
+  footerItems?: NavFooterItem[];
+  /** When true, dropdown shows only footer actions (e.g. Requests menu). */
+  footerOnly?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -759,25 +874,51 @@ function NavMenu({
       {open ? (
         <div className={styles.navDropdownMenu} role="menu">
           <div className={styles.navDropdownMenuInner}>
-            {items.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
-            ) : (
-              items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="menuitem"
-                  className={cn(styles.navDropdownItem, item.active && styles.navDropdownItemActive)}
-                  onClick={() => {
-                    cancelScheduledClose();
-                    setOpen(false);
-                    router.push(item.href);
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))
-            )}
+            {!footerOnly ? (
+              items.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
+              ) : (
+                items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className={cn(styles.navDropdownItem, item.active && styles.navDropdownItemActive)}
+                    onClick={() => {
+                      cancelScheduledClose();
+                      setOpen(false);
+                      router.push(item.href);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))
+              )
+            ) : null}
+            {footerItems && footerItems.length > 0 ? (
+              <>
+                {!footerOnly && items.length > 0 ? <div className={styles.navDropdownDivider} /> : null}
+                {footerItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="menuitem"
+                      className={styles.navDropdownFooterItem}
+                      onClick={() => {
+                        cancelScheduledClose();
+                        setOpen(false);
+                        router.push(item.href);
+                      }}
+                    >
+                      {Icon ? <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden /> : null}
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
