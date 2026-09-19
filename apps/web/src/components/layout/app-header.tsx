@@ -7,7 +7,25 @@ import {
   type PublicProfile,
 } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Clapperboard, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
+import {
+  ChevronDown,
+  Clapperboard,
+  CreditCard,
+  Film,
+  Heart,
+  History,
+  Home,
+  LayoutDashboard,
+  ListVideo,
+  LogOut,
+  Menu,
+  MonitorSmartphone,
+  Settings,
+  Sparkles,
+  Tv,
+  UserRound,
+  X,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -689,7 +707,7 @@ function AccountMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className={styles.accountBtn}
+        className={cn(styles.accountBtn, open && styles.accountBtnOpen)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Account menu"
@@ -709,119 +727,155 @@ function AccountMenu({
         />
       </button>
       {open ? (
-        <div role="menu" className="absolute right-0 top-full z-50 min-w-[14rem] pt-2">
-          <div className={styles.menuPanel}>
-            <div className={styles.menuHeader}>
-              <p className="truncate text-sm font-semibold text-foreground">{accountLabel}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {profile?.name
-                  ? `Watching as ${profile.name}`
-                  : isAdmin
-                    ? "Admin"
-                    : "Signed in"}
-              </p>
+        <div role="menu" className={styles.accountMenuDropdown}>
+          <div className={styles.accountMenuPanel}>
+            <div className={styles.accountMenuHead}>
+              <span className={styles.browseSectionIcon} aria-hidden>
+                <UserRound className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{accountLabel}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {profile?.name
+                    ? `Watching as ${profile.name}`
+                    : isAdmin
+                      ? "Admin"
+                      : "Signed in"}
+                </p>
+              </div>
             </div>
-            <div className="py-1">
+            <ul className={styles.accountMenuList}>
               {profile ? (
+                <li>
+                  <MenuItem
+                    icon={UserRound}
+                    onClick={() => {
+                      setOpen(false);
+                      onProfiles();
+                    }}
+                  >
+                    Switch profile
+                  </MenuItem>
+                </li>
+              ) : null}
+              <li>
                 <MenuItem
+                  icon={ListVideo}
                   onClick={() => {
                     setOpen(false);
-                    onProfiles();
+                    onMyList();
                   }}
                 >
-                  Switch profile
+                  My List
                 </MenuItem>
-              ) : null}
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onMyList();
-                }}
-              >
-                My List
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onFavorites();
-                }}
-              >
-                Favorites
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onHistory();
-                }}
-              >
-                History
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onDevices();
-                }}
-              >
-                Devices
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onSettings();
-                }}
-              >
-                Account settings
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onSubscription();
-                }}
-              >
-                Subscription
-              </MenuItem>
-            </div>
-            {isAdmin ? (
-              <div className="border-t border-border py-1">
-                {onAdminRoute ? (
-                  <MenuItem
-                    onClick={() => {
-                      setOpen(false);
-                      onHome();
-                    }}
-                  >
-                    Browse home
-                  </MenuItem>
-                ) : (
-                  <MenuItem
-                    accent
-                    onClick={() => {
-                      setOpen(false);
-                      onAdmin();
-                    }}
-                  >
-                    Admin Dashboard
-                  </MenuItem>
-                )}
-              </div>
-            ) : null}
-            <div className="border-t border-border py-1">
-              <MenuItem
-                danger
-                disabled={signingOut}
-                onClick={async () => {
-                  setSigningOut(true);
-                  try {
-                    await onSignOut();
-                  } finally {
-                    setSigningOut(false);
+              </li>
+              <li>
+                <MenuItem
+                  icon={Heart}
+                  onClick={() => {
                     setOpen(false);
-                  }
-                }}
-              >
-                {signingOut ? "Signing out..." : "Sign out"}
-              </MenuItem>
-            </div>
+                    onFavorites();
+                  }}
+                >
+                  Favorites
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={History}
+                  onClick={() => {
+                    setOpen(false);
+                    onHistory();
+                  }}
+                >
+                  History
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={MonitorSmartphone}
+                  onClick={() => {
+                    setOpen(false);
+                    onDevices();
+                  }}
+                >
+                  Devices
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={Settings}
+                  onClick={() => {
+                    setOpen(false);
+                    onSettings();
+                  }}
+                >
+                  Account settings
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={CreditCard}
+                  onClick={() => {
+                    setOpen(false);
+                    onSubscription();
+                  }}
+                >
+                  Subscription
+                </MenuItem>
+              </li>
+            </ul>
+            {isAdmin ? (
+              <>
+                <p className={styles.accountMenuSectionLabel}>Workspace</p>
+                <ul className={styles.accountMenuList}>
+                  <li>
+                    {onAdminRoute ? (
+                      <MenuItem
+                        icon={Home}
+                        onClick={() => {
+                          setOpen(false);
+                          onHome();
+                        }}
+                      >
+                        Browse home
+                      </MenuItem>
+                    ) : (
+                      <MenuItem
+                        icon={LayoutDashboard}
+                        accent
+                        onClick={() => {
+                          setOpen(false);
+                          onAdmin();
+                        }}
+                      >
+                        Admin Dashboard
+                      </MenuItem>
+                    )}
+                  </li>
+                </ul>
+              </>
+            ) : null}
+            <ul className={cn(styles.accountMenuList, styles.accountMenuListDanger)}>
+              <li>
+                <MenuItem
+                  icon={LogOut}
+                  danger
+                  disabled={signingOut}
+                  onClick={async () => {
+                    setSigningOut(true);
+                    try {
+                      await onSignOut();
+                    } finally {
+                      setSigningOut(false);
+                      setOpen(false);
+                    }
+                  }}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </MenuItem>
+              </li>
+            </ul>
           </div>
         </div>
       ) : null}
@@ -830,12 +884,14 @@ function AccountMenu({
 }
 
 function MenuItem({
+  icon: Icon,
   children,
   onClick,
   disabled,
   accent,
   danger,
 }: {
+  icon: ComponentType<{ className?: string }>;
   children: ReactNode;
   onClick: () => void | Promise<void>;
   disabled?: boolean;
@@ -848,13 +904,16 @@ function MenuItem({
       role="menuitem"
       disabled={disabled}
       className={cn(
-        styles.menuItem,
-        accent && styles.menuItemAccent,
-        danger && styles.menuItemDanger,
+        styles.accountMenuItem,
+        accent && styles.accountMenuItemAccent,
+        danger && styles.accountMenuItemDanger,
       )}
       onClick={onClick}
     >
-      {children}
+      <span className={styles.accountMenuIconBox} aria-hidden>
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className={styles.navLabel}>{children}</span>
     </button>
   );
 }
