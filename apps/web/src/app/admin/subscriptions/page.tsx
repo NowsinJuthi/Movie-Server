@@ -114,9 +114,11 @@ export default function AdminSubscriptionsPage() {
     status: SubscriptionStatus.Active,
   });
   const [grantUserQuery, setGrantUserQuery] = useState("");
-  const [pending, setPending] = useState<{ id: string; action: "suspend" | "unsuspend" | "activate" } | null>(
-    null,
-  );
+  const [pending, setPending] = useState<{
+    id: string;
+    action: "suspend" | "unsuspend" | "activate" | "delete";
+    label?: string;
+  } | null>(null);
   const [editSub, setEditSub] = useState<AdminSubscriptionRow | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -166,9 +168,19 @@ export default function AdminSubscriptionsPage() {
   });
 
   const actionMut = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: "suspend" | "unsuspend" | "activate" }) => {
+    mutationFn: async ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: "suspend" | "unsuspend" | "activate" | "delete";
+    }) => {
       if (action === "suspend") return adminApi.suspendSubscription(id, "admin_panel");
       if (action === "unsuspend") return adminApi.unsuspendSubscription(id);
+      if (action === "delete") {
+        await adminApi.deleteSubscription(id);
+        return null;
+      }
       return adminApi.activateSubscription(id);
     },
     onSuccess: () => {
@@ -433,6 +445,19 @@ export default function AdminSubscriptionsPage() {
                       Suspend
                     </Button>
                   ) : null}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() =>
+                      setPending({
+                        id: item.id,
+                        action: "delete",
+                        label: item.userDisplayName || item.userEmail || item.plan.name,
+                      })
+                    }
+                  >
+                    Delete
+                  </Button>
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">View only</span>
@@ -453,17 +478,27 @@ export default function AdminSubscriptionsPage() {
             ? "Suspend this subscription?"
             : pending?.action === "activate"
               ? "Activate this subscription?"
-              : "Restore this subscription?"
+              : pending?.action === "delete"
+                ? "Delete this subscription?"
+                : "Restore this subscription?"
         }
         description={
           pending?.action === "suspend"
             ? "Playback will stop after the grace period unless payment is restored."
             : pending?.action === "activate"
               ? "Marks payment as received and starts the billing period immediately."
-              : "Clears suspension and restores full access."
+              : pending?.action === "delete"
+                ? `Removes the subscription record for ${pending?.label ?? "this subscriber"}. They lose access immediately unless you grant a new plan. This cannot be undone.`
+                : "Clears suspension and restores full access."
         }
         confirmLabel={
-          pending?.action === "suspend" ? "Suspend" : pending?.action === "activate" ? "Activate" : "Restore"
+          pending?.action === "suspend"
+            ? "Suspend"
+            : pending?.action === "activate"
+              ? "Activate"
+              : pending?.action === "delete"
+                ? "Delete"
+                : "Restore"
         }
         pending={actionMut.isPending}
         onClose={() => setPending(null)}

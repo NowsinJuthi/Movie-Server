@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { UserRole } from '@movie-server/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -69,5 +69,12 @@ export class AdminSubscriptionsController {
   async unsuspend(@Param('id', ParseObjectIdPipe) id: string) {
     const sub = await this.subscriptions.unsuspend(id);
     return { subscription: await this.subscriptions.toResponse(sub) };
+  }
+
+  @Delete(':id')
+  @Permissions('manage_subscriptions')
+  async remove(@Param('id', ParseObjectIdPipe) id: string) {
+    const result = await this.subscriptions.adminDelete(id);
+    return { message: 'Subscription deleted.', ...result };
   }
 }

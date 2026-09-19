@@ -397,6 +397,42 @@ describe('Subscriptions (e2e)', () => {
     );
   });
 
+  it('lets admin delete a subscription and clears subscriber access', async () => {
+    const user = await seedUser('delete-sub@example.com');
+    await seedUser('delete-sub-admin@example.com', UserRole.Admin);
+    const adminCookies = await login('delete-sub-admin@example.com');
+    const cookies = await login('delete-sub@example.com');
+
+    const granted = await request(server)
+      .post(`${prefix}/admin/subscriptions`)
+      .set('Cookie', adminCookies)
+      .send({
+        userId: String(user._id),
+        planSlug: 'standard',
+        billingCycle: 'monthly',
+        status: 'active',
+      });
+    expect(granted.status).toBe(201);
+    const subId = granted.body.subscription.id as string;
+
+    const before = await request(server).get(`${prefix}/subscriptions/me`).set('Cookie', cookies);
+    expect(before.body.subscription).toBeTruthy();
+    expect(before.body.entitlement.entitled).toBe(true);
+
+    const deleted = await request(server)
+      .delete(`${prefix}/admin/subscriptions/${subId}`)
+      .set('Cookie', adminCookies);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body.id).toBe(subId);
+
+    const after = await request(server).get(`${prefix}/subscriptions/me`).set('Cookie', cookies);
+    expect(after.body.subscription).toBeNull();
+    expect(after.body.entitlement.entitled).toBe(false);
+
+    const listed = await request(server).get(`${prefix}/admin/subscriptions`).set('Cookie', adminCookies);
+    expect(listed.body.subscriptions.some((row: { id: string }) => row.id === subId)).toBe(false);
+  });
+
   it('does not trust a second account to mutate another user subscription', async () => {
     await seedUser('owner-sub@example.com');
     await seedUser('intruder-sub@example.com');

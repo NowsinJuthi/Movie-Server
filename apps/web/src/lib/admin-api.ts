@@ -135,6 +135,8 @@ export const adminApi = {
     }),
   unsuspendSubscription: (id: string) =>
     apiFetch<{ subscription: PublicSubscription }>(`/admin/subscriptions/${id}/unsuspend`, { method: "POST" }),
+  deleteSubscription: (id: string) =>
+    apiFetch<{ message: string; id: string; userId: string }>(`/admin/subscriptions/${id}`, { method: "DELETE" }),
   invoices: () => apiFetch<{ invoices: PublicInvoice[] }>("/admin/billing/invoices"),
   tracks: (query: { q?: string; kind?: string; page?: number; limit?: number } = {}) =>
     apiFetch<AdminPage<AdminTrackRow>>(`/admin/tracks${qs(query)}`),

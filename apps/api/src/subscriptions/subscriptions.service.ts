@@ -451,6 +451,20 @@ export class SubscriptionsService {
     return this.recordFailedRenewal(subscriptionId, reason);
   }
 
+  async adminDelete(id: string): Promise<{ id: string; userId: string }> {
+    const sub = await this.requireById(id);
+    const userId = String(sub.userId);
+    const subscriptionId = String(sub._id);
+    await this.recordEvent(sub, SubscriptionEventType.Cancelled, {
+      fromStatus: sub.status,
+      toStatus: SubscriptionStatus.Expired,
+      note: 'Admin deleted subscription.',
+    });
+    await this.subModel.deleteOne({ _id: sub._id });
+    await this.redis.client.del(entitlementCacheKey(userId));
+    return { id: subscriptionId, userId };
+  }
+
   async unsuspend(subscriptionId: string): Promise<SubscriptionDocument> {
     const sub = await this.requireById(subscriptionId);
     if (sub.status !== SubscriptionStatus.Suspended) {
