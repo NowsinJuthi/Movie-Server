@@ -53,7 +53,7 @@ export const envSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{3}$/)
-    .default('USD'),
+    .default('BDT'),
   PAYMENT_PROVIDER: z.enum(['stripe', 'fake']).optional(),
   STRIPE_SECRET_KEY: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),

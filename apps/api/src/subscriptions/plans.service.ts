@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ErrorCode, PLAN_TIER_RANK, PlanTier } from '@movie-server/shared';
@@ -8,7 +9,10 @@ import { toPublicPlan } from './subscription.mapper';
 
 @Injectable()
 export class PlansService {
-  constructor(@InjectModel(Plan.name) private readonly planModel: Model<PlanDocument>) {}
+  constructor(
+    @InjectModel(Plan.name) private readonly planModel: Model<PlanDocument>,
+    private readonly config: ConfigService,
+  ) {}
 
   listActive() {
     return this.planModel.find({ isActive: true }).sort({ sortOrder: 1, rank: 1 }).exec();
@@ -52,7 +56,7 @@ export class PlansService {
     return this.planModel.create({
       ...dto,
       slug: dto.slug.toLowerCase(),
-      currency: (dto.currency ?? 'USD').toUpperCase(),
+      currency: (dto.currency ?? this.config.getOrThrow<string>('SUBSCRIPTION_DEFAULT_CURRENCY')).toUpperCase(),
       rank: dto.rank ?? PLAN_TIER_RANK[dto.tier],
       features: dto.features ?? [],
       trialDays: dto.trialDays ?? 0,

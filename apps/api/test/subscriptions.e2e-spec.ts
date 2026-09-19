@@ -94,7 +94,7 @@ describe('Subscriptions (e2e)', () => {
     const slugs = res.body.plans.map((plan: { slug: string }) => plan.slug);
     expect(slugs).toEqual(expect.arrayContaining(['basic', 'standard', 'premium']));
     expect(res.body.plans[0].monthlyPriceCents).toEqual(expect.any(Number));
-    expect(res.body.plans[0].currency).toBe('USD');
+    expect(res.body.plans[0].currency).toBe('BDT');
   });
 
   it('rejects premium content and UHD playback without a server-verified subscription', async () => {

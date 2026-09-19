@@ -61,6 +61,13 @@ export const subscriptionApi = {
     apiFetch<{ plan: PublicPlan; message: string }>(`/admin/plans/${id}`, { method: "DELETE" }),
 };
 
-export function formatCents(cents: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+const CURRENCY_LOCALE: Record<string, string> = {
+  BDT: "en-BD",
+  USD: "en-US",
+};
+
+export function formatCents(cents: number, currency = "BDT"): string {
+  const code = (currency || "BDT").toUpperCase();
+  const locale = CURRENCY_LOCALE[code] ?? "en-US";
+  return new Intl.NumberFormat(locale, { style: "currency", currency: code }).format(cents / 100);
 }

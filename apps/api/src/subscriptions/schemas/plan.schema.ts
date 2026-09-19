@@ -38,7 +38,7 @@ export class Plan {
   @Prop({ required: true, min: 1, max: 100 })
   rank!: number;
 
-  @Prop({ required: true, uppercase: true, match: /^[A-Z]{3}$/, default: 'USD' })
+  @Prop({ required: true, uppercase: true, match: /^[A-Z]{3}$/, default: 'BDT' })
   currency!: string;
 
   @Prop({ required: true, min: 0 })
