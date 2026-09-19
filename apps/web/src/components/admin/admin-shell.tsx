@@ -40,7 +40,6 @@ import { libraryApi } from "@/lib/library-api";
 import { canAccessAdminRoute } from "@/lib/admin-nav-permissions";
 import { useAdminPermissions } from "@/hooks/use-admin-permissions";
 import { AppHeader } from "@/components/layout/app-header";
-import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import styles from "./admin-shell.module.css";
 
 type NavIcon = ComponentType<{ className?: string }>;
@@ -609,7 +608,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-      <AdminMobileNav />
     </div>
   );
 }
