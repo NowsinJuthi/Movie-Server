@@ -1,25 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BillingCycle } from "@movie-server/shared";
-import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError } from "@/lib/api";
 import { subscriptionApi } from "@/lib/subscription-api";
 import { billingApi } from "@/lib/billing-api";
-import { useBranding } from "@/components/branding/site-brand";
-import { brandingAssetSrc } from "@/lib/settings-api";
 import { SubscribePricingSection } from "@/components/subscribe/subscribe-pricing-section";
 
 export default function SubscribePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, status } = useAuthStore();
-  const { siteName, logoUrl } = useBranding();
-  const logoSrc = brandingAssetSrc(logoUrl);
   const [cycle, setCycle] = useState<BillingCycle>(BillingCycle.Monthly);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,34 +77,8 @@ export default function SubscribePage() {
   };
 
   return (
-    <main className="auth-backdrop min-h-screen">
-      <header className="mx-auto flex w-full items-center justify-between px-3 py-6 sm:px-4 md:px-5 lg:px-6">
-        <Link href="/" className="text-2xl font-bold text-primary">
-          {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoSrc} alt={siteName} className="h-8 w-auto max-w-[180px] object-contain" />
-          ) : (
-            siteName
-          )}
-        </Link>
-        <div className="flex gap-3">
-          {user ? (
-            <>
-              <Button variant="ghost" asChild>
-                <Link href="/account/subscription">Manage</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/home">Back to home</Link>
-              </Button>
-            </>
-          ) : (
-            <Button asChild>
-              <Link href="/login?next=/subscribe">Sign in</Link>
-            </Button>
-          )}
-        </div>
-      </header>
-      <section className="mx-auto w-full px-3 pb-20 sm:px-4 md:px-5 lg:px-6">
+    <main className="auth-backdrop min-h-[100dvh] pt-16">
+      <section className="mx-auto w-full px-3 pb-8 pt-4 sm:px-4 md:px-5 lg:px-6 lg:pb-12">
         {plansQuery.isLoading ? (
           <p className="text-center text-sm text-muted-foreground">Loading plans...</p>
         ) : plans.length === 0 ? (

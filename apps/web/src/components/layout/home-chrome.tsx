@@ -13,7 +13,14 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 
 /** Fixed browse header shared across /home (and optional account) pages. */
-export function HomeChrome({ children }: { children: ReactNode }) {
+export function HomeChrome({
+  children,
+  requireAuth = true,
+}: {
+  children: ReactNode;
+  /** When false, anonymous users can view the page (e.g. /subscribe). */
+  requireAuth?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { status, user } = useAuthStore();
@@ -22,6 +29,7 @@ export function HomeChrome({ children }: { children: ReactNode }) {
 
   const isWatchRoute = Boolean(pathname?.includes("/watch"));
   const isHomeHero = pathname === "/home";
+  const isSubscribeRoute = pathname === "/subscribe";
 
   const activeQuery = useQuery({
     queryKey: ["active-profile"],
@@ -36,10 +44,11 @@ export function HomeChrome({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    if (!requireAuth) return;
     if (status === "anonymous") {
       router.replace(`/login?next=${encodeURIComponent(pathname || "/home")}`);
     }
-  }, [status, router, pathname]);
+  }, [requireAuth, status, router, pathname]);
 
   useEffect(() => {
     if (!activeQuery.data) return;
@@ -53,7 +62,7 @@ export function HomeChrome({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isWatchRoute) return;
-    if (!isHomeHero) {
+    if (!isHomeHero || isSubscribeRoute) {
       setScrolled(true);
       return;
     }
@@ -61,7 +70,7 @@ export function HomeChrome({ children }: { children: ReactNode }) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [isHomeHero, isWatchRoute]);
+  }, [isHomeHero, isSubscribeRoute, isWatchRoute]);
 
   const profile = activeProfile ?? activeQuery.data?.profile ?? null;
   const plan = entitlementQuery.data?.entitlement;
