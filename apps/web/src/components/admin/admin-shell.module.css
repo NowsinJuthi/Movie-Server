@@ -4,29 +4,16 @@
   min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
-  padding-top: 0;
+  padding-top: var(--site-header-offset);
 }
 
 @media (max-width: 1023px) {
   .adminPanel {
     display: flex;
+    flex-direction: column;
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
-  }
-}
-
-.desktopHeader {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .adminPanel {
-    padding-top: 3.75rem;
-  }
-
-  .desktopHeader {
-    display: block;
   }
 }
 
@@ -45,14 +32,14 @@
 
 @media (min-width: 1024px) {
   .shell {
-    min-height: calc(100dvh - 3.75rem);
+    min-height: calc(100dvh - var(--site-header-offset));
   }
 }
 
 @media (min-width: 1024px) {
   .shell {
     grid-template-columns: 20rem 1fr;
-    height: calc(100dvh - 3.75rem);
+    height: calc(100dvh - var(--site-header-offset));
     min-height: 0;
     overflow: hidden;
   }
@@ -61,7 +48,7 @@
 .sidebarBackdrop {
   position: fixed;
   inset: 0;
-  top: 0;
+  top: var(--site-header-offset);
   z-index: 44;
   border: 0;
   background: rgb(0 0 0 / 0.55);
@@ -81,7 +68,7 @@
   .sidebar {
     position: fixed;
     left: 0;
-    top: 0;
+    top: var(--site-header-offset);
     bottom: 0;
     z-index: 45;
     padding-top: 0;
@@ -102,9 +89,9 @@
 @media (min-width: 1024px) {
   .sidebar {
     position: sticky;
-    top: 3.75rem;
+    top: var(--site-header-offset);
     display: flex;
-    height: calc(100dvh - 3.75rem);
+    height: calc(100dvh - var(--site-header-offset));
     transform: none;
     border-bottom: 0;
     border-right: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
@@ -648,31 +635,22 @@
 
 @media (max-width: 1023px) {
   .shell {
+    flex: 1;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .mobileMenuBar {
-    grid-row: 1;
+    grid-template-rows: 1fr;
   }
 
   .sidebar {
-    grid-row: 1 / -1;
+    grid-row: 1;
   }
 
   .content {
-    grid-row: 2;
+    grid-row: 1;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .mobileMenuBar {
-    position: sticky;
-    top: 0;
-    z-index: 15;
-    grid-row: 1;
   }
 }
 

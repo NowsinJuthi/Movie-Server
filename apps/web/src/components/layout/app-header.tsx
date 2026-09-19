@@ -28,12 +28,15 @@ export function AppHeader({
   planLabel,
   scrolled = true,
   variant = "browse",
+  onOpenAdminMenu,
 }: {
   profile?: PublicProfile | null;
   planLabel?: string | null;
   scrolled?: boolean;
   /** browse = storefront; admin = solid bar over admin pages */
   variant?: "browse" | "admin";
+  /** Mobile admin: open the admin navigation drawer (same role as browse hamburger). */
+  onOpenAdminMenu?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -178,13 +181,28 @@ export function AppHeader({
                 <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             ) : null}
-            <div className={cn(variant === "admin" ? "block" : "hidden lg:block")}>{logoButton}</div>
+            {variant === "admin" && onOpenAdminMenu ? (
+              <button
+                type="button"
+                aria-label="Open admin menu"
+                className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
+                onClick={onOpenAdminMenu}
+              >
+                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            ) : null}
+            <div className="hidden lg:block">{logoButton}</div>
           </div>
 
           {/* Center — mobile browse logo + desktop nav */}
           <div className="flex min-w-0 items-center justify-center justify-self-stretch overflow-visible lg:justify-self-center">
             {variant === "browse" ? (
               <div className={cn(styles.mobileLogoWrap, styles.mobileBrowseLogo)}>{logoButton}</div>
+            ) : null}
+            {variant === "admin" ? (
+              <div className={cn(styles.mobileLogoWrap, styles.mobileBrowseLogo, "lg:hidden")}>
+                {logoButton}
+              </div>
             ) : null}
 
             {variant === "browse" ? (
