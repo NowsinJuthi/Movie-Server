@@ -143,6 +143,52 @@ export class ProfilesService {
     return this.remove(String(profile.userId), profileId);
   }
 
+  async adminUpdate(profileId: string, dto: UpdateProfileDto) {
+    const profile = await this.profileModel.findById(profileId);
+    if (!profile) {
+      throw new NotFoundException({
+        error: ErrorCode.NotFound,
+        message: 'Profile not found.',
+      });
+    }
+    if (dto.name) {
+      profile.name = dto.name;
+    }
+    if (dto.avatarKey) {
+      profile.avatarKey = dto.avatarKey;
+    }
+    if (dto.language) {
+      profile.language = dto.language as ProfileLanguage;
+    }
+    if (dto.audioLanguage) {
+      profile.audioLanguage = dto.audioLanguage as ProfileLanguage;
+    }
+    if (dto.subtitleLanguage) {
+      profile.subtitleLanguage = dto.subtitleLanguage as SubtitleLanguage;
+    }
+    if (typeof dto.isKids === 'boolean') {
+      profile.isKids = dto.isKids;
+      if (dto.isKids) {
+        profile.maturityLevel = MaturityLevel.Kids;
+      }
+    }
+    if (dto.maturityLevel && !profile.isKids) {
+      profile.maturityLevel = dto.maturityLevel;
+    }
+    try {
+      await profile.save();
+    } catch (error) {
+      this.rethrowDuplicateName(error);
+      throw error;
+    }
+    const user = await this.users.findById(String(profile.userId));
+    return {
+      ...toPublicProfile(profile),
+      userEmail: user?.email ?? '',
+      userDisplayName: user?.displayName ?? '',
+    };
+  }
+
   async list(userId: string): Promise<PublicProfile[]> {
     const user = await this.users.findById(userId);
     await this.ensureDefault(userId, user?.displayName);

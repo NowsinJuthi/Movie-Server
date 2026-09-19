@@ -95,6 +95,22 @@ export const adminApi = {
         userEmail: string;
       }>;
     }>(`/admin/profiles/suggest${qs(query)}`),
+  patchProfile: (
+    id: string,
+    input: {
+      name?: string;
+      avatarKey?: string;
+      isKids?: boolean;
+      language?: string;
+      audioLanguage?: string;
+      subtitleLanguage?: string;
+      maturityLevel?: string;
+    },
+  ) =>
+    apiFetch<AdminProfileRow>(`/admin/profiles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
   deleteProfile: (id: string) => apiFetch<{ message: string }>(`/admin/profiles/${id}`, { method: "DELETE" }),
   subscriptions: (query: { userId?: string; status?: string } = {}) =>
     apiFetch<{ subscriptions: AdminSubscriptionRow[] }>(`/admin/subscriptions${qs(query)}`),

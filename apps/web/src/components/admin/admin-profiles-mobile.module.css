@@ -1,0 +1,101 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.card {
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in oklch, var(--card) 100%, transparent) 0%,
+    color-mix(in oklch, var(--secondary) 90%, transparent) 100%
+  );
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem 0.45rem;
+}
+
+.profileName {
+  min-width: 0;
+  flex: 1;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.account {
+  padding: 0 0.8rem 0.55rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  word-break: break-all;
+}
+
+.accountStrong {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0 0.8rem 0.65rem;
+}
+
+.metaCell {
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  background: color-mix(in oklch, var(--background) 45%, transparent);
+  padding: 0.4rem 0.5rem;
+}
+
+.metaLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.metaValue {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+  background: color-mix(in oklch, var(--background) 35%, transparent);
+  padding: 0.55rem 0.65rem;
+}
+
+.actionBtn {
+  min-height: 2.5rem;
+  width: 100%;
+  touch-action: manipulation;
+  font-size: 0.72rem;
+}
+
+.empty {
+  border-radius: 0.875rem;
+  border: 1px dashed color-mix(in oklch, var(--border) 70%, transparent);
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
