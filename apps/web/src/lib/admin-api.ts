@@ -11,6 +11,8 @@ import type {
   AdminTrackRow,
   AdminUserRow,
   AdminSubscriptionRow,
+  MovieUploadRequestRow,
+  MovieUploadRequestStatus,
   PublicInvoice,
   PublicPlan,
   PublicSubscription,
@@ -196,4 +198,21 @@ export const adminApi = {
       body: JSON.stringify({ shuffleItems }),
     }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
+  movieUploadRequests: (query: { q?: string; status?: MovieUploadRequestStatus; page?: number; limit?: number } = {}) =>
+    apiFetch<AdminPage<MovieUploadRequestRow>>(`/admin/movie-upload-requests${qs(query)}`),
+  patchMovieUploadRequest: (
+    id: string,
+    input: { status?: MovieUploadRequestStatus; adminNote?: string },
+  ) =>
+    apiFetch<MovieUploadRequestRow>(`/admin/movie-upload-requests/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  movieUploadRequestFeature: () =>
+    apiFetch<{ enabled: boolean }>("/admin/movie-upload-requests/feature"),
+  setMovieUploadRequestFeature: (enabled: boolean) =>
+    apiFetch<{ enabled: boolean }>("/admin/movie-upload-requests/feature", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
 };

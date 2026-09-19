@@ -28,12 +28,14 @@ import { StreamModule } from '../stream/stream.module';
 import { LIBRARY_SCAN_QUEUE } from '../library/library-scan.service';
 import { MAIL_QUEUE } from '../mail/mail.service';
 import { RECOMMENDATION_QUEUE } from '../common/cache-keys';
+import { MovieUploadRequestsModule } from '../movie-upload-requests/movie-upload-requests.module';
 
 const useQueue = process.env.NODE_ENV !== 'test' && process.env.REDIS_HOST !== 'memory';
 
 @Module({
   imports: [
     forwardRef(() => StreamModule),
+    MovieUploadRequestsModule,
     MongooseModule.forFeature([
       { name: AuditLog.name, schema: AuditLogSchema },
       { name: CatalogTerm.name, schema: CatalogTermSchema },

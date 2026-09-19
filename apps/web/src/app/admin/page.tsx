@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { libraryApi } from "@/lib/library-api";
 import styles from "@/components/admin/admin-ui.module.css";
+import { MovieUploadRequestsDashboardPanel } from "@/components/admin/movie-upload-requests-dashboard-panel";
 
 export default function AdminDashboardPage() {
   const query = useQuery({ queryKey: ["admin-dashboard"], queryFn: adminApi.dashboard });
@@ -70,6 +71,10 @@ export default function AdminDashboardPage() {
           />
         </AdminMetricGrid>
       )}
+
+      {data ? (
+        <MovieUploadRequestsDashboardPanel movieUploadRequests={data.movieUploadRequests} />
+      ) : null}
 
       <Link href="/admin/slider" className={`${styles.panel} ${styles.panelInteractive}`}>
         <div className={styles.panelHead}>

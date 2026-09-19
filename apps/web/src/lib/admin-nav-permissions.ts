@@ -17,6 +17,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   "/admin/subscriptions": "view_subscriptions",
   "/admin/billing": "manage_billing",
   "/admin/movies": "view_movies",
+  "/admin/movie-upload-requests": "view_movies",
   "/admin/series": "view_series",
   "/admin/collections": "manage_collections",
   "/admin/series-collections": "manage_collections",

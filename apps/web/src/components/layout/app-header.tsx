@@ -7,7 +7,7 @@ import {
   type PublicProfile,
 } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
+import { ChevronDown, Clapperboard, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { SearchBox } from "@/components/search/search-box";
 import { useBranding } from "@/components/branding/site-brand";
 import { authApi } from "@/lib/auth-api";
 import { publicLibraryApi } from "@/lib/public-library-api";
+import { movieUploadRequestApi } from "@/lib/movie-upload-request-api";
 import { brandingAssetSrc } from "@/lib/settings-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
@@ -50,6 +51,16 @@ export function AppHeader({
     queryFn: publicLibraryApi.list,
     staleTime: 60_000,
   });
+
+  const featuresQuery = useQuery({
+    queryKey: ["site-features"],
+    queryFn: movieUploadRequestApi.features,
+    staleTime: 30_000,
+    enabled: variant === "browse",
+  });
+
+  const movieRequestsEnabled = Boolean(featuresQuery.data?.movieUploadRequestsEnabled);
+  const requestMovieActive = pathname === "/home/request-movie";
 
   const libraries = librariesQuery.data?.libraries ?? [];
   const movieLibraries = libraries.filter((library) => library.kind === LibraryKind.Movies);
@@ -207,6 +218,11 @@ export function AppHeader({
                     }))}
                   />
                 ) : null}
+                {movieRequestsEnabled ? (
+                  <HeaderLink href="/home/request-movie" active={requestMovieActive}>
+                    Request movie
+                  </HeaderLink>
+                ) : null}
               </nav>
             ) : (
               <p className="hidden text-sm font-semibold text-muted-foreground lg:block">Administration</p>
@@ -222,6 +238,8 @@ export function AppHeader({
         <BrowseMobileDrawer
           homeActive={homeActive}
           discoverActive={discoverActive}
+          requestMovieActive={requestMovieActive}
+          showRequestMovie={movieRequestsEnabled}
           activeLibraryId={activeLibraryId ?? undefined}
           movieLibraries={movieLibraries}
           tvLibraries={tvLibraries}
@@ -239,6 +257,8 @@ export function AppHeader({
 function BrowseMobileDrawer({
   homeActive,
   discoverActive,
+  requestMovieActive,
+  showRequestMovie,
   activeLibraryId,
   movieLibraries,
   tvLibraries,
@@ -247,6 +267,8 @@ function BrowseMobileDrawer({
 }: {
   homeActive: boolean;
   discoverActive: boolean;
+  requestMovieActive: boolean;
+  showRequestMovie: boolean;
   activeLibraryId?: string;
   movieLibraries: Array<{ id: string; name: string }>;
   tvLibraries: Array<{ id: string; name: string }>;
@@ -284,6 +306,18 @@ function BrowseMobileDrawer({
                 Discover
               </MobileNavLink>
             </li>
+
+            {showRequestMovie ? (
+              <li>
+                <MobileNavLink
+                  active={requestMovieActive}
+                  icon={Clapperboard}
+                  onClick={() => onNavigate("/home/request-movie")}
+                >
+                  Request movie
+                </MobileNavLink>
+              </li>
+            ) : null}
 
             {movieLibraries.length > 0 ? (
               <li>

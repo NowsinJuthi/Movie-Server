@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Clapperboard,
   ClipboardList,
+  MessageSquarePlus,
   CreditCard,
   Film,
   FolderKanban,
@@ -128,6 +129,7 @@ const NAV: NavSection[] = [
         children: [
           { href: "/admin/movies", label: "Add Manually Movies", icon: Film },
           { href: "/admin/series", label: "TV series", icon: Tv },
+          { href: "/admin/movie-upload-requests", label: "Upload requests", icon: MessageSquarePlus },
         ],
       },
       {

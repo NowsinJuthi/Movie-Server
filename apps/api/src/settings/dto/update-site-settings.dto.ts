@@ -62,6 +62,10 @@ export class UpdateSiteSettingsDto {
   siteName?: string;
 
   @IsOptional()
+  @IsBoolean()
+  movieUploadRequestsEnabled?: boolean;
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => UpdateSmtpSettingsDto)
   smtp?: UpdateSmtpSettingsDto;

@@ -17,6 +17,8 @@ import { Session, SessionDocument } from '../sessions/schemas/session.schema';
 import { RedisService } from '../redis/redis.service';
 import { PlaybackSessionStore } from '../stream/playback-session.store';
 import { LibraryItemStatus, LibraryScanStatus, PaymentStatus, SubscriptionStatus, UserRole } from '@movie-server/shared';
+import { MovieUploadRequestsService } from '../movie-upload-requests/movie-upload-requests.service';
+import { SiteSettingsService } from '../settings/site-settings.service';
 
 @Injectable()
 export class AdminDashboardService {
@@ -36,6 +38,8 @@ export class AdminDashboardService {
     @InjectModel(LibraryItem.name) private readonly items: Model<LibraryItem>,
     @InjectModel(LibraryScan.name) private readonly scans: Model<LibraryScanDocument>,
     @InjectModel(Session.name) private readonly sessions: Model<SessionDocument>,
+    private readonly movieUploadRequests: MovieUploadRequestsService,
+    private readonly siteSettings: SiteSettingsService,
   ) {}
 
   async dashboard(): Promise<AdminDashboard> {
@@ -61,6 +65,8 @@ export class AdminDashboardService {
       lastScan,
       liveSessions,
       liveStreams,
+      movieUploadPending,
+      movieUploadSettings,
     ] = await Promise.all([
       this.users.countDocuments(),
       this.users.countDocuments({ isActive: true }),
@@ -87,6 +93,8 @@ export class AdminDashboardService {
       this.scans.findOne().sort({ createdAt: -1 }).exec(),
       this.sessions.countDocuments({ revoked: false, expiresAt: { $gt: new Date() } }),
       this.streams.listAllLive().then((rows) => rows.length),
+      this.movieUploadRequests.countPending(),
+      this.siteSettings.getPublicFeatures(),
     ]);
 
     return {
@@ -101,6 +109,10 @@ export class AdminDashboardService {
         running: runningScans,
         lastStatus: lastScan?.status ?? null,
         lastCompletedAt: lastScan?.finishedAt?.toISOString() ?? lastScan?.updatedAt?.toISOString() ?? null,
+      },
+      movieUploadRequests: {
+        enabled: movieUploadSettings.movieUploadRequestsEnabled,
+        pending: movieUploadPending,
       },
     };
   }
