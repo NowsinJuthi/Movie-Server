@@ -21,6 +21,18 @@
   --radius: 0.75rem;
   --brand-deep: #0a6258;
   --brand-soft: #5eead4;
+  /* Matches .siteHeaderInner (browse/admin fixed header) */
+  --site-header-offset: calc(
+    3.5rem + max(0.75rem, env(safe-area-inset-top, 0px)) + 0.75rem
+  );
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-header-offset: calc(
+      4rem + max(0.75rem, env(safe-area-inset-top, 0px)) + 0.75rem
+    );
+  }
 }
 
 @theme inline {
@@ -54,6 +66,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--site-header-offset) + 0.75rem);
   scrollbar-width: thin;
   scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
 }
@@ -103,6 +116,11 @@ body {
 
 .safe-bottom {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/** Clear fixed AppHeader on account / browse pages using PageShell */
+.site-header-offset {
+  padding-top: calc(var(--site-header-offset) + 0.5rem);
 }
 
 .no-scrollbar {

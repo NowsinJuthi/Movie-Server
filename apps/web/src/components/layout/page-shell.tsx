@@ -29,7 +29,7 @@ export function PageShell({
         "flex w-full min-w-0 flex-col bg-background",
         fillHeight
           ? "h-full min-h-0 overflow-hidden p-0 max-lg:overflow-x-hidden lg:p-2 xl:p-4"
-          : "min-h-dvh p-2 pt-20 sm:p-4 md:p-5 lg:p-6",
+          : "site-header-offset min-h-dvh p-2 sm:p-4 md:p-5 lg:p-6",
         className,
       )}
     >
@@ -45,7 +45,9 @@ export function PageShell({
           <header
             className={cn(
               "flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3 sm:px-5 sm:py-3",
-              fillHeight && "max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-background/95 max-lg:backdrop-blur-md",
+              fillHeight
+                ? "max-lg:sticky max-lg:top-0 max-lg:z-10 max-lg:bg-background/95 max-lg:backdrop-blur-md"
+                : "sticky top-[var(--site-header-offset)] z-30 bg-card/95 backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
             )}
           >
             <div className="min-w-0 flex-1">
