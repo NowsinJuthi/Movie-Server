@@ -161,13 +161,15 @@ export default function RequestMoviePage() {
         <div className={styles.glow} aria-hidden />
 
         <header className={styles.hero}>
-          <div className={styles.iconRing}>
-            <HeroIcon className="h-6 w-6" aria-hidden />
+          <div className={styles.heroTop}>
+            <div className={styles.iconRing}>
+              <HeroIcon className="h-6 w-6" aria-hidden />
+            </div>
+            <p className={styles.eyebrow}>
+              <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>AmarPin request studio</span>
+            </p>
           </div>
-          <p className={styles.eyebrow}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            AmarPin request studio
-          </p>
           <h1 className={styles.title}>{copy.title}</h1>
           <p className={styles.lead}>{copy.lead}</p>
 
