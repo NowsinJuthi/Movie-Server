@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function majorUnitsFromCents(cents: number): number {
+  return cents / 100;
+}
+
+function centsFromMajorUnits(amount: number): number {
+  return Math.round(amount * 100);
+}
+
 export type EditPlanFormValues = {
   name: string;
   description: string;
@@ -40,7 +48,12 @@ export function EditPlanDialog({
   onSubmit: (values: EditPlanFormValues) => void;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [form, setForm] = useState<EditPlanFormValues | null>(null);
+  type PlanFormState = Omit<EditPlanFormValues, "monthlyPriceCents" | "yearlyPriceCents"> & {
+    monthlyPrice: number;
+    yearlyPrice: number;
+  };
+
+  const [form, setForm] = useState<PlanFormState | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -53,8 +66,8 @@ export function EditPlanDialog({
         description: plan.description,
         tier: plan.tier,
         currency: plan.currency,
-        monthlyPriceCents: plan.monthlyPriceCents,
-        yearlyPriceCents: plan.yearlyPriceCents,
+        monthlyPrice: majorUnitsFromCents(plan.monthlyPriceCents),
+        yearlyPrice: majorUnitsFromCents(plan.yearlyPriceCents),
         maxVideoQuality: plan.maxVideoQuality,
         maxDevices: plan.maxDevices,
         maxStreams: plan.maxStreams,
@@ -112,7 +125,11 @@ export function EditPlanDialog({
           className="mt-5 grid gap-4 md:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit(form);
+            onSubmit({
+              ...form,
+              monthlyPriceCents: centsFromMajorUnits(form.monthlyPrice),
+              yearlyPriceCents: centsFromMajorUnits(form.yearlyPrice),
+            });
           }}
         >
           <label className="space-y-2 text-sm md:col-span-2">
@@ -182,23 +199,25 @@ export function EditPlanDialog({
           </label>
 
           <label className="space-y-2 text-sm">
-            <Label>Monthly price (cents)</Label>
+            <Label>Monthly price ({form.currency || "BDT"})</Label>
             <Input
               type="number"
-              value={String(form.monthlyPriceCents)}
-              onChange={(event) => setForm({ ...form, monthlyPriceCents: Number(event.target.value) })}
+              value={String(form.monthlyPrice)}
+              onChange={(event) => setForm({ ...form, monthlyPrice: Number(event.target.value) })}
               min={0}
+              step={form.currency === "BDT" ? 1 : 0.01}
               required
             />
           </label>
 
           <label className="space-y-2 text-sm">
-            <Label>Yearly price (cents)</Label>
+            <Label>Yearly price ({form.currency || "BDT"})</Label>
             <Input
               type="number"
-              value={String(form.yearlyPriceCents)}
-              onChange={(event) => setForm({ ...form, yearlyPriceCents: Number(event.target.value) })}
+              value={String(form.yearlyPrice)}
+              onChange={(event) => setForm({ ...form, yearlyPrice: Number(event.target.value) })}
               min={0}
+              step={form.currency === "BDT" ? 1 : 0.01}
               required
             />
           </label>
