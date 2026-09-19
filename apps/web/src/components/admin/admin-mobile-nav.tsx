@@ -52,7 +52,13 @@ function AdminNavTab({
   );
 }
 
-export function AdminMobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
+export function AdminMobileNav({
+  menuOpen,
+  onOpenMenu,
+}: {
+  menuOpen?: boolean;
+  onOpenMenu: () => void;
+}) {
   const pathname = usePathname();
 
   const isDashboard = pathname === "/admin";
@@ -73,12 +79,25 @@ export function AdminMobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
     pathname?.startsWith("/admin/tracks") ||
     pathname?.startsWith("/admin/featured") ||
     pathname?.startsWith("/admin/home") ||
+    pathname?.startsWith("/admin/slider") ||
+    false;
+  const isMenu =
+    Boolean(menuOpen) ||
+    pathname?.startsWith("/admin/menu") ||
+    pathname?.startsWith("/admin/health") ||
+    pathname?.startsWith("/admin/settings") ||
+    pathname?.startsWith("/admin/license") ||
+    pathname?.startsWith("/admin/jobs") ||
+    pathname?.startsWith("/admin/audit") ||
+    pathname?.startsWith("/admin/libraries") ||
+    pathname?.startsWith("/admin/file-manager") ||
+    pathname?.startsWith("/admin/sessions") ||
     false;
 
   return (
     <nav
       aria-label="Admin mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/98 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_24px_rgb(0_0_0/0.35)] backdrop-blur-md lg:hidden"
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-around px-1">
         <AdminNavTab
@@ -101,8 +120,8 @@ export function AdminMobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
         />
         <AdminNavTab
           label="Menu"
-          active={false}
-          icon={<Menu className="h-5 w-5" />}
+          active={isMenu}
+          icon={<Menu className={cn("h-5 w-5", isMenu && "stroke-[2.5]")} />}
           onClick={onOpenMenu}
         />
       </div>

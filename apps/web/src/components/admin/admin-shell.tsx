@@ -399,7 +399,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(styles.adminPanel, "admin-panel")}>
-      <AppHeader variant="admin" scrolled />
+      <div className={styles.desktopHeader}>
+        <AppHeader variant="admin" scrolled />
+      </div>
       {mobileNavOpen ? (
         <button
           type="button"
@@ -596,7 +598,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-      <AdminMobileNav onOpenMenu={() => setMobileNavOpen(true)} />
+      <AdminMobileNav
+        menuOpen={mobileNavOpen}
+        onOpenMenu={() => setMobileNavOpen(true)}
+      />
     </div>
   );
 }
