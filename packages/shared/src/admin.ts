@@ -20,6 +20,7 @@ export type AdminDashboard = {
   library: { libraries: number; unmatched: number; missing: number };
   live: { sessions: number; streams: number };
   scans: { running: number; lastStatus: string | null; lastCompletedAt: string | null };
+  movieUploadRequests: { enabled: boolean; pending: number };
 };
 
 export type AdminHealth = {

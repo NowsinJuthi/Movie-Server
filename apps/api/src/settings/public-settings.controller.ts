@@ -19,6 +19,14 @@ export class PublicSettingsController {
 
   @Public()
   @SkipLicense()
+  @Get('features')
+  @Header('Cache-Control', 'public, max-age=15')
+  async features() {
+    return this.settings.getPublicFeatures();
+  }
+
+  @Public()
+  @SkipLicense()
   @SkipThrottle()
   @Get('branding/logo')
   @Header('Cache-Control', 'public, max-age=300')

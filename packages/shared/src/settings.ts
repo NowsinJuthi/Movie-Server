@@ -25,6 +25,8 @@ export type AdminSiteSettings = {
   smtp: AdminSmtpSettings;
   /** True when SMTP can send (DB or env fallback). */
   smtpReady: boolean;
+  /** When true, members see “Request movie” in the header and can submit titles. */
+  movieUploadRequestsEnabled: boolean;
   source: {
     siteName: 'database' | 'env';
     smtp: 'database' | 'env' | 'none';
@@ -33,6 +35,7 @@ export type AdminSiteSettings = {
 
 export type UpdateSiteSettingsInput = {
   siteName?: string;
+  movieUploadRequestsEnabled?: boolean;
   smtp?: {
     enabled?: boolean;
     host?: string;

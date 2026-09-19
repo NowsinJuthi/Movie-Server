@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Clapperboard,
   ClipboardList,
+  MessageSquarePlus,
   CreditCard,
   Film,
   FolderKanban,
@@ -128,6 +129,7 @@ const NAV: NavSection[] = [
         children: [
           { href: "/admin/movies", label: "Add Manually Movies", icon: Film },
           { href: "/admin/series", label: "TV series", icon: Tv },
+          { href: "/admin/movie-upload-requests", label: "Upload requests", icon: MessageSquarePlus },
         ],
       },
       {
@@ -289,22 +291,6 @@ function useGroupOpenState(pathname: string | null) {
   return { isGroupOpen, toggleGroup, expandGroup };
 }
 
-function adminMobileTitle(pathname: string | null): string {
-  if (!pathname || pathname === "/admin") return "Dashboard";
-  const segments = pathname.replace(/^\/admin\/?/, "").split("/").filter(Boolean);
-  const last = segments[segments.length - 1] ?? "Admin";
-  if (/^[a-f0-9]{24}$/i.test(last) && segments.length >= 2) {
-    return segments[segments.length - 2]!
-      .split("-")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-  }
-  return last
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function filterNavByPermissions(
   sections: NavSection[],
   can: (key: PermissionKey) => boolean,
@@ -370,8 +356,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     [nav, can],
   );
 
-  const mobileTitle = useMemo(() => adminMobileTitle(pathname), [pathname]);
-
   useEffect(() => {
     if (status === "anonymous") {
       router.replace(`/login?next=${pathname || "/admin"}`);
@@ -417,9 +401,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={cn(styles.adminPanel, "admin-panel")}>
-      <div className={styles.desktopHeader}>
-        <AppHeader variant="admin" scrolled />
-      </div>
+      <AppHeader variant="admin" scrolled onOpenAdminMenu={() => setMobileNavOpen(true)} />
       {mobileNavOpen ? (
         <button
           type="button"
@@ -429,18 +411,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
       <div className={styles.shell}>
-        <div className={styles.mobileMenuBar}>
-          <button
-            type="button"
-            className={styles.mobileMenuTrigger}
-            aria-label="Open admin menu"
-            aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <p className={styles.mobileMenuTitle}>{mobileTitle}</p>
-        </div>
         <aside className={cn(styles.sidebar, mobileNavOpen && styles.sidebarOpen)}>
           <div className={styles.sidebarMobileHead}>
             <p className={styles.sidebarMobileHeadTitle}>Admin menu</p>

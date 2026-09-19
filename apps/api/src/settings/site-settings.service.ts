@@ -14,6 +14,7 @@ import {
   ErrorCode,
   type AdminSiteSettings,
   type PublicBranding,
+  type PublicSiteFeatures,
   type SmtpTestResult,
   type UpdateSiteSettingsInput,
 } from '@movie-server/shared';
@@ -89,6 +90,16 @@ export class SiteSettingsService implements OnModuleInit {
     };
   }
 
+  async getPublicFeatures(): Promise<PublicSiteFeatures> {
+    const doc = await this.ensureDoc();
+    return { movieUploadRequestsEnabled: Boolean(doc.movieUploadRequestsEnabled) };
+  }
+
+  async isMovieUploadRequestsEnabled(): Promise<boolean> {
+    const doc = await this.ensureDoc();
+    return Boolean(doc.movieUploadRequestsEnabled);
+  }
+
   async getAdminSettings(): Promise<AdminSiteSettings> {
     const doc = await this.ensureDoc();
     const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
@@ -118,6 +129,7 @@ export class SiteSettingsService implements OnModuleInit {
         fromHeader,
       },
       smtpReady: Boolean(mail.transporter),
+      movieUploadRequestsEnabled: Boolean(doc.movieUploadRequestsEnabled),
       source: {
         siteName: doc.siteName?.trim() ? 'database' : 'env',
         smtp: mail.source === 'none' ? 'none' : mail.source,
@@ -137,6 +149,10 @@ export class SiteSettingsService implements OnModuleInit {
         });
       }
       doc.siteName = name;
+    }
+
+    if (input.movieUploadRequestsEnabled !== undefined) {
+      doc.movieUploadRequestsEnabled = input.movieUploadRequestsEnabled;
     }
 
     if (input.smtp) {

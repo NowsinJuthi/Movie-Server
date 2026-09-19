@@ -1,0 +1,99 @@
+.root {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100dvh - 4rem);
+  padding: calc(3.75rem + env(safe-area-inset-top, 0px)) 0 5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% -20%, color-mix(in oklch, var(--primary) 28%, transparent), transparent 55%),
+    radial-gradient(70% 50% at 100% 20%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 50%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 92%, black) 0%, var(--background) 45%, var(--background) 100%);
+}
+
+.ambient {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.beam {
+  position: absolute;
+  top: -30%;
+  left: -10%;
+  width: 55%;
+  height: 140%;
+  transform: rotate(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--primary) 18%, transparent) 45%,
+    transparent 100%
+  );
+  filter: blur(28px);
+  opacity: 0.7;
+  animation: beamDrift 14s ease-in-out infinite alternate;
+}
+
+.reel,
+.reel2 {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in oklch, var(--primary) 22%, transparent);
+  opacity: 0.35;
+  animation: reelSpin 48s linear infinite;
+}
+
+.reel {
+  top: 8%;
+  right: -12%;
+}
+
+.reel2 {
+  bottom: -18%;
+  left: -15%;
+  animation-direction: reverse;
+  animation-duration: 62s;
+}
+
+.reel::before,
+.reel2::before {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--primary) 15%, transparent);
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes beamDrift {
+  from {
+    transform: rotate(-18deg) translateX(-4%);
+    opacity: 0.45;
+  }
+  to {
+    transform: rotate(-14deg) translateX(6%);
+    opacity: 0.85;
+  }
+}
+
+@keyframes reelSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam,
+  .reel,
+  .reel2 {
+    animation: none;
+  }
+}

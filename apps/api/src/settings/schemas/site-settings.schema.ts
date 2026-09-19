@@ -43,6 +43,9 @@ export class SiteSettings {
   @Prop({ type: String, default: '' })
   mailFromEmail!: string;
 
+  @Prop({ default: false })
+  movieUploadRequestsEnabled!: boolean;
+
   createdAt!: Date;
   updatedAt!: Date;
 }
