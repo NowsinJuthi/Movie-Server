@@ -16,7 +16,9 @@ import {
 import { AdminPage } from "@/components/admin/admin-page";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminPagination } from "@/components/admin/admin-pagination";
-import { AdminSelect } from "@/components/admin/admin-filters";
+import { AdminFilterRow, AdminSelect } from "@/components/admin/admin-filters";
+import { AdminMetricGrid, AdminStatCard } from "@/components/admin/admin-ui";
+import { AdminUsersMobileList } from "@/components/admin/admin-users-mobile-list";
 import { AdminUserSearch } from "@/components/admin/admin-user-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -148,6 +150,11 @@ export default function AdminUsersPage() {
   const canManage = (item: AdminUserRow) =>
     isAdmin && (isSuper || isEndUserRole(item.role)) && !(isStaffRole(item.role) && !isSuper);
 
+  const items = query.data?.items ?? [];
+  const totalUsers = query.data?.total ?? 0;
+  const totalPages = query.data?.totalPages ?? 1;
+  const activeOnPage = items.filter((item) => item.isActive).length;
+
   return (
     <AdminPage
       title="Users"
@@ -166,14 +173,19 @@ export default function AdminUsersPage() {
         ) : null
       }
     >
-      <div className="mb-4 flex flex-wrap gap-3">
+      <AdminMetricGrid>
+        <AdminStatCard label="Total users" value={totalUsers} hint={qDebounced ? `Filtered · page ${page}/${totalPages}` : `Page ${page} of ${totalPages}`} />
+        <AdminStatCard label="On this page" value={items.length} hint={`${activeOnPage} active`} />
+      </AdminMetricGrid>
+
+      <AdminFilterRow>
         <AdminUserSearch
           value={q}
           onChange={(value) => {
             setQ(value);
             setPage(1);
           }}
-          placeholder="Type 1+ letters — name or email"
+          placeholder="Search name or email"
         />
         <AdminSelect
           label="Role"
@@ -190,7 +202,26 @@ export default function AdminUsersPage() {
             })),
           ]}
         />
+      </AdminFilterRow>
+
+      <div className="lg:hidden">
+        <AdminUsersMobileList
+          items={items}
+          currentUserId={user?.id}
+          canManageUsers={canManageUsers}
+          canViewSubscriptions={canViewSubscriptions}
+          canManageSubscriptions={canManageSubscriptions}
+          canManageRow={canManage}
+          onEdit={(item) => {
+            setFormError(null);
+            setEditUser(item);
+          }}
+          onToggleActive={(item) => setPendingActive({ id: item.id, active: item.isActive })}
+          onDelete={(item) => setPendingDelete(item)}
+        />
       </div>
+
+      <div className="hidden lg:block">
       <AdminTable
         columns={[
           "Name",
@@ -203,7 +234,7 @@ export default function AdminUsersPage() {
           "",
         ]}
       >
-        {(query.data?.items ?? []).map((item) => {
+        {items.map((item) => {
           const manageable = canManage(item);
           const isSelf = user?.id === item.id;
 
@@ -279,7 +310,8 @@ export default function AdminUsersPage() {
           );
         })}
       </AdminTable>
-      <AdminPagination page={page} totalPages={query.data?.totalPages ?? 1} onPage={setPage} />
+      </div>
+      <AdminPagination page={page} totalPages={totalPages} onPage={setPage} />
 
       <ConfirmDialog
         open={Boolean(pendingActive)}
