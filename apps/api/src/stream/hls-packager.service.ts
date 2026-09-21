@@ -213,13 +213,6 @@ export class HlsPackagerService {
 
       const playlistPath = path.join(outDir, PLAYLIST_NAME);
       const segmentSeconds = packagingSegmentSeconds(this.config, plan, startSeconds);
-      let keyInfoPath: string | undefined;
-      try {
-        keyInfoPath = await writeHlsKeyInfo(outDir);
-      } catch (error) {
-        reject(error);
-        return;
-      }
       const args = buildFfmpegHlsArgs(
         absPath,
         outDir,
@@ -227,7 +220,6 @@ export class HlsPackagerService {
         segmentSeconds,
         startSeconds,
         this.config,
-        keyInfoPath,
       );
 
       const child = spawn(bin, args, { windowsHide: true });

@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -14,7 +13,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ErrorCode, STREAM_DELIVERY_FORBIDDEN_MESSAGE } from '@movie-server/shared';
+import { ErrorCode } from '@movie-server/shared';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { createReadStream } from 'fs';
@@ -178,11 +177,45 @@ export class StreamController {
   @SkipSubscription()
   @SkipThrottle()
   @Get(':sessionId/media')
-  media(): never {
-    throw new ForbiddenException({
-      error: ErrorCode.Forbidden,
-      message: STREAM_DELIVERY_FORBIDDEN_MESSAGE,
+  async media(
+    @Param('sessionId') sessionId: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Query('quality') quality: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    this.assertStreamDelivery(req);
+    const ua = String(req.headers['user-agent'] ?? '');
+    const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
+    const file = await this.streams.openMedia(this.id(sessionId), userId, quality, {
+      disallowRemux,
     });
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Disposition', 'inline');
+
+    if (file.remux) {
+      res.status(200);
+      const stream = await file.open();
+      pipeToResponse(stream, res);
+      return;
+    }
+
+    const range = this.streams.parseRange(req.headers.range, file.size);
+    res.setHeader('Accept-Ranges', 'bytes');
+    if (!range) {
+      res.setHeader('Content-Length', file.size);
+      res.status(200);
+      const stream = await file.open();
+      pipeToResponse(stream, res);
+      return;
+    }
+    res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${file.size}`);
+    res.setHeader('Content-Length', range.end - range.start + 1);
+    res.status(206);
+    const stream = await file.open(range);
+    pipeToResponse(stream, res);
   }
 
   @Public()
