@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppHeader } from "@/components/layout/app-header";
-import { MobileNav } from "@/components/layout/mobile-nav";
 import { PwaInstallPrompt } from "@/components/layout/pwa-install-prompt";
 import { cn } from "@/lib/utils";
 import { profileApi } from "@/lib/profile-api";
@@ -92,17 +91,13 @@ export function HomeChrome({
       ) : null}
       <div
         className={cn(
-          !isWatchRoute && "browse-shell-offset pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0",
+          !isWatchRoute &&
+            "browse-shell-offset pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] lg:pb-0",
         )}
       >
         {children}
       </div>
-      {!isWatchRoute ? (
-        <>
-          <PwaInstallPrompt />
-          <MobileNav />
-        </>
-      ) : null}
+      {!isWatchRoute ? <PwaInstallPrompt /> : null}
     </>
   );
 }
