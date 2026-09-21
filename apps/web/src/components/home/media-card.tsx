@@ -24,7 +24,7 @@ export function MediaCard({
   const playHref = autoplayPlayerHref(card.watchHref ?? card.href);
 
   return (
-    <article className="w-[42vw] shrink-0 snap-start sm:w-[28vw] md:w-[18vw] lg:w-[14vw] xl:w-[12vw]">
+    <article className="w-[42vw] flex-none shrink-0 snap-start sm:w-[28vw] md:w-[18vw] lg:w-[14vw] xl:w-[12vw]">
       <Link
         href={playHref}
         className={styles.posterLink}

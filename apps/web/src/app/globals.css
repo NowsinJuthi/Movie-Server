@@ -132,10 +132,6 @@ body {
   overscroll-behavior-x: contain;
 }
 
-.home-row-scroller .posterLink {
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-}
 
 .poster-placeholder {
   position: absolute;

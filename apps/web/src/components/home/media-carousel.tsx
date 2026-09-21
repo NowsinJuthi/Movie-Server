@@ -35,7 +35,7 @@ export function MediaCarousel({
   };
 
   return (
-    <section className="relative">
+    <section className="relative overflow-visible">
       <div className="mb-3 flex items-end justify-between px-3 sm:px-4 md:px-5 lg:px-6">
         {rowHref ? (
           <Link href={rowHref} className="text-lg font-semibold hover:underline md:text-xl">
@@ -45,7 +45,7 @@ export function MediaCarousel({
           <h2 className="text-lg font-semibold md:text-xl">{row.title}</h2>
         )}
       </div>
-      <div className="group/row relative">
+      <div className="group/row relative overflow-visible">
         <button
           type="button"
           className="absolute left-0 top-0 z-10 hidden h-full w-10 items-center justify-center bg-gradient-to-r from-background to-transparent text-white md:flex md:opacity-0 md:group-hover/row:opacity-100"
