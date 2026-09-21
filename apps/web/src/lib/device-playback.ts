@@ -196,37 +196,30 @@ export function unlockPlaybackOrientation(): void {
   }
 }
 
+/** Toggle fullscreen on the player shell so custom controls stay visible. Returns true if API fullscreen changed. */
 export async function toggleVideoFullscreen(
   video: HTMLVideoElement,
   shell: HTMLElement,
-): Promise<void> {
+): Promise<boolean> {
   const v = video as WebkitVideo;
 
-  if (typeof v.webkitEnterFullscreen === "function") {
-    if (v.webkitDisplayingFullscreen) {
-      v.webkitExitFullscreen?.();
-    } else {
-      v.webkitEnterFullscreen();
-    }
-    return;
+  if (v.webkitDisplayingFullscreen) {
+    v.webkitExitFullscreen?.();
+    return true;
   }
 
   const fsEl = document.fullscreenElement;
   if (fsEl === shell || fsEl === video) {
     await document.exitFullscreen();
-    return;
-  }
-
-  try {
-    await video.requestFullscreen();
-    return;
-  } catch {
-    // Android WebView / older browsers may only support element fullscreen on the shell.
+    return true;
   }
 
   try {
     await shell.requestFullscreen();
+    return true;
   } catch {
-    // Fullscreen API unavailable or denied.
+    // iOS / denied — caller may use in-page immersive fallback.
   }
+
+  return false;
 }

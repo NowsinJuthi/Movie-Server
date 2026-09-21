@@ -159,9 +159,12 @@ export function StreamPlayer({
     const params = new URLSearchParams(window.location.search);
     autoplayRequestedRef.current = params.get("autoplay") === "1";
     posterTapPlayRef.current = consumeMobileAutoplayTap(8000);
+    setPseudoFullscreen(false);
   }, [playbackKey]);
 
   const goBack = useCallback(() => {
+    setPseudoFullscreen(false);
+    unlockPlaybackOrientation();
     const target = returnToRef.current;
     clearPlayerReturn();
     if (target) {
@@ -221,6 +224,8 @@ export function StreamPlayer({
   const [error, setError] = useState<string | null>(null);
   const [controls, setControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  /** In-page immersive mode when the Fullscreen API is unavailable (common on iOS). */
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
   const [pip, setPip] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
   const [quality, setQuality] = useState<QualityChoice>("auto");
@@ -1058,10 +1063,11 @@ export function StreamPlayer({
         Boolean(document.fullscreenElement) ||
         (video != null && isVideoInNativeFullscreen(video));
       setFullscreen(isFs);
-      if (isFs && mobileLayoutRef.current) {
-        void lockPlaybackLandscape();
-      } else if (!isFs) {
+      if (!isFs) {
+        setPseudoFullscreen(false);
         unlockPlaybackOrientation();
+      } else if (mobileLayoutRef.current) {
+        void lockPlaybackLandscape();
       }
     };
     const onPip = () => setPip(Boolean(document.pictureInPictureElement));
@@ -1292,15 +1298,28 @@ export function StreamPlayer({
     if (!shell || !video) return;
 
     if (mobileLayout || isAppleMobileDevice()) {
-      await toggleVideoFullscreen(video, shell);
+      if (pseudoFullscreen) {
+        setPseudoFullscreen(false);
+        unlockPlaybackOrientation();
+        revealControls();
+        return;
+      }
+      const changed = await toggleVideoFullscreen(video, shell);
       const isFs =
         Boolean(document.fullscreenElement) ||
         isVideoInNativeFullscreen(video);
-      if (isFs && mobileLayout) {
+      if (isFs) {
         void lockPlaybackLandscape();
-      } else if (!isFs) {
-        unlockPlaybackOrientation();
+        revealControls();
+        return;
       }
+      if (changed) {
+        unlockPlaybackOrientation();
+        return;
+      }
+      setPseudoFullscreen(true);
+      setControls(true);
+      void lockPlaybackLandscape();
       return;
     }
 
@@ -1309,7 +1328,7 @@ export function StreamPlayer({
     } else {
       await shell.requestFullscreen();
     }
-  }, [mobileLayout]);
+  }, [mobileLayout, pseudoFullscreen, revealControls]);
 
   const togglePip = useCallback(async () => {
     const video = videoRef.current;
@@ -1849,6 +1868,7 @@ export function StreamPlayer({
             : "object-contain";
 
   const controlsVisible = controls || !playing || sheet != null;
+  const mobileImmersive = fullscreen || pseudoFullscreen;
   const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
   const closeSheet = () => {
     setSheet(null);
@@ -1870,7 +1890,10 @@ export function StreamPlayer({
       className={cn(
         "bg-black text-white",
         mobileLayout
-          ? "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden"
+          ? cn(
+              "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden",
+              mobileImmersive && "z-[2147483646]",
+            )
           : "relative min-h-screen",
       )}
       onMouseMove={revealControls}
@@ -2034,7 +2057,7 @@ export function StreamPlayer({
             duration={timelineDuration}
             bufferedEnd={bufferedEnd}
             transcode={packagedPlayback}
-            fullscreen={fullscreen}
+            fullscreen={mobileImmersive}
             qualityLabel={qualityMenuValue}
             subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
             audioOn={sheet === "audio" || audioTracks.length > 1}
