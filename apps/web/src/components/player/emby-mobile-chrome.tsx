@@ -34,30 +34,52 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function MobileSeekTimes({
+function MobileSeekWithTimes({
   currentTime,
   duration,
   fullscreen,
+  bufferedEnd,
+  transcode,
+  onSeek,
+  onScrubbingChange,
 }: {
   currentTime: number;
   duration: number;
   fullscreen: boolean;
+  bufferedEnd: number;
+  transcode?: boolean;
+  onSeek: (ratio: number) => void;
+  onScrubbingChange: (active: boolean) => void;
 }) {
   const remaining = Math.max(0, duration - currentTime);
-  const timeClass = cn("font-semibold tabular-nums leading-tight", fullscreen ? "text-[15px]" : "text-sm");
+  const longTimes = duration >= 3600 || currentTime >= 3600;
+  const timeClass = cn(
+    "shrink-0 max-w-[4.25rem] truncate font-semibold tabular-nums leading-none",
+    longTimes ? "text-[10px]" : fullscreen ? "text-xs" : "text-[11px]",
+  );
 
   return (
-    <div className="-mt-1 mb-2 flex items-start justify-between gap-4 px-0.5">
-      <div className="min-w-0 text-left">
-        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/45">Watched</p>
-        <p className={cn(timeClass, "text-white")}>{formatTime(currentTime)}</p>
+    <div className="mb-2 flex items-center gap-1.5 sm:gap-2">
+      <span className={cn(timeClass, "min-w-[2.5rem] text-left text-white/90")} aria-label="Elapsed">
+        {formatTime(currentTime)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <SeekBar
+          variant="emby"
+          currentTime={currentTime}
+          duration={duration}
+          bufferedEnd={bufferedEnd}
+          transcode={transcode}
+          onSeek={onSeek}
+          onScrubbingChange={onScrubbingChange}
+        />
       </div>
-      <div className="min-w-0 text-right">
-        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/45">Remaining</p>
-        <p className={cn(timeClass, "text-primary")}>
-          {duration > 0 ? formatTime(remaining) : "—"}
-        </p>
-      </div>
+      <span
+        className={cn(timeClass, "min-w-[2.5rem] text-right text-primary")}
+        aria-label="Remaining"
+      >
+        {duration > 0 ? formatTime(remaining) : "—"}
+      </span>
     </div>
   );
 }
@@ -326,17 +348,15 @@ export function EmbyMobileChrome({
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <SeekBar
-          variant="emby"
+        <MobileSeekWithTimes
           currentTime={currentTime}
           duration={duration}
+          fullscreen={fullscreen}
           bufferedEnd={bufferedEnd}
           transcode={transcode}
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />
-
-        <MobileSeekTimes currentTime={currentTime} duration={duration} fullscreen={fullscreen} />
 
         <div className="mb-2 flex items-center justify-center">
           <MobileTransportCluster
