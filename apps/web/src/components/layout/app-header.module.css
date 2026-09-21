@@ -932,6 +932,27 @@
   list-style: none;
 }
 
+/* Mobile + tablet: uniform header control targets (menu, search, profile) */
+@media (max-width: 1023px) {
+  .siteHeader {
+    --mobile-header-control: 2.5rem;
+    --mobile-header-icon: 1.25rem;
+  }
+
+  .headerIconGlyph {
+    width: var(--mobile-header-icon);
+    height: var(--mobile-header-icon);
+    flex-shrink: 0;
+  }
+
+  .iconBtn svg,
+  .headerCircleBtn svg {
+    width: var(--mobile-header-icon);
+    height: var(--mobile-header-icon);
+    flex-shrink: 0;
+  }
+}
+
 /* Mobile + tablet + iOS standalone: opaque bar (must follow desktop icon rules) */
 @media (max-width: 1023px) {
   .siteHeader {
@@ -961,14 +982,17 @@
 
   .iconBtn,
   .headerCircleBtn {
-    height: 2rem;
-    width: 2rem;
+    height: var(--mobile-header-control);
+    width: var(--mobile-header-control);
+    min-height: var(--mobile-header-control);
+    min-width: var(--mobile-header-control);
     border-radius: 0.75rem;
     border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
     background: color-mix(in oklch, var(--card) 92%, var(--background));
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: none !important;
+    padding: 0;
   }
 
   .iconBtn:hover,
@@ -977,14 +1001,19 @@
     box-shadow: none !important;
   }
 
-  .mobileLogoWrap img {
-    height: 2.5rem;
-    max-width: 160px;
+  .mobileLogoWrap img,
+  .mobileLogoWrap .logoImg {
+    height: 2rem;
+    max-width: 140px;
   }
 
   .accountBtn {
-    min-height: 2rem;
-    min-width: 2rem;
+    height: var(--mobile-header-control);
+    width: var(--mobile-header-control);
+    min-height: var(--mobile-header-control);
+    min-width: var(--mobile-header-control);
+    gap: 0;
+    padding: 0.1875rem;
     border-radius: 0.75rem;
     background: color-mix(in oklch, var(--card) 92%, var(--background));
     backdrop-filter: none !important;
@@ -999,7 +1028,16 @@
   }
 
   .accountAvatarWrap {
+    height: 100%;
+    width: 100%;
+    padding: 0;
     box-shadow: none;
+  }
+
+  .accountAvatarWrap :global(.h-10),
+  .accountAvatarWrap :global(.w-10) {
+    height: 100% !important;
+    width: 100% !important;
   }
 }
 

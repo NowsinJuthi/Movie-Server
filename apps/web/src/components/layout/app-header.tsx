@@ -205,7 +205,7 @@ export function AppHeader({
                 className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
                 onClick={openMobileMenu}
               >
-                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Menu className={styles.headerIconGlyph} aria-hidden />
               </button>
             ) : null}
             {variant === "admin" && onOpenAdminMenu ? (
@@ -215,7 +215,7 @@ export function AppHeader({
                 className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
                 onClick={onOpenAdminMenu}
               >
-                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Menu className={styles.headerIconGlyph} aria-hidden />
               </button>
             ) : null}
             <div className="hidden lg:block">{logoButton}</div>
