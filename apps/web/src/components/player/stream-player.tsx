@@ -101,6 +101,8 @@ export type StreamStartResult = {
 type QualityChoice = "auto" | VideoResolution;
 
 type StreamPlayerProps = {
+  /** Changes when switching episodes/titles — reloads playback and re-reads ?autoplay=1 */
+  playbackKey?: string;
   title: string;
   subtitle?: string;
   year?: number | null;
@@ -118,6 +120,7 @@ type StreamPlayerProps = {
 };
 
 export function StreamPlayer({
+  playbackKey: playbackKeyProp,
   title,
   subtitle,
   year,
@@ -130,6 +133,7 @@ export function StreamPlayer({
   previous,
   autoPlayNext = false,
 }: StreamPlayerProps) {
+  const playbackKey = playbackKeyProp ?? title;
   const router = useRouter();
   const queryClient = useQueryClient();
   const returnToRef = useRef<string | null>(null);
@@ -142,8 +146,6 @@ export function StreamPlayer({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    autoplayRequestedRef.current = params.get("autoplay") === "1";
-    posterTapPlayRef.current = consumeMobileAutoplayTap();
     const from = params.get("from");
     if (isSafeAppPath(from) && !from.includes("/watch")) {
       returnToRef.current = from;
@@ -151,6 +153,13 @@ export function StreamPlayer({
     }
     returnToRef.current = peekPlayerReturn();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    autoplayRequestedRef.current = params.get("autoplay") === "1";
+    posterTapPlayRef.current = consumeMobileAutoplayTap(8000);
+  }, [playbackKey]);
 
   const goBack = useCallback(() => {
     const target = returnToRef.current;
@@ -357,7 +366,10 @@ export function StreamPlayer({
   }, []);
 
   const wantsAudibleAutoplay = useCallback((): boolean => {
-    if (!autoplayRequestedRef.current && !posterTapPlayRef.current) {
+    if (autoplayRequestedRef.current) {
+      return true;
+    }
+    if (!posterTapPlayRef.current) {
       return false;
     }
     if (typeof navigator !== "undefined" && navigator.userActivation?.isActive) {
@@ -827,9 +839,9 @@ export function StreamPlayer({
       void stopSession();
       detachEngine();
     };
-    // Boot once per title mount; quality changes are handled in-player.
+    // Re-boot when the episode/title changes (soft client navigation).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playbackKey]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
