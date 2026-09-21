@@ -1661,27 +1661,42 @@ export function StreamPlayer({
     [changeRate],
   );
 
-  const onSkinClick = useCallback(() => {
+  const lastMobileToggleMs = useRef(0);
+
+  const toggleMobileControls = useCallback(() => {
+    const now = Date.now();
+    if (now - lastMobileToggleMs.current < 280) return;
+    lastMobileToggleMs.current = now;
+
     if (sheet) {
       setSheet(null);
       setSettingsView("root");
       return;
     }
-    const mobile = mobileLayout || isCoarsePointerMobile();
-    if (mobile) {
-      if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
-        void unlockMobileAudible();
-        revealControls();
-        return;
-      }
-      // YouTube-style mobile behavior: tapping the picture only shows/hides
-      // controls. Play/pause is reserved for the center transport button.
-      if (controls) {
-        setControls(false);
+    if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
+      void unlockMobileAudible();
+      revealControls();
+      return;
+    }
+    setControls((prev) => {
+      if (prev) {
         if (hideTimer.current) window.clearTimeout(hideTimer.current);
-      } else {
-        revealControls();
+        return false;
       }
+      revealControls();
+      return true;
+    });
+  }, [awaitingTap, iosMutedPlay, revealControls, sheet, unlockMobileAudible]);
+
+  const onSkinClick = useCallback(() => {
+    const mobile = mobileLayoutRef.current || isCoarsePointerMobile();
+    if (mobile) {
+      toggleMobileControls();
+      return;
+    }
+    if (sheet) {
+      setSheet(null);
+      setSettingsView("root");
       return;
     }
     if (iosMutedPlay || awaitingTap) {
@@ -1693,14 +1708,12 @@ export function StreamPlayer({
     revealControls();
   }, [
     awaitingTap,
-    controls,
     iosMutedPlay,
-    mobileLayout,
     revealControls,
     sheet,
+    toggleMobileControls,
     togglePlay,
     tryStartPlayback,
-    unlockMobileAudible,
   ]);
 
   useEffect(() => {
@@ -1867,9 +1880,11 @@ export function StreamPlayer({
             ? "object-contain max-h-screen w-auto mx-auto [aspect-ratio:4/3]"
             : "object-contain";
 
-  const controlsVisible = controls || !playing || sheet != null;
+  const controlsVisible = mobileLayout
+    ? (controls || sheet != null) && !loading
+    : controls || !playing || sheet != null;
   const mobileImmersive = fullscreen || pseudoFullscreen;
-  const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
+  const mobileChromeVisible = mobileLayout && controlsVisible;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
@@ -1916,8 +1931,25 @@ export function StreamPlayer({
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
         preload="auto"
-        onClick={onSkinClick}
+        onClick={mobileLayout ? undefined : onSkinClick}
       />
+
+      {mobileLayout && !loading && !error ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Show or hide player controls"
+          className="absolute inset-0 z-[5] touch-manipulation border-0 bg-transparent p-0"
+          onPointerUp={(event) => {
+            if (event.pointerType === "mouse" && event.button !== 0) return;
+            toggleMobileControls();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            toggleMobileControls();
+          }}
+        />
+      ) : null}
 
       {awaitingTap && !error && !mobileLayout ? (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
@@ -2046,8 +2078,12 @@ export function StreamPlayer({
       <div
         className={cn(
           "absolute inset-0 z-10 transition-opacity duration-300",
-          mobileLayout ? "h-full" : "flex flex-col justify-between",
-          !mobileLayout && (controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"),
+          mobileLayout
+            ? cn("pointer-events-none h-full", !mobileChromeVisible && "opacity-0")
+            : cn(
+                "flex flex-col justify-between",
+                controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
+              ),
         )}
       >
         {mobileLayout ? (

@@ -314,7 +314,7 @@ export function EmbyMobileChrome({
     <div
       className={cn(
         "relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] pointer-events-none",
-        !visible && "pointer-events-none opacity-0",
+        !visible && "pointer-events-none opacity-0 [&_*]:pointer-events-none",
         visible && "opacity-100 transition-opacity duration-200",
       )}
     >
