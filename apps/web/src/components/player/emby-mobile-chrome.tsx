@@ -325,7 +325,6 @@ export function EmbyMobileChrome({
         visible && "opacity-100 transition-opacity duration-200",
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/10 via-40% to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52vh,420px)] bg-gradient-to-t from-black from-30% via-black/75 to-transparent" />
 
       {/* Top — back + title (Emby-style minimal bar) */}
