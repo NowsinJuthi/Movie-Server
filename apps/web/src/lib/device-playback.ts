@@ -173,6 +173,29 @@ function applyVideoSeek(video: HTMLVideoElement, target: number): void {
   video.currentTime = target;
 }
 
+export function isStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+/** iOS home-screen PWA: native video fullscreen typically rotates to landscape. */
+export function enterIosNativeVideoFullscreen(video: HTMLVideoElement): boolean {
+  const v = video as WebkitVideo;
+  if (!isAppleMobileDevice() || typeof v.webkitEnterFullscreen !== "function") {
+    return false;
+  }
+  if (v.webkitDisplayingFullscreen) return true;
+  try {
+    v.webkitEnterFullscreen();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Best-effort landscape lock after mobile fullscreen (Android; iOS ignores). */
 export async function lockPlaybackLandscape(): Promise<void> {
   if (typeof screen === "undefined") return;

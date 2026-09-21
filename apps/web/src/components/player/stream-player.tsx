@@ -51,6 +51,8 @@ import {
   isCoarsePointerMobile,
   isLocalTimeBuffered,
   isVideoInNativeFullscreen,
+  isStandalonePwa,
+  enterIosNativeVideoFullscreen,
   localTimelineSeconds,
   lockPlaybackLandscape,
   seekVideoTo,
@@ -226,6 +228,8 @@ export function StreamPlayer({
   const [fullscreen, setFullscreen] = useState(false);
   /** In-page immersive mode when the Fullscreen API is unavailable (common on iOS). */
   const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
+  const pseudoFullscreenRef = useRef(false);
+  pseudoFullscreenRef.current = pseudoFullscreen;
   const [pip, setPip] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
   const [quality, setQuality] = useState<QualityChoice>("auto");
@@ -960,6 +964,22 @@ export function StreamPlayer({
       setPlaying(true);
       setLoading(false);
       revealControls();
+      if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+        const v = videoRef.current;
+        if (v && !isVideoInNativeFullscreen(v)) {
+          if (isAppleMobileDevice() && isStandalonePwa()) {
+            if (!enterIosNativeVideoFullscreen(v)) {
+              setPseudoFullscreen(true);
+              setControls(true);
+              void lockPlaybackLandscape();
+            }
+          } else {
+            setPseudoFullscreen(true);
+            setControls(true);
+            void lockPlaybackLandscape();
+          }
+        }
+      }
     };
     const onPause = () => {
       setPlaying(false);
@@ -1071,7 +1091,9 @@ export function StreamPlayer({
         (video != null && isVideoInNativeFullscreen(video));
       setFullscreen(isFs);
       if (!isFs) {
-        setPseudoFullscreen(false);
+        if (!pseudoFullscreenRef.current) {
+          setPseudoFullscreen(false);
+        }
         unlockPlaybackOrientation();
       } else if (mobileLayoutRef.current) {
         void lockPlaybackLandscape();
