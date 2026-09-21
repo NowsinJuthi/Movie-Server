@@ -8,7 +8,6 @@ import { PwaInstallPrompt } from "@/components/layout/pwa-install-prompt";
 import { cn } from "@/lib/utils";
 import { profileApi } from "@/lib/profile-api";
 import { subscriptionApi } from "@/lib/subscription-api";
-import { releaseBrowseScrollLock } from "@/lib/device-playback";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 
@@ -66,14 +65,6 @@ export function HomeChrome({
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
     document.documentElement.dataset.standalonePwa = standalone ? "true" : "false";
   }, []);
-
-  useEffect(() => {
-    if (isWatchRoute) return;
-    releaseBrowseScrollLock();
-    const onPageShow = () => releaseBrowseScrollLock();
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, [isWatchRoute, pathname]);
 
   useEffect(() => {
     if (isWatchRoute) return;

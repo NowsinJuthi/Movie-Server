@@ -10,6 +10,7 @@ import { ApiError, refreshSession } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { BrandingProvider } from "@/components/branding/site-brand";
+import { BrowseScrollGuard } from "@/components/layout/browse-scroll-guard";
 
 const SESSION_REFRESH_MS = 10 * 60 * 1000;
 const AUTH_BOOT_TIMEOUT_MS = 20_000;
@@ -154,6 +155,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={client}>
       <AuthHydrator>
         <BrandingProvider>
+          <BrowseScrollGuard />
           {children}
           <Toaster
             theme="dark"

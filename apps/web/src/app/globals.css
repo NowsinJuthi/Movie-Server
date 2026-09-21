@@ -108,16 +108,15 @@ body {
 }
 
 @media (max-width: 1023px) {
-  html {
-    overflow-x: hidden;
-    overflow-y: auto;
-    max-width: 100%;
-    -webkit-overflow-scrolling: touch;
-  }
-
+  html,
   body {
     overflow-x: hidden;
     max-width: 100%;
+  }
+
+  body {
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

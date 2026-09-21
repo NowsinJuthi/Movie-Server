@@ -1954,14 +1954,6 @@ export function StreamPlayer({
   };
 
   useEffect(() => {
-    if (!mobileImmersive) return;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.removeProperty("overflow");
-    };
-  }, [mobileImmersive]);
-
-  useEffect(() => {
     return () => {
       releaseBrowseScrollLock();
     };
