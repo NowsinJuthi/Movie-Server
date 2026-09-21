@@ -208,8 +208,8 @@ export function SeekBar({
             "relative w-full overflow-hidden rounded-full bg-white/20 transition-[height] duration-150",
             mobileEmphasis
               ? active
-                ? "h-[7px]"
-                : "h-[5px]"
+                ? "h-2"
+                : "h-1.5"
               : active
                 ? "h-[5px]"
                 : "h-[3px]",
