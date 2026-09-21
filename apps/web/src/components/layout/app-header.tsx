@@ -86,8 +86,18 @@ export function AppHeader({
   const movieLibraries = libraries.filter((library) => library.kind === LibraryKind.Movies);
   const tvLibraries = libraries.filter((library) => library.kind === LibraryKind.Tv);
 
-  const solid = variant === "admin" || scrolled;
+  const [mobileBar, setMobileBar] = useState(false);
   const [browseMenuOpen, setBrowseMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setMobileBar(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const solid = variant === "admin" || scrolled || mobileBar;
 
   useEffect(() => {
     setBrowseMenuOpen(false);

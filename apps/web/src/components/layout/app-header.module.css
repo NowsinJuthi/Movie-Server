@@ -1,12 +1,14 @@
 .siteHeader {
-  position: fixed;
-  inset-inline: 0;
+  position: sticky;
   top: 0;
+  inset-inline: 0;
   z-index: 50;
+  width: 100%;
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--background);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  animation: headerAppear 0.18s ease-out both;
+  animation: none;
 }
 
 .siteHeaderTransparent {
@@ -101,6 +103,10 @@
 
 @media (min-width: 1024px) {
   .siteHeader {
+    position: fixed;
+    top: 0;
+    padding-top: 0;
+    animation: headerAppear 0.18s ease-out both;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
@@ -451,25 +457,22 @@
 .accountBtn {
   --nav-accent: var(--primary);
   display: inline-flex;
-  min-height: 2.375rem;
-  min-width: 2.375rem;
+  min-height: 2rem;
+  min-width: 2rem;
   touch-action: manipulation;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 9999px;
+  border-radius: 0.75rem;
   border: 1px solid color-mix(in oklch, var(--nav-accent) 28%, var(--border));
-  background: color-mix(in oklch, var(--card) 48%, transparent);
+  background: color-mix(in oklch, var(--card) 92%, var(--background));
   padding: 0.2rem;
-  backdrop-filter: blur(14px) saturate(130%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 6px 18px -10px rgb(0 0 0 / 0.45),
-    0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
   transition:
     border-color 0.2s ease,
     background 0.2s ease,
-    box-shadow 0.2s ease,
     transform 0.2s ease;
   cursor: pointer;
 }
@@ -477,23 +480,34 @@
 .accountBtn:hover,
 .accountBtnOpen {
   border-color: color-mix(in oklch, var(--nav-accent) 45%, transparent);
-  background: color-mix(in oklch, var(--primary) 12%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 0 22px -8px color-mix(in oklch, var(--nav-accent) 38%, transparent);
-  transform: translateY(-1px);
-}
-
-@media (min-width: 640px) {
-  .accountBtn {
-    min-height: 2.5rem;
-    padding: 0.22rem 0.55rem 0.22rem 0.22rem;
-  }
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
 }
 
 @media (min-width: 1024px) {
   .accountBtn {
     min-height: 2.625rem;
+    min-width: 2.625rem;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--card) 48%, transparent);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 6px 18px -10px rgb(0 0 0 / 0.45),
+      0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
+  }
+
+  .accountBtn:hover,
+  .accountBtnOpen {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 0 22px -8px color-mix(in oklch, var(--nav-accent) 38%, transparent);
+    transform: translateY(-1px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .accountBtn {
     padding: 0.25rem 0.7rem 0.25rem 0.25rem;
   }
 }
@@ -921,12 +935,13 @@
 /* Mobile + tablet + iOS standalone: opaque bar (must follow desktop icon rules) */
 @media (max-width: 1023px) {
   .siteHeader {
-    padding-top: env(safe-area-inset-top, 0px);
+    position: sticky;
     border-bottom: 1px solid var(--border);
     background: var(--background);
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: none;
+    isolation: isolate;
   }
 
   .siteHeaderTransparent {
@@ -965,6 +980,26 @@
   .mobileLogoWrap img {
     height: 2.5rem;
     max-width: 160px;
+  }
+
+  .accountBtn {
+    min-height: 2rem;
+    min-width: 2rem;
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--card) 92%, var(--background));
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  .accountBtn:hover,
+  .accountBtnOpen {
+    transform: none;
+    box-shadow: none !important;
+  }
+
+  .accountAvatarWrap {
+    box-shadow: none;
   }
 }
 
