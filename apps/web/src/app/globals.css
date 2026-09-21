@@ -107,16 +107,35 @@ body {
   min-height: 100dvh;
 }
 
+/* Mobile browse: match UniQbd — document must scroll (posters, home rows, library). */
 @media (max-width: 1023px) {
-  html,
-  body {
+  html {
     overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
     max-width: 100%;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
-    overflow-y: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: static;
+    width: auto;
+    max-width: 100%;
+    min-height: 100dvh;
+    height: auto;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .browse-shell-offset {
+    overflow-x: hidden;
+    overflow-y: visible;
+    min-height: 100dvh;
+    height: auto;
+    touch-action: pan-y pinch-zoom;
   }
 }
 
@@ -179,7 +198,6 @@ body {
 
 @media (hover: none) and (pointer: coarse) {
   button,
-  a,
   [role="button"],
   [role="menuitem"] {
     touch-action: manipulation;
@@ -202,7 +220,6 @@ body {
 /* Fixed browse header — content starts below bar (mobile / tablet) */
 .browse-shell-offset {
   min-width: 0;
-  overflow-x: hidden;
 }
 
 /* Mobile/tablet: header is sticky in document flow — no extra top padding */

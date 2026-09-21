@@ -37,7 +37,7 @@ import { movieUploadRequestApi } from "@/lib/movie-upload-request-api";
 import { brandingAssetSrc } from "@/lib/settings-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
-import { releaseBrowseScrollLock } from "@/lib/device-playback";
+import { ensureBrowseDocumentScroll } from "@/lib/browse-document-scroll";
 import { cn } from "@/lib/utils";
 import styles from "./app-header.module.css";
 
@@ -108,7 +108,7 @@ export function AppHeader({
     if (!browseMenuOpen) return;
     document.body.style.overflow = "hidden";
     return () => {
-      releaseBrowseScrollLock();
+      ensureBrowseDocumentScroll();
     };
   }, [browseMenuOpen]);
 

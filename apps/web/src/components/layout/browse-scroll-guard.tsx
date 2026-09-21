@@ -2,23 +2,18 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { releaseBrowseScrollLock } from "@/lib/device-playback";
+import { ensureBrowseDocumentScroll } from "@/lib/browse-document-scroll";
 
-/** Keeps document scrolling enabled on browse pages (Android stuck overflow after player). */
+/** Keeps the browse site vertically scrollable on mobile (Android Chrome / PWA). */
 export function BrowseScrollGuard() {
   const pathname = usePathname();
-  const isWatchRoute = Boolean(pathname?.includes("/watch"));
 
   useEffect(() => {
-    if (isWatchRoute) return;
-    releaseBrowseScrollLock();
-  }, [isWatchRoute, pathname]);
+    ensureBrowseDocumentScroll();
+  }, [pathname]);
 
   useEffect(() => {
-    const onPageShow = () => {
-      if (window.location.pathname.includes("/watch")) return;
-      releaseBrowseScrollLock();
-    };
+    const onPageShow = () => ensureBrowseDocumentScroll();
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
