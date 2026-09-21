@@ -251,10 +251,9 @@ export function StreamPlayer({
   const applyMobileImmersive = useCallback((video: HTMLVideoElement) => {
     if (!(mobileLayoutRef.current || isCoarsePointerMobile())) return;
     if (isVideoInNativeFullscreen(video)) return;
-    if (beginMobileImmersivePlayback(video) === "pseudo") {
-      setPseudoFullscreen(true);
-      setControls(true);
-    }
+    beginMobileImmersivePlayback(video);
+    setPseudoFullscreen(true);
+    setControls(true);
   }, []);
 
   const goToPlayerHref = useCallback(
@@ -981,10 +980,9 @@ export function StreamPlayer({
       if (mobileLayoutRef.current || isCoarsePointerMobile()) {
         const v = videoRef.current;
         if (v && !isVideoInNativeFullscreen(v) && !pseudoFullscreenRef.current) {
-          if (beginMobileImmersivePlayback(v) === "pseudo") {
-            setPseudoFullscreen(true);
-            setControls(true);
-          }
+          beginMobileImmersivePlayback(v);
+          setPseudoFullscreen(true);
+          setControls(true);
         }
       }
     };
@@ -1100,8 +1098,8 @@ export function StreamPlayer({
       if (!isFs) {
         if (!pseudoFullscreenRef.current) {
           setPseudoFullscreen(false);
+          unlockPlaybackOrientation();
         }
-        unlockPlaybackOrientation();
       } else if (mobileLayoutRef.current) {
         void lockPlaybackLandscape();
       }
@@ -1955,13 +1953,24 @@ export function StreamPlayer({
   };
 
   useEffect(() => {
-    if (!mobileLayout) return;
+    if (!mobileImmersive) return;
+    const root = document.documentElement;
+    root.dataset.playerImmersive = "true";
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      delete root.dataset.playerImmersive;
       document.body.style.overflow = prevOverflow;
     };
-  }, [mobileLayout]);
+  }, [mobileImmersive]);
+
+  useEffect(() => {
+    return () => {
+      unlockPlaybackOrientation();
+      delete document.documentElement.dataset.playerImmersive;
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(orientation: portrait)");
@@ -1971,8 +1980,7 @@ export function StreamPlayer({
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const iosPortraitLandscapeEmulate =
-    pseudoFullscreen && isAppleMobileDevice() && devicePortrait;
+  const mobilePortraitLandscapeEmulate = pseudoFullscreen && devicePortrait;
 
   return (
     <div
@@ -1983,7 +1991,7 @@ export function StreamPlayer({
           ? cn(
               "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden",
               mobileImmersive && "z-[2147483646]",
-              iosPortraitLandscapeEmulate && "mobile-player-shell-landscape-emulate",
+              mobilePortraitLandscapeEmulate && "mobile-player-shell-landscape-emulate",
             )
           : "relative min-h-screen",
       )}

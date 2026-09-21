@@ -204,22 +204,20 @@ export function enterIosNativeVideoFullscreen(video: HTMLVideoElement): boolean 
 
 /**
  * Enter mobile immersive playback. Call synchronously from a user gesture (tap / play).
- * iOS tries native video fullscreen first; otherwise use in-page pseudo + portrait rotation.
+ * Uses in-page pseudo fullscreen; portrait devices rotate the shell via CSS (see globals.css).
+ * Native iOS video fullscreen is only used from the explicit fullscreen control.
  */
-export function beginMobileImmersivePlayback(video: HTMLVideoElement): "native" | "pseudo" {
-  if (isAppleMobileDevice()) {
-    if (enterIosNativeVideoFullscreen(video)) {
-      return "native";
-    }
-    return "pseudo";
-  }
-  void lockPlaybackLandscape();
+export function beginMobileImmersivePlayback(_video: HTMLVideoElement): "pseudo" {
   return "pseudo";
 }
 
 /** Best-effort landscape lock after mobile fullscreen (Android; iOS ignores). */
 export async function lockPlaybackLandscape(): Promise<void> {
   if (typeof screen === "undefined") return;
+  const type = screen.orientation?.type ?? "";
+  if (type.startsWith("portrait")) {
+    return;
+  }
   const orientation = screen.orientation as ScreenOrientation & {
     lock?: (type: string) => Promise<void>;
   };

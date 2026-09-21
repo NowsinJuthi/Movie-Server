@@ -143,13 +143,14 @@ body {
   }
 }
 
-/* iOS PWA/Safari: pseudo fullscreen cannot lock orientation — rotate shell in portrait. */
+/* Mobile portrait: orientation lock is unavailable or breaks scroll — rotate player shell. */
 @media (orientation: portrait) {
   .mobile-player-shell-landscape-emulate {
     position: fixed !important;
     inset: auto !important;
     top: 50% !important;
     left: 50% !important;
+    z-index: 2147483646 !important;
     width: 100dvh !important;
     height: 100dvw !important;
     max-width: none !important;
@@ -157,6 +158,12 @@ body {
     transform: translate(-50%, -50%) rotate(90deg) !important;
     transform-origin: center center;
   }
+}
+
+html[data-player-immersive="true"],
+html[data-player-immersive="true"] body {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .home-row-scroller {
