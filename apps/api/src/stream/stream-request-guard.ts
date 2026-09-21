@@ -24,19 +24,16 @@ export function assertPlaybackClientRequest(req: Request): void {
   const dest = String(req.headers['sec-fetch-dest'] ?? '');
   const mode = String(req.headers['sec-fetch-mode'] ?? '');
 
-  if (client === PLAYBACK_CLIENT_VALUE && (site === 'same-origin' || site === 'same-site')) {
-    return;
-  }
-
   if (dest === 'video' && (site === 'same-origin' || site === 'same-site')) {
     return;
   }
 
-  if (mode === 'cors' && site === 'same-origin' && dest === 'empty' && client === PLAYBACK_CLIENT_VALUE) {
-    return;
-  }
-
-  if (!site && !dest && !mode && client === PLAYBACK_CLIENT_VALUE) {
+  if (
+    client === PLAYBACK_CLIENT_VALUE &&
+    mode === 'cors' &&
+    dest === 'empty' &&
+    (site === 'same-origin' || site === 'same-site')
+  ) {
     return;
   }
 

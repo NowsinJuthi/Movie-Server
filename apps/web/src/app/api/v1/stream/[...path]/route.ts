@@ -15,6 +15,10 @@ async function proxy(req: NextRequest, context: RouteContext): Promise<Response>
   const headers = new Headers();
   const cookie = req.headers.get("cookie");
   if (cookie) headers.set("cookie", cookie);
+  const userAgent = req.headers.get("user-agent");
+  if (userAgent) headers.set("user-agent", userAgent);
+  const referer = req.headers.get("referer");
+  if (referer) headers.set("referer", referer);
   const range = req.headers.get("range");
   if (range) headers.set("range", range);
   const accept = req.headers.get("accept");

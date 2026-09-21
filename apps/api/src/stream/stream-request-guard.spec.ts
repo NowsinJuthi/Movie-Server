@@ -58,4 +58,16 @@ describe('stream-request-guard', () => {
       ),
     ).toThrow(ForbiddenException);
   });
+
+  it('blocks playback client header without fetch metadata (IDM replay)', () => {
+    expect(() =>
+      assertPlaybackClientRequest(
+        mockReq({
+          'user-agent': 'Mozilla/5.0',
+          [PLAYBACK_CLIENT_HEADER.toLowerCase()]: PLAYBACK_CLIENT_VALUE,
+          'sec-fetch-site': 'same-origin',
+        }),
+      ),
+    ).toThrow(ForbiddenException);
+  });
 });
