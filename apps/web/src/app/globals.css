@@ -161,6 +161,18 @@ body {
   padding-top: calc(var(--site-header-offset) + 0.5rem);
 }
 
+/* Fixed browse header — content starts below bar (mobile / tablet) */
+.browse-shell-offset {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1023px) {
+  .browse-shell-offset {
+    padding-top: var(--site-header-offset);
+  }
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

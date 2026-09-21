@@ -92,9 +92,7 @@ export function HomeChrome({
       ) : null}
       <div
         className={cn(
-          "min-w-0 overflow-x-hidden",
-          !isWatchRoute &&
-            "max-lg:pt-[var(--site-header-offset)] pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0 lg:pt-0",
+          !isWatchRoute && "browse-shell-offset pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0",
         )}
       >
         {children}
