@@ -56,7 +56,7 @@ export function MediaCarousel({
         </button>
         <div
           ref={scroller}
-          className="no-scrollbar flex snap-x gap-2 overflow-x-auto px-3 pb-16 pt-2 sm:px-4 md:gap-3 md:px-5 lg:px-6"
+          className="home-row-scroller no-scrollbar flex snap-x snap-mandatory items-start gap-2 overflow-x-auto overflow-y-visible px-3 pb-6 pt-2 sm:px-4 md:gap-3 md:pb-16 md:px-5 lg:px-6"
         >
           {row.items.map((card, cardIndex) => (
             <MediaCard

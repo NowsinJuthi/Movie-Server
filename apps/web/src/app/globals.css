@@ -103,6 +103,44 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   overscroll-behavior-y: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (max-width: 1023px) {
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+}
+
+@media (display-mode: standalone) {
+  html {
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+.home-row-scroller {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.home-row-scroller .posterLink {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.poster-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom right, var(--secondary), #000);
 }
 
 @media (hover: none) and (pointer: coarse) {

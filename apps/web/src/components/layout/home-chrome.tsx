@@ -92,6 +92,7 @@ export function HomeChrome({
       ) : null}
       <div
         className={cn(
+          "min-w-0 overflow-x-hidden",
           !isWatchRoute && "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0",
         )}
       >
