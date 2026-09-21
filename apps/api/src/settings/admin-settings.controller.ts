@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { UserRole } from '@movie-server/shared';
+import { RECOMMENDED_REGISTRATION_EMAIL_DOMAINS, UserRole } from '@movie-server/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import { SmtpTestDto, UpdateSiteSettingsDto } from './dto/update-site-settings.dto';
 import { SiteSettingsService } from './site-settings.service';
@@ -91,5 +91,10 @@ export class AdminSettingsController {
   @Post('smtp/test')
   async testSmtp(@Body() dto: SmtpTestDto) {
     return this.settings.testSmtp(dto.to);
+  }
+
+  @Get('recommended-email-domains')
+  recommendedEmailDomains() {
+    return { domains: [...RECOMMENDED_REGISTRATION_EMAIL_DOMAINS] };
   }
 }

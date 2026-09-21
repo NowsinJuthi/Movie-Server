@@ -18,6 +18,12 @@ export type AdminSmtpSettings = {
   fromHeader: string;
 };
 
+export type AdminEmailDomainSettings = {
+  allowlist: string[];
+  blocklist: string[];
+  allowlistEnabled: boolean;
+};
+
 export type AdminSiteSettings = {
   siteName: string;
   logoUrl: string | null;
@@ -27,15 +33,26 @@ export type AdminSiteSettings = {
   smtpReady: boolean;
   /** When true, members see “Request movie” in the header and can submit titles. */
   movieUploadRequestsEnabled: boolean;
+  emailDomains: AdminEmailDomainSettings;
   source: {
     siteName: 'database' | 'env';
     smtp: 'database' | 'env' | 'none';
   };
 };
 
+export type PublicRegistrationEmailPolicy = {
+  allowlistEnabled: boolean;
+  allowedDomains?: string[];
+};
+
 export type UpdateSiteSettingsInput = {
   siteName?: string;
   movieUploadRequestsEnabled?: boolean;
+  emailDomains?: {
+    allowlist?: string[];
+    blocklist?: string[];
+    allowlistEnabled?: boolean;
+  };
   smtp?: {
     enabled?: boolean;
     host?: string;

@@ -17,6 +17,8 @@ export * from './profile';
 export * from './role-assignment';
 export * from './search';
 export * from './series';
+export * from './email-domain-presets';
+export * from './email-domains';
 export * from './settings';
 export * from './smb';
 export * from './subscription';

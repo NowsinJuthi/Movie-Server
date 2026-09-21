@@ -12,7 +12,10 @@ import * as nodemailer from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import {
   ErrorCode,
+  RECOMMENDED_REGISTRATION_EMAIL_DOMAINS,
+  normalizeEmailDomainList,
   type AdminSiteSettings,
+  type EmailDomainPolicy,
   type PublicBranding,
   type PublicSiteFeatures,
   type SmtpTestResult,
@@ -43,7 +46,49 @@ export class SiteSettingsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.ensureDoc();
+    const doc = await this.ensureDoc();
+    await this.ensureDefaultEmailAllowlist(doc);
+  }
+
+  private defaultEmailAllowlist(): string[] {
+    return [...RECOMMENDED_REGISTRATION_EMAIL_DOMAINS];
+  }
+
+  private readEmailDomainPolicy(doc: SiteSettingsDocument): EmailDomainPolicy {
+    const allowlist = normalizeEmailDomainList(doc.emailDomains?.allowlist ?? []);
+    const blocklist = normalizeEmailDomainList(doc.emailDomains?.blocklist ?? []);
+    return {
+      allowlist,
+      blocklist,
+      allowlistEnabled: allowlist.length > 0,
+    };
+  }
+
+  async getEmailDomainPolicy(): Promise<EmailDomainPolicy> {
+    const doc = await this.ensureDoc();
+    return this.readEmailDomainPolicy(doc);
+  }
+
+  private async ensureDefaultEmailAllowlist(doc: SiteSettingsDocument): Promise<void> {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+    if (!doc.emailDomains) {
+      doc.emailDomains = {
+        allowlist: [],
+        blocklist: [],
+        customized: false,
+      };
+    }
+    if (doc.emailDomains.customized) {
+      return;
+    }
+    if ((doc.emailDomains.allowlist?.length ?? 0) > 0) {
+      return;
+    }
+    doc.emailDomains.allowlist = this.defaultEmailAllowlist();
+    doc.emailDomains.blocklist = doc.emailDomains.blocklist ?? [];
+    await doc.save();
   }
 
   invalidateMailCache(): void {
@@ -130,6 +175,7 @@ export class SiteSettingsService implements OnModuleInit {
       },
       smtpReady: Boolean(mail.transporter),
       movieUploadRequestsEnabled: Boolean(doc.movieUploadRequestsEnabled),
+      emailDomains: this.readEmailDomainPolicy(doc),
       source: {
         siteName: doc.siteName?.trim() ? 'database' : 'env',
         smtp: mail.source === 'none' ? 'none' : mail.source,
@@ -153,6 +199,19 @@ export class SiteSettingsService implements OnModuleInit {
 
     if (input.movieUploadRequestsEnabled !== undefined) {
       doc.movieUploadRequestsEnabled = input.movieUploadRequestsEnabled;
+    }
+
+    if (input.emailDomains) {
+      if (!doc.emailDomains) {
+        doc.emailDomains = { allowlist: [], blocklist: [], customized: false };
+      }
+      doc.emailDomains.customized = true;
+      if (input.emailDomains.allowlist !== undefined) {
+        doc.emailDomains.allowlist = normalizeEmailDomainList(input.emailDomains.allowlist);
+      }
+      if (input.emailDomains.blocklist !== undefined) {
+        doc.emailDomains.blocklist = normalizeEmailDomainList(input.emailDomains.blocklist);
+      }
     }
 
     if (input.smtp) {
