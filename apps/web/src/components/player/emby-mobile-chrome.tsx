@@ -34,6 +34,59 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function MobilePlaybackTimeStrip({
+  currentTime,
+  duration,
+  fullscreen,
+}: {
+  currentTime: number;
+  duration: number;
+  fullscreen: boolean;
+}) {
+  const remaining = Math.max(0, duration - currentTime);
+  const hasDuration = duration > 0;
+  const pct = hasDuration ? Math.min(100, Math.round((currentTime / duration) * 100)) : 0;
+
+  return (
+    <div
+      className={cn(
+        "mb-2 rounded-xl bg-black/50 px-3 py-2.5 ring-1 ring-white/12 backdrop-blur-md",
+        fullscreen && "mb-2.5 py-3",
+      )}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-white/45">
+        <span>Watched</span>
+        <span className="tabular-nums text-white/70">{hasDuration ? `${pct}%` : "—"}</span>
+        <span>Remaining</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 tabular-nums">
+        <span className={cn("shrink-0 font-semibold text-white", fullscreen ? "text-base" : "text-sm")}>
+          {formatTime(currentTime)}
+        </span>
+        <div className="min-w-0 flex-1 px-1 text-center">
+          <div className="mx-auto h-1 max-w-[8rem] overflow-hidden rounded-full bg-white/15">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-[var(--brand-deep)] transition-[width] duration-300 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="mt-1 truncate text-[10px] text-white/40">
+            {hasDuration ? `Total ${formatTime(duration)}` : "Duration loading…"}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 text-right font-semibold text-primary",
+            fullscreen ? "text-base" : "text-sm",
+          )}
+        >
+          {hasDuration ? formatTime(remaining) : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function stopControlBubble(event: { stopPropagation: () => void }) {
   event.stopPropagation();
 }
@@ -289,10 +342,17 @@ export function EmbyMobileChrome({
 
       {/* Bottom — transport (same layout in inline and fullscreen) */}
       <div
-        className="pointer-events-auto relative z-20 shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className={cn(
+          "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overflow-x-hidden overscroll-contain",
+          "pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]",
+          "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+          fullscreen && "pb-[max(1.75rem,env(safe-area-inset-bottom))]",
+        )}
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
+        <MobilePlaybackTimeStrip currentTime={currentTime} duration={duration} fullscreen={fullscreen} />
+
         <SeekBar
           variant="emby"
           currentTime={currentTime}
@@ -302,11 +362,6 @@ export function EmbyMobileChrome({
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />
-
-        <div className="mb-1 flex items-center justify-between text-xs tabular-nums text-white/75">
-          <span>{formatTime(currentTime)}</span>
-          <span>-{formatTime(Math.max(0, duration - currentTime))}</span>
-        </div>
 
         <div className="mb-2 flex items-center justify-center">
           <MobileTransportCluster
@@ -364,7 +419,12 @@ export function EmbyMobileChrome({
           </div>
         ) : null}
 
-        <div className="flex items-center justify-center gap-1">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-1",
+            fullscreen && "gap-0.5 pb-0.5",
+          )}
+        >
           {onOpenEpisodes ? (
             <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
               <ListVideo className="h-5 w-5" />
