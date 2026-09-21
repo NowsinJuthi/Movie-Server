@@ -128,7 +128,7 @@ export default function AppHomePage() {
               ) : null}
             </section>
           )}
-          <div className="relative z-10 -mt-10 space-y-2 bg-gradient-to-b from-background via-background to-background pb-16 pt-2 md:-mt-16 md:pt-0">
+          <div className="relative z-10 space-y-2 pb-16 md:-mt-16">
             {(homeQuery.data?.rows ?? []).map((row, index) => (
               <LazyMount key={row.id} eager={index < 10}>
                 <MediaCarousel row={row} onToggleList={listToggle.mutate} listPending={listToggle.isPending} />
