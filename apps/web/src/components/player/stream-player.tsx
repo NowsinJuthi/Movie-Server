@@ -1896,8 +1896,12 @@ export function StreamPlayer({
             )
           : "relative min-h-screen",
       )}
-      onMouseMove={revealControls}
-      onTouchStart={revealControls}
+      onMouseMove={() => {
+        if (!mobileLayoutRef.current && !isCoarsePointerMobile()) revealControls();
+      }}
+      onTouchStart={() => {
+        if (!mobileLayoutRef.current && !isCoarsePointerMobile()) revealControls();
+      }}
     >
       <video
         ref={videoRef}
