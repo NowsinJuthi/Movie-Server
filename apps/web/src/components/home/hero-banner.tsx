@@ -66,7 +66,8 @@ export function HeroBanner({
         </div>
       ))}
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/55 max-md:via-black/25 md:max-lg:via-black/55" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent max-md:from-background/80 lg:to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent max-md:via-background/75 lg:to-black/40" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-24 bg-gradient-to-t from-background from-15% via-background/80 to-transparent shadow-[0_28px_56px_28px_var(--background)] md:h-32" />
       <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-8 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
         <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
