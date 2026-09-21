@@ -4,7 +4,8 @@
   top: 0;
   z-index: 50;
   background: var(--background);
-  backdrop-filter: blur(12px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   animation: headerAppear 0.18s ease-out both;
 }
 
@@ -30,25 +31,12 @@
   padding-bottom: 0;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .siteHeaderInner {
     height: 4rem;
     gap: 0.75rem;
-    padding-inline: 1rem;
   }
 
-  .mobileLogoWrap img {
-    height: 2.25rem;
-    max-width: 140px;
-  }
-
-  .iconBtn {
-    height: 2.25rem;
-    width: 2.25rem;
-  }
-}
-
-@media (min-width: 1024px) {
   .iconBtn {
     height: 2.5rem;
     width: 2.5rem;
@@ -60,54 +48,6 @@
     padding-inline: 1.5rem;
     padding-top: max(0.75rem, env(safe-area-inset-top));
     padding-bottom: 0.75rem;
-  }
-}
-
-@media (max-width: 1023px) {
-  .siteHeader {
-    padding-top: env(safe-area-inset-top, 0px);
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .siteHeaderTransparent {
-    background: var(--background);
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .siteHeaderInner {
-    height: 3.5rem;
-    padding-top: 0;
-    padding-bottom: 0;
-    padding-inline: 0.75rem;
-  }
-
-  .iconBtn,
-  .headerCircleBtn {
-    height: 2rem;
-    width: 2rem;
-    border-radius: 0.75rem;
-    border-color: color-mix(in oklch, var(--primary) 22%, var(--border));
-    background: linear-gradient(
-      165deg,
-      color-mix(in oklch, var(--primary) 8%, var(--card)) 0%,
-      color-mix(in oklch, var(--primary) 3%, var(--background)) 100%
-    );
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .iconBtn:hover,
-  .headerCircleBtn:hover {
-    box-shadow: none;
-  }
-
-  .mobileLogoWrap img {
-    height: 2.5rem;
-    max-width: 160px;
   }
 }
 
@@ -134,44 +74,58 @@
 .iconBtn,
 .headerCircleBtn {
   display: grid;
-  height: 2.375rem;
-  width: 2.375rem;
+  height: 2rem;
+  width: 2rem;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in oklch, var(--primary) 26%, var(--border));
-  background: color-mix(in oklch, var(--card) 48%, transparent);
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+  background: color-mix(in oklch, var(--card) 92%, var(--background));
   color: var(--primary);
-  backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
   transition:
     border-color 0.2s ease,
     color 0.2s ease,
     transform 0.2s ease,
-    box-shadow 0.2s ease,
     background 0.2s ease;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 6px 18px -10px rgb(0 0 0 / 0.45),
-    0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
 }
 
 .iconBtn:hover,
 .headerCircleBtn:hover {
   border-color: color-mix(in oklch, var(--primary) 48%, transparent);
-  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
   color: var(--brand-soft);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 8px 22px -10px rgb(0 0 0 / 0.5),
-    0 0 20px -8px color-mix(in oklch, var(--primary) 42%, transparent);
 }
 
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
+  .siteHeader {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
   .iconBtn,
   .headerCircleBtn {
     height: 2.5rem;
     width: 2.5rem;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--card) 48%, transparent);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 6px 18px -10px rgb(0 0 0 / 0.45),
+      0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
+  }
+
+  .iconBtn:hover,
+  .headerCircleBtn:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 8px 22px -10px rgb(0 0 0 / 0.5),
+      0 0 20px -8px color-mix(in oklch, var(--primary) 42%, transparent);
   }
 }
 
@@ -962,6 +916,56 @@
   margin-top: 0.25rem;
   padding-left: 0.5rem;
   list-style: none;
+}
+
+/* Mobile + tablet + iOS standalone: opaque bar (must follow desktop icon rules) */
+@media (max-width: 1023px) {
+  .siteHeader {
+    padding-top: env(safe-area-inset-top, 0px);
+    border-bottom: 1px solid var(--border);
+    background: var(--background);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none;
+  }
+
+  .siteHeaderTransparent {
+    background: var(--background);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none;
+  }
+
+  .siteHeaderInner {
+    height: 3.5rem;
+    gap: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-inline: 0.75rem;
+  }
+
+  .iconBtn,
+  .headerCircleBtn {
+    height: 2rem;
+    width: 2rem;
+    border-radius: 0.75rem;
+    border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+    background: color-mix(in oklch, var(--card) 92%, var(--background));
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  .iconBtn:hover,
+  .headerCircleBtn:hover {
+    transform: none;
+    box-shadow: none !important;
+  }
+
+  .mobileLogoWrap img {
+    height: 2.5rem;
+    max-width: 160px;
+  }
 }
 
 @keyframes headerAppear {

@@ -118,12 +118,20 @@ body {
 @media (display-mode: standalone) {
   html {
     scrollbar-width: none;
+    background: var(--background);
   }
 
   html::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
+  }
+
+  .site-browse-header {
+    background: var(--background) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
   }
 }
 

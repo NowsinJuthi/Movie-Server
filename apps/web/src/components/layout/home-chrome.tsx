@@ -60,6 +60,13 @@ export function HomeChrome({
   }, [activeQuery.data, setActiveProfile, router, status, pathname]);
 
   useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    document.documentElement.dataset.standalonePwa = standalone ? "true" : "false";
+  }, []);
+
+  useEffect(() => {
     if (isWatchRoute) return;
     if (!isHomeHero || isSubscribeRoute) {
       setScrolled(true);
