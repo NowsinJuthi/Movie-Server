@@ -30,12 +30,6 @@ async function proxy(req: NextRequest, context: RouteContext): Promise<Response>
   }
 
   const proxySecret = streamProxyPolicyFromEnv().streamProxySecret;
-  if (!proxySecret && process.env.NODE_ENV === "production") {
-    return NextResponse.json(
-      { error: ErrorCode.Forbidden, message: "Stream proxy is not configured." },
-      { status: 503 },
-    );
-  }
 
   const { path } = await context.params;
   const target = new URL(`${API}/api/v1/stream/${path.map(encodeURIComponent).join("/")}`);

@@ -753,6 +753,16 @@ export function StreamPlayer({
           return;
         }
 
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          mediaOriginRef.current = Math.max(0, resumeRef.current);
+          usingHlsRef.current = true;
+          setUsingHls(true);
+          video.src = src;
+          video.load();
+          void tryStartPlayback();
+          return;
+        }
+
         fallback();
       }).catch(() => fallback());
     },
@@ -762,7 +772,11 @@ export function StreamPlayer({
   const attachPlayback = useCallback(
     (info: PlaybackSessionInfo) => {
       if (info.directPlay) {
-        attachHls(info);
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
+        } else {
+          attachHls(info);
+        }
         return;
       }
       if (info.hevcStream && !browserSupportsHevcDirectStream()) {

@@ -57,11 +57,25 @@ export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDelive
   const site = readHeader(headers, 'sec-fetch-site');
   const dest = readHeader(headers, 'sec-fetch-dest');
   const mode = readHeader(headers, 'sec-fetch-mode');
+  const referer = readHeader(headers, 'referer');
 
-  return (
+  if (
     client === PLAYBACK_CLIENT_VALUE &&
     mode === 'cors' &&
     dest === 'empty' &&
     (site === 'same-origin' || site === 'same-site')
-  );
+  ) {
+    return true;
+  }
+
+  // Native `<video>` / Safari HLS — no custom headers; require watch-page Referer (IDM replay usually omits it).
+  if (
+    dest === 'video' &&
+    (site === 'same-origin' || site === 'same-site') &&
+    /\/watch(\/|\?|$)/i.test(referer)
+  ) {
+    return true;
+  }
+
+  return false;
 }

@@ -10,9 +10,11 @@ export function streamDeliveryPolicyFromConfig(config: ConfigService): StreamDel
     blockPublicApiHost = undefined;
   }
 
+  const requireProxy = (config.get<string>('STREAM_DELIVERY_REQUIRE_PROXY') ?? '').toLowerCase();
   return {
     streamProxySecret: config.get<string>('STREAM_PROXY_SECRET') || undefined,
-    requireStreamProxy: config.get<string>('NODE_ENV') === 'production',
+    // Opt-in: strict proxy-only mode (needs nginx stream → Next + web env secret).
+    requireStreamProxy: ['1', 'true', 'yes', 'on'].includes(requireProxy),
     blockPublicApiHost,
   };
 }

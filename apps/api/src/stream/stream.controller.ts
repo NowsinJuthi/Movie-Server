@@ -107,8 +107,6 @@ export class StreamController {
         resolution,
         startSeconds,
       );
-    } else {
-      await this.streams.ensureDirectPlayHls(sid, userId, resolution, startSeconds);
     }
     const body = await this.streams.readVariantPlaylist(
       session,

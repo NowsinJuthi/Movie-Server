@@ -63,7 +63,22 @@ describe('stream-request-guard', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it('blocks forged video element metadata without playback client', () => {
+  it('allows native video when Referer is the watch page', () => {
+    expect(() =>
+      assertPlaybackClientRequest(
+        mockReq({
+          'user-agent': 'Mozilla/5.0',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-dest': 'video',
+          'sec-fetch-mode': 'no-cors',
+          referer: 'https://movies.amarpin.com/home/movies/abc/watch',
+        }),
+        devPolicy,
+      ),
+    ).not.toThrow();
+  });
+
+  it('blocks forged video element metadata without watch Referer', () => {
     expect(() =>
       assertPlaybackClientRequest(
         mockReq({

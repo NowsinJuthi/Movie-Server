@@ -41,7 +41,7 @@ import { StorageFactory } from '../library/storage/storage.factory';
 import { toPublicPlayback } from './playback-public';
 import { PlaybackSessionStore } from './playback-session.store';
 import { StoredPlaybackSession, StoredPlaybackTrack, StoredPlaybackVariant } from './playback-session.types';
-import { variantBandwidth } from './hls-playlist';
+import { buildMediaPlaylist, variantBandwidth } from './hls-playlist';
 import { pickStoredTrack, preferredSubtitleCode, toPlaybackTrack } from './playback-tracks.util';
 import { isPlayableSubtitleFormat, subtitleFormatFromName, toSafeWebVtt } from './subtitle-text';
 import { isAudioFile, isSubtitleFile } from '../library/matching/filename-parser';
@@ -357,6 +357,9 @@ export class StreamService {
     resolution: string,
     mediaToken: string,
   ): Promise<string> {
+    if (!session.videoTranscode && !session.videoRemux) {
+      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+    }
     return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
   }
 
