@@ -238,6 +238,18 @@ export function unlockPlaybackOrientation(): void {
   }
 }
 
+/** Clear player scroll/orientation locks so browse pages scroll on mobile (Android PWA). */
+export function releaseBrowseScrollLock(): void {
+  if (typeof document === "undefined") return;
+  delete document.documentElement.dataset.playerImmersive;
+  document.documentElement.style.removeProperty("overflow");
+  document.body.style.removeProperty("overflow");
+  document.body.style.removeProperty("position");
+  document.body.style.removeProperty("height");
+  document.body.style.removeProperty("touch-action");
+  unlockPlaybackOrientation();
+}
+
 /** Toggle fullscreen on the player shell so custom controls stay visible. Returns true if API fullscreen changed. */
 export async function toggleVideoFullscreen(
   video: HTMLVideoElement,

@@ -108,7 +108,13 @@ body {
 }
 
 @media (max-width: 1023px) {
-  html,
+  html {
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
     overflow-x: hidden;
     max-width: 100%;
@@ -158,12 +164,6 @@ body {
     transform: translate(-50%, -50%) rotate(90deg) !important;
     transform-origin: center center;
   }
-}
-
-html[data-player-immersive="true"],
-html[data-player-immersive="true"] body {
-  overflow: hidden;
-  overscroll-behavior: none;
 }
 
 .home-row-scroller {

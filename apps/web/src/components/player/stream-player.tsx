@@ -57,6 +57,7 @@ import {
   lockPlaybackLandscape,
   seekVideoTo,
   toggleVideoFullscreen,
+  releaseBrowseScrollLock,
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
@@ -166,7 +167,7 @@ export function StreamPlayer({
 
   const goBack = useCallback(() => {
     setPseudoFullscreen(false);
-    unlockPlaybackOrientation();
+    releaseBrowseScrollLock();
     const target = returnToRef.current;
     clearPlayerReturn();
     if (target) {
@@ -1954,21 +1955,15 @@ export function StreamPlayer({
 
   useEffect(() => {
     if (!mobileImmersive) return;
-    const root = document.documentElement;
-    root.dataset.playerImmersive = "true";
-    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      delete root.dataset.playerImmersive;
-      document.body.style.overflow = prevOverflow;
+      document.body.style.removeProperty("overflow");
     };
   }, [mobileImmersive]);
 
   useEffect(() => {
     return () => {
-      unlockPlaybackOrientation();
-      delete document.documentElement.dataset.playerImmersive;
-      document.body.style.overflow = "";
+      releaseBrowseScrollLock();
     };
   }, []);
 
