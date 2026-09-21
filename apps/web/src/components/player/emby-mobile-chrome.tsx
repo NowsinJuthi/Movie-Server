@@ -58,15 +58,8 @@ function MobileSeekWithTimes({
     longTimes ? "text-[10px]" : fullscreen ? "text-xs" : "text-[11px]",
   );
 
-  const labelClass =
-    "text-[10px] font-medium uppercase tracking-[0.12em] text-white/45 leading-none";
-
   return (
     <div className={cn("mb-2 w-full", fullscreen && "-mx-1.5 w-[calc(100%+0.75rem)] max-w-none sm:-mx-2 sm:w-[calc(100%+1rem)]")}>
-      <div className="mb-1 flex w-full items-center justify-between gap-2">
-        <span className={labelClass}>Watched</span>
-        <span className={cn(labelClass, "text-right")}>Remaining</span>
-      </div>
       <div className="w-full">
         <SeekBar
           variant="emby"
