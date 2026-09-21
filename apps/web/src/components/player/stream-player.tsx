@@ -36,9 +36,11 @@ import { ApiError } from "@/lib/api";
 import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import {
+  autoplayPlayerHref,
   clearPlayerReturn,
   consumeMobileAutoplayTap,
   isSafeAppPath,
+  markMobileAutoplayTap,
   peekPlayerReturn,
 } from "@/lib/player-return";
 import {
@@ -226,6 +228,17 @@ export function StreamPlayer({
   const mobileLayout = useMobilePlayerLayout();
   const mobileLayoutRef = useRef(mobileLayout);
   mobileLayoutRef.current = mobileLayout;
+
+  const goToPlayerHref = useCallback(
+    (href: string, options?: { autoplay?: boolean }) => {
+      const autoplay = options?.autoplay !== false;
+      if (autoplay && (mobileLayoutRef.current || isCoarsePointerMobile())) {
+        markMobileAutoplayTap();
+      }
+      router.push(autoplay ? autoplayPlayerHref(href) : href);
+    },
+    [router],
+  );
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const timelineDuration = durationHint > 0 ? durationHint : duration;
@@ -912,6 +925,19 @@ export function StreamPlayer({
         nextStarted.current = true;
         setCountdown(AUTO_NEXT_SECONDS);
       }
+      // iOS Safari often skips `ended` for HLS — treat near-end while still playing as finished.
+      if (
+        autoPlayNext &&
+        next &&
+        !nextStarted.current &&
+        effectiveDur > 0 &&
+        displayTime >= effectiveDur - 0.4 &&
+        !video.paused &&
+        !video.seeking
+      ) {
+        nextStarted.current = true;
+        setCountdown(AUTO_NEXT_SECONDS);
+      }
     };
     const onPlay = () => {
       setPlaying(true);
@@ -1004,12 +1030,12 @@ export function StreamPlayer({
   useEffect(() => {
     if (countdown == null || !next) return;
     if (countdown <= 0) {
-      router.push(next.href);
+      goToPlayerHref(next.href);
       return;
     }
     const id = window.setTimeout(() => setCountdown((value) => (value == null ? null : value - 1)), 1000);
     return () => window.clearTimeout(id);
-  }, [countdown, next, router]);
+  }, [countdown, goToPlayerHref, next]);
 
   useEffect(() => {
     setPipSupported("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled));
@@ -1698,11 +1724,11 @@ export function StreamPlayer({
           break;
         case "n":
         case "N":
-          if (next) router.push(next.href);
+          if (next) goToPlayerHref(next.href);
           break;
         case "p":
         case "P":
-          if (previous) router.push(previous.href);
+          if (previous) goToPlayerHref(previous.href);
           break;
         case "i":
         case "I":
@@ -1750,6 +1776,7 @@ export function StreamPlayer({
     changeVolume,
     inIntro,
     inRecap,
+    goToPlayerHref,
     next,
     previous,
     rate,
@@ -1947,14 +1974,30 @@ export function StreamPlayer({
       ) : null}
 
       {countdown != null && next ? (
-        <div className="absolute right-6 top-40 z-20 rounded-lg bg-black/80 p-4">
-          <p className="text-sm">Next episode in {countdown}s</p>
+        <div
+          className={cn(
+            "absolute z-30 rounded-xl bg-black/85 p-4 ring-1 ring-white/15 shadow-lg",
+            mobileLayout
+              ? "inset-x-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-40",
+          )}
+        >
+          <p className="text-sm font-medium">Next episode in {countdown}s</p>
           <p className="mt-1 text-xs text-white/70">{next.title}</p>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={() => router.push(next.href)}>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              className="min-h-11 flex-1 touch-manipulation sm:flex-none"
+              onClick={() => goToPlayerHref(next.href)}
+            >
               Play now
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setCountdown(null)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11 flex-1 touch-manipulation sm:flex-none"
+              onClick={() => setCountdown(null)}
+            >
               Stay
             </Button>
           </div>
@@ -2017,6 +2060,11 @@ export function StreamPlayer({
               setSheet("settings");
               setSettingsView("quality");
             }}
+            hasPreviousEpisode={Boolean(previous)}
+            hasNextEpisode={Boolean(next)}
+            onPreviousEpisode={previous ? () => goToPlayerHref(previous.href) : undefined}
+            onNextEpisode={next ? () => goToPlayerHref(next.href) : undefined}
+            onOpenEpisodes={next || previous ? () => goToPlayerHref(backHref, { autoplay: false }) : undefined}
           />
         ) : (
           <>
@@ -2411,13 +2459,17 @@ export function StreamPlayer({
                   variant="ghost"
                   size="sm"
                   className="ml-1 hidden min-h-10 text-white/80 hover:bg-white/10 md:inline-flex"
-                  onClick={() => router.push(previous.href)}
+                  onClick={() => goToPlayerHref(previous.href)}
                 >
                   Previous
                 </Button>
               ) : null}
               {next ? (
-                <Button size="sm" className="ml-1 hidden min-h-10 md:inline-flex" onClick={() => router.push(next.href)}>
+                <Button
+                  size="sm"
+                  className="ml-1 hidden min-h-10 md:inline-flex"
+                  onClick={() => goToPlayerHref(next.href)}
+                >
                   <SkipForward className="h-4 w-4" />
                   Next
                 </Button>

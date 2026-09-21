@@ -11,9 +11,12 @@ import {
   Minimize,
   Pause,
   Play,
+  ListVideo,
   RotateCcw,
   RotateCw,
   Settings,
+  SkipBack,
+  SkipForward,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -40,14 +43,32 @@ function MobileTransportCluster({
   playing,
   onTogglePlay,
   onSeekBy,
+  onPreviousEpisode,
+  onNextEpisode,
 }: {
   compact: boolean;
   playing: boolean;
   onTogglePlay: () => void;
   onSeekBy: (seconds: number) => void;
+  onPreviousEpisode?: () => void;
+  onNextEpisode?: () => void;
 }) {
   return (
-    <div className={cn("flex items-center", compact ? "gap-3.5" : "gap-5")}>
+    <div className={cn("flex items-center", compact ? "gap-2.5" : "gap-3")}>
+      {onPreviousEpisode ? (
+        <button
+          type="button"
+          aria-label="Previous episode"
+          onClick={onPreviousEpisode}
+          onTouchStart={stopControlBubble}
+          className={cn(
+            "inline-flex touch-manipulation items-center justify-center rounded-full text-white/90 ring-1 ring-white/20 active:bg-white/10",
+            compact ? "h-9 w-9" : "h-10 w-10",
+          )}
+        >
+          <SkipBack className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+        </button>
+      ) : null}
       <button
         type="button"
         aria-label="Rewind 10 seconds"
@@ -90,6 +111,20 @@ function MobileTransportCluster({
         <RotateCw className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
         <span className={cn("absolute font-semibold", compact ? "text-[8px]" : "text-[9px]")}>10</span>
       </button>
+      {onNextEpisode ? (
+        <button
+          type="button"
+          aria-label="Next episode"
+          onClick={onNextEpisode}
+          onTouchStart={stopControlBubble}
+          className={cn(
+            "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary/15 text-white ring-1 ring-primary/35 active:bg-primary/25",
+            compact ? "h-9 w-9" : "h-10 w-10",
+          )}
+        >
+          <SkipForward className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -152,6 +187,11 @@ export type EmbyMobileChromeProps = {
   onToggleSettings: () => void;
   onToggleFullscreen: () => void;
   onOpenQuality: () => void;
+  hasPreviousEpisode?: boolean;
+  hasNextEpisode?: boolean;
+  onPreviousEpisode?: () => void;
+  onNextEpisode?: () => void;
+  onOpenEpisodes?: () => void;
 };
 
 export function EmbyMobileChrome({
@@ -185,6 +225,11 @@ export function EmbyMobileChrome({
   onToggleSettings,
   onToggleFullscreen,
   onOpenQuality,
+  hasPreviousEpisode,
+  hasNextEpisode,
+  onPreviousEpisode,
+  onNextEpisode,
+  onOpenEpisodes,
 }: EmbyMobileChromeProps) {
   const [volumeOpen, setVolumeOpen] = useState(false);
   const displayVolume = muted ? 0 : volume;
@@ -254,6 +299,8 @@ export function EmbyMobileChrome({
               playing={playing}
               onTogglePlay={onTogglePlay}
               onSeekBy={onSeekBy}
+              onPreviousEpisode={hasPreviousEpisode ? onPreviousEpisode : undefined}
+              onNextEpisode={hasNextEpisode ? onNextEpisode : undefined}
             />
           </div>
         </div>
@@ -287,6 +334,8 @@ export function EmbyMobileChrome({
               playing={playing}
               onTogglePlay={onTogglePlay}
               onSeekBy={onSeekBy}
+              onPreviousEpisode={hasPreviousEpisode ? onPreviousEpisode : undefined}
+              onNextEpisode={hasNextEpisode ? onNextEpisode : undefined}
             />
           </div>
         ) : null}
@@ -337,6 +386,11 @@ export function EmbyMobileChrome({
         ) : null}
 
         <div className="flex items-center justify-center gap-1">
+          {onOpenEpisodes ? (
+            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
+              <ListVideo className="h-5 w-5" />
+            </MobileIconButton>
+          ) : null}
           <MobileIconButton
             label={volumeOpen ? "Hide volume" : "Volume"}
             active={volumeOpen}
