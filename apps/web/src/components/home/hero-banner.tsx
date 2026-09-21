@@ -87,12 +87,12 @@ export function HeroBanner({
         <p className="mt-4 hidden max-w-xl text-sm leading-6 text-white/80 md:line-clamp-3 md:block md:text-base">
           {active.description}
         </p>
-        <div className="mt-3 flex w-full items-center gap-2 md:hidden">
+        <div className="relative mt-3 flex w-full items-center gap-2 md:hidden">
           <button
             type="button"
             aria-label="Play"
             onClick={play}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
+            className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
           >
             <Play className="ml-px h-4 w-4 fill-current" />
           </button>
@@ -100,28 +100,30 @@ export function HeroBanner({
             type="button"
             aria-label="More info"
             onClick={() => router.push(active.href)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
+            className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
           >
             <Info className="h-4 w-4" />
           </button>
           {slides.length > 1 ? (
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
-              {slides.map((slide, slideIndex) => (
-                <button
-                  key={slide.id}
-                  type="button"
-                  aria-label={`Go to slide ${slideIndex + 1}`}
-                  className="inline-flex h-9 w-6 shrink-0 touch-manipulation items-center justify-center"
-                  onClick={() => setIndex(slideIndex)}
-                >
-                  <span
-                    className={cn(
-                      "rounded-full transition-all",
-                      slideIndex === index ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-white/45",
-                    )}
-                  />
-                </button>
-              ))}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="pointer-events-auto flex items-center gap-1">
+                {slides.map((slide, slideIndex) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    aria-label={`Go to slide ${slideIndex + 1}`}
+                    className="inline-flex h-8 w-3.5 shrink-0 touch-manipulation items-center justify-center"
+                    onClick={() => setIndex(slideIndex)}
+                  >
+                    <span
+                      className={cn(
+                        "rounded-full transition-all",
+                        slideIndex === index ? "h-1.5 w-4 bg-primary" : "h-1.5 w-1.5 bg-white/45",
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
