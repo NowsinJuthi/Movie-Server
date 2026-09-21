@@ -257,7 +257,7 @@ describe('Playback streaming (e2e)', () => {
       /^\/api\/v1\/stream\/[a-f0-9]{32}\/master\?mt=[a-f0-9]{32}$/,
     );
     expect(playback.body.session.progressiveUrl).toMatch(
-      /^\/api\/v1\/stream\/[a-f0-9]{32}\/media\?mt=[a-f0-9]{32}$/,
+      /^\/api\/v1\/stream\/[a-f0-9]{32}\/master\?mt=[a-f0-9]{32}$/,
     );
     assertNoPaths(playback.body);
     const sessionId = playback.body.session.id as string;
@@ -287,8 +287,8 @@ describe('Playback streaming (e2e)', () => {
     const missingFile = await asPlaybackClient(request(server)
       .get(`${prefix}/stream/${sessionId}/media`))
       .set('Cookie', viewer);
-    expect(missingFile.status).toBe(404);
-    expect(missingFile.body.error).toBe(ErrorCode.PlaybackUnavailable);
+    expect(missingFile.status).toBe(403);
+    expect(missingFile.body.error).toBe(ErrorCode.Forbidden);
 
     const secondStream = await request(server)
       .post(`${prefix}/movies/${betaId}/playback`)
@@ -384,17 +384,13 @@ describe('Playback streaming (e2e)', () => {
     const full = await asPlaybackClient(request(server)
       .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer);
-    expect([200, 206]).toContain(full.status);
-    expect(full.body.length ?? Number(full.headers['content-length'])).toBeGreaterThan(0);
+    expect(full.status).toBe(403);
 
     const ranged = await asPlaybackClient(request(server)
       .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer)
       .set('Range', 'bytes=0-99');
-    expect(ranged.status).toBe(206);
-    expect(ranged.headers['content-range']).toMatch(/^bytes 0-99\//);
-    expect(Number(ranged.headers['content-length'])).toBe(100);
-    expect(ranged.headers['accept-ranges']).toBe('bytes');
+    expect(ranged.status).toBe(403);
 
     const unpublished = await request(server)
       .patch(`${prefix}/admin/movies/${fileMovieId}`)
@@ -405,7 +401,7 @@ describe('Playback streaming (e2e)', () => {
     const staleMedia = await asPlaybackClient(request(server)
       .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer);
-    expect([401, 404]).toContain(staleMedia.status);
+    expect(staleMedia.status).toBe(403);
 
     const staleBeat = await request(server)
       .post(`${prefix}/stream/${fileSession}/heartbeat`)

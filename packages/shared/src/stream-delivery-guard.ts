@@ -76,11 +76,11 @@ export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDelive
     return true;
   }
 
-  // Native HLS only on Apple — IDM Chrome integration sends dest=video + watch Referer.
+  // Native HLS on Apple only (playlists + segments). Windows IDM uses Chrome UA.
   if (
     isAppleNativeHlsUserAgent(ua) &&
-    dest === 'video' &&
-    mode === 'no-cors' &&
+    (dest === 'video' || dest === 'empty') &&
+    (mode === 'no-cors' || mode === 'cors' || !mode) &&
     (site === 'same-origin' || site === 'same-site') &&
     /\/watch(\/|\?|$)/i.test(referer)
   ) {
