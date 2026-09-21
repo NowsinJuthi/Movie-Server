@@ -66,7 +66,14 @@ export function HomeChrome({
       setScrolled(true);
       return;
     }
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    const onScroll = () => {
+      // UniQbd-style: mobile header stays a solid bar over the hero (no transparent overlay).
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setScrolled(true);
+        return;
+      }
+      setScrolled(window.scrollY > 24);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

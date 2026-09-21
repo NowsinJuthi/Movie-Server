@@ -22,12 +22,16 @@
   --brand-deep: #0a6258;
   --brand-soft: #5eead4;
   /* Matches .siteHeaderInner (browse/admin fixed header) */
-  --site-header-offset: calc(
-    3.5rem + max(0.75rem, env(safe-area-inset-top, 0px)) + 0.75rem
-  );
+  --site-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
 }
 
 @media (min-width: 640px) {
+  :root {
+    --site-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
   :root {
     --site-header-offset: calc(
       4rem + max(0.75rem, env(safe-area-inset-top, 0px)) + 0.75rem
