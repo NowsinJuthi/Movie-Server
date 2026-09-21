@@ -66,7 +66,7 @@ export function HeroBanner({
         </div>
       ))}
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent lg:to-black/40" />
       <div className="relative flex min-h-[78vw] max-w-3xl flex-col justify-end px-3 pb-16 pt-28 sm:px-4 md:min-h-[56vw] md:px-5 lg:min-h-[42vw] lg:px-6 lg:pb-24">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}

@@ -15,6 +15,13 @@
     transparent 100%
   );
   box-shadow: none;
+  backdrop-filter: none;
+}
+
+@media (max-width: 1023px) {
+  .siteHeaderTransparent {
+    background: transparent;
+  }
 }
 
 .siteHeaderInner {
