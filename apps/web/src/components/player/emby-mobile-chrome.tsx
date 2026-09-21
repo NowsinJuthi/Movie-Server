@@ -34,7 +34,8 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function MobileSeekWithTimes({
+/** Emby mobile: elapsed | scrubber | total on one row at the bottom edge. */
+function MobileSeekEmbyRow({
   currentTime,
   duration,
   fullscreen,
@@ -51,38 +52,43 @@ function MobileSeekWithTimes({
   onSeek: (ratio: number) => void;
   onScrubbingChange: (active: boolean) => void;
 }) {
-  const remaining = Math.max(0, duration - currentTime);
   const longTimes = duration >= 3600 || currentTime >= 3600;
   const timeClass = cn(
-    "shrink-0 max-w-[4.25rem] truncate font-semibold tabular-nums leading-none",
-    longTimes ? "text-[10px]" : fullscreen ? "text-xs" : "text-[11px]",
+    "shrink-0 font-medium tabular-nums leading-none text-white",
+    longTimes ? "text-[11px]" : "text-[13px]",
   );
 
   return (
     <div
       className={cn(
-        "mb-0 mt-2 w-full pt-1",
+        "w-full pt-1",
         fullscreen && "-mx-1.5 w-[calc(100%+0.75rem)] max-w-none sm:-mx-2 sm:w-[calc(100%+1rem)]",
       )}
     >
-      <div className="w-full">
-        <SeekBar
-          variant="emby"
-          emphasis
-          currentTime={currentTime}
-          duration={duration}
-          bufferedEnd={bufferedEnd}
-          transcode={transcode}
-          onSeek={onSeek}
-          onScrubbingChange={onScrubbingChange}
-        />
-      </div>
-      <div className="mt-1 flex w-full items-center justify-between gap-2 tabular-nums">
-        <span className={cn(timeClass, "text-left text-white/90")} aria-label="Elapsed">
+      <div className="flex items-center gap-2.5">
+        <span className={cn(timeClass, longTimes ? "min-w-[3rem]" : "min-w-[2.75rem]", "text-left")}>
           {formatTime(currentTime)}
         </span>
-        <span className={cn(timeClass, "text-right text-primary")} aria-label="Remaining">
-          {duration > 0 ? formatTime(remaining) : "—"}
+        <div className="min-w-0 flex-1 -my-2">
+          <SeekBar
+            variant="emby"
+            emphasis
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            transcode={transcode}
+            onSeek={onSeek}
+            onScrubbingChange={onScrubbingChange}
+          />
+        </div>
+        <span
+          className={cn(
+            timeClass,
+            longTimes ? "min-w-[3rem]" : "min-w-[2.75rem]",
+            "text-right text-white/60",
+          )}
+        >
+          {duration > 0 ? formatTime(duration) : "--:--"}
         </span>
       </div>
     </div>
@@ -109,7 +115,7 @@ function MobileTransportCluster({
   onNextEpisode?: () => void;
 }) {
   return (
-    <div className={cn("flex items-center", compact ? "gap-2.5" : "gap-3")}>
+    <div className={cn("flex items-center", compact ? "gap-4" : "gap-5")}>
       {onPreviousEpisode ? (
         <button
           type="button"
@@ -117,11 +123,11 @@ function MobileTransportCluster({
           onClick={onPreviousEpisode}
           onTouchStart={stopControlBubble}
           className={cn(
-            "inline-flex touch-manipulation items-center justify-center rounded-full text-white/90 ring-1 ring-white/20 active:bg-white/10",
-            compact ? "h-9 w-9" : "h-10 w-10",
+            "inline-flex touch-manipulation items-center justify-center text-white/85 active:opacity-60",
+            compact ? "h-10 w-10" : "h-11 w-11",
           )}
         >
-          <SkipBack className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+          <SkipBack className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
         </button>
       ) : null}
       <button
@@ -130,12 +136,14 @@ function MobileTransportCluster({
         onClick={() => onSeekBy(-10)}
         onTouchStart={stopControlBubble}
         className={cn(
-          "relative inline-flex touch-manipulation items-center justify-center text-white/90 active:opacity-70",
-          compact ? "h-9 w-9" : "h-10 w-10",
+          "relative inline-flex touch-manipulation items-center justify-center text-white/85 active:opacity-60",
+          compact ? "h-10 w-10" : "h-11 w-11",
         )}
       >
-        <RotateCcw className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
-        <span className={cn("absolute font-semibold", compact ? "text-[8px]" : "text-[9px]")}>10</span>
+        <RotateCcw className={cn(compact ? "h-6 w-6" : "h-7 w-7")} strokeWidth={1.5} />
+        <span className={cn("absolute font-semibold text-white/90", compact ? "text-[9px]" : "text-[10px]")}>
+          10
+        </span>
       </button>
       <button
         type="button"
@@ -143,14 +151,14 @@ function MobileTransportCluster({
         onClick={onTogglePlay}
         onTouchStart={stopControlBubble}
         className={cn(
-          "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary/12 text-white ring-1 ring-primary/30 active:bg-primary/22",
-          compact ? "h-10 w-10 shadow-none" : "h-11 w-11 shadow-[0_0_16px_rgb(38_191_176/0.22)]",
+          "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_24px_rgb(38_191_176/0.45)] active:scale-[0.96]",
+          compact ? "h-12 w-12" : "h-14 w-14",
         )}
       >
         {playing ? (
-          <Pause className={cn("fill-white", compact ? "h-5 w-5" : "h-6 w-6")} />
+          <Pause className={cn("fill-white", compact ? "h-6 w-6" : "h-7 w-7")} />
         ) : (
-          <Play className={cn("fill-white", compact ? "ml-0.5 h-5 w-5" : "ml-0.5 h-6 w-6")} />
+          <Play className={cn("fill-white", compact ? "ml-0.5 h-6 w-6" : "ml-1 h-7 w-7")} />
         )}
       </button>
       <button
@@ -159,12 +167,14 @@ function MobileTransportCluster({
         onClick={() => onSeekBy(10)}
         onTouchStart={stopControlBubble}
         className={cn(
-          "relative inline-flex touch-manipulation items-center justify-center text-white/90 active:opacity-70",
-          compact ? "h-9 w-9" : "h-10 w-10",
+          "relative inline-flex touch-manipulation items-center justify-center text-white/85 active:opacity-60",
+          compact ? "h-10 w-10" : "h-11 w-11",
         )}
       >
-        <RotateCw className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
-        <span className={cn("absolute font-semibold", compact ? "text-[8px]" : "text-[9px]")}>10</span>
+        <RotateCw className={cn(compact ? "h-6 w-6" : "h-7 w-7")} strokeWidth={1.5} />
+        <span className={cn("absolute font-semibold text-white/90", compact ? "text-[9px]" : "text-[10px]")}>
+          10
+        </span>
       </button>
       {onNextEpisode ? (
         <button
@@ -173,11 +183,11 @@ function MobileTransportCluster({
           onClick={onNextEpisode}
           onTouchStart={stopControlBubble}
           className={cn(
-            "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary/15 text-white ring-1 ring-primary/35 active:bg-primary/25",
-            compact ? "h-9 w-9" : "h-10 w-10",
+            "inline-flex touch-manipulation items-center justify-center text-white/85 active:opacity-60",
+            compact ? "h-10 w-10" : "h-11 w-11",
           )}
         >
-          <SkipForward className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+          <SkipForward className={cn(compact ? "h-5 w-5" : "h-6 w-6")} strokeWidth={1.75} />
         </button>
       ) : null}
     </div>
@@ -202,7 +212,7 @@ function MobileIconButton({
       onClick={onClick}
       onTouchStart={stopControlBubble}
       className={cn(
-        "inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-full text-white/90 transition-colors active:bg-white/15",
+        "inline-flex h-10 w-10 touch-manipulation items-center justify-center text-white/80 transition-colors active:text-white",
         active && "text-primary",
       )}
     >
@@ -304,26 +314,28 @@ export function EmbyMobileChrome({
     <div
       className={cn(
         "relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] pointer-events-none",
-        !visible && "opacity-0",
+        !visible && "pointer-events-none opacity-0",
+        visible && "opacity-100 transition-opacity duration-200",
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-transparent via-45% to-black/95" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/10 via-40% to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52vh,420px)] bg-gradient-to-t from-black from-30% via-black/75 to-transparent" />
 
-      {/* Top — back + title */}
-      <header className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {/* Top — back + title (Emby-style minimal bar) */}
+      <header className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-3">
         <button
           type="button"
           aria-label="Back"
           onClick={onGoBack}
           onTouchStart={stopControlBubble}
-          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
+          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white active:opacity-70"
         >
-          <ChevronLeft className="h-7 w-7" strokeWidth={2} />
+          <ChevronLeft className="h-8 w-8" strokeWidth={2} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-medium leading-tight text-white">{title}</p>
+          <p className="truncate text-[15px] font-semibold leading-tight text-white">{title}</p>
           {year != null || subtitle ? (
-            <p className="truncate text-xs text-white/55">
+            <p className="truncate text-[11px] text-white/50">
               {[year, subtitle].filter(Boolean).join(" · ")}
             </p>
           ) : null}
@@ -333,27 +345,60 @@ export function EmbyMobileChrome({
           aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
           onClick={onToggleFullscreen}
           onTouchStart={stopControlBubble}
-          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/85 active:bg-white/10"
+          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
         >
-          {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+          {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
         </button>
       </header>
 
       {/* Spacer only — iOS Safari will not paint video if a full-screen element sits above it. */}
       <div className="pointer-events-none relative z-10 min-h-0" aria-hidden />
 
-      {/* Bottom — transport (same layout in inline and fullscreen) */}
+      {/* Bottom dock — Emby order: tools → transport → scrubber */}
       <div
         className={cn(
           "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overflow-x-hidden overscroll-contain",
-          "pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]",
-          "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
-          fullscreen && "pb-[max(1.75rem,env(safe-area-inset-bottom))]",
+          "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
+          "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          fullscreen && "pb-[max(1rem,env(safe-area-inset-bottom))]",
         )}
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <div className="mb-2 flex items-center justify-center">
+        <div className="mb-3 mx-auto flex w-full max-w-lg items-center justify-evenly px-1">
+          {onOpenEpisodes ? (
+            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
+              <ListVideo className="h-5 w-5" />
+            </MobileIconButton>
+          ) : null}
+          <MobileIconButton
+            label={volumeOpen ? "Hide volume" : "Volume"}
+            active={volumeOpen}
+            onClick={() => setVolumePanelOpen(!volumeOpen)}
+          >
+            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </MobileIconButton>
+          <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
+            <Captions className="h-5 w-5" />
+          </MobileIconButton>
+          <MobileIconButton label="Audio" active={audioOn} onClick={onToggleAudio}>
+            <AudioLines className="h-5 w-5" />
+          </MobileIconButton>
+          <button
+            type="button"
+            aria-label="Quality"
+            onClick={onOpenQuality}
+            onTouchStart={stopControlBubble}
+            className="inline-flex h-10 min-w-[2.5rem] touch-manipulation items-center justify-center px-1 text-[11px] font-bold tabular-nums text-white/85 active:text-white"
+          >
+            {qualityLabel}
+          </button>
+          <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
+            <Settings className="h-5 w-5" />
+          </MobileIconButton>
+        </div>
+
+        <div className="mb-3 flex items-center justify-center">
           <MobileTransportCluster
             compact={fullscreen}
             playing={playing}
@@ -409,45 +454,7 @@ export function EmbyMobileChrome({
           </div>
         ) : null}
 
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-center gap-1",
-            fullscreen && "gap-0.5",
-          )}
-        >
-          {onOpenEpisodes ? (
-            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
-              <ListVideo className="h-5 w-5" />
-            </MobileIconButton>
-          ) : null}
-          <MobileIconButton
-            label={volumeOpen ? "Hide volume" : "Volume"}
-            active={volumeOpen}
-            onClick={() => setVolumePanelOpen(!volumeOpen)}
-          >
-            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </MobileIconButton>
-          <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
-            <Captions className="h-5 w-5" />
-          </MobileIconButton>
-          <MobileIconButton label="Audio" active={audioOn} onClick={onToggleAudio}>
-            <AudioLines className="h-5 w-5" />
-          </MobileIconButton>
-          <button
-            type="button"
-            aria-label="Quality"
-            onClick={onOpenQuality}
-            onTouchStart={stopControlBubble}
-            className="mx-1 min-w-[3rem] touch-manipulation rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums text-white/90 ring-1 ring-white/20 active:bg-white/10"
-          >
-            {qualityLabel}
-          </button>
-          <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
-            <Settings className="h-5 w-5" />
-          </MobileIconButton>
-        </div>
-
-        <MobileSeekWithTimes
+        <MobileSeekEmbyRow
           currentTime={currentTime}
           duration={duration}
           fullscreen={fullscreen}
