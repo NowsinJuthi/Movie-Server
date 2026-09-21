@@ -97,9 +97,11 @@ export function HeroBanner({
             More info
           </Button>
           {onToggleList ? (
-            <Button variant="outline" className="hidden h-12 md:inline-flex" onClick={() => onToggleList(active)}>
-              {active.inMyList ? "Remove from My List" : "Add to My List"}
-            </Button>
+            <div className="hidden md:contents">
+              <Button variant="outline" className="h-12" onClick={() => onToggleList(active)}>
+                {active.inMyList ? "Remove from My List" : "Add to My List"}
+              </Button>
+            </div>
           ) : null}
         </div>
       </div>
