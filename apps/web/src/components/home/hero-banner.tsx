@@ -67,7 +67,7 @@ export function HeroBanner({
       ))}
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/55 max-md:via-black/25 md:max-lg:via-black/55" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent max-md:from-background/80 lg:to-black/40" />
-      <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-10 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
+      <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-20 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
         <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
         </p>
@@ -124,13 +124,13 @@ export function HeroBanner({
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 md:bottom-6 md:gap-2">
             {slides.map((slide, slideIndex) => (
               <button
                 key={slide.id}
                 type="button"
                 aria-label={`Go to slide ${slideIndex + 1}`}
-                className="inline-flex h-10 w-10 touch-manipulation items-center justify-center"
+                className="inline-flex h-8 w-8 touch-manipulation items-center justify-center md:h-10 md:w-10"
                 onClick={() => setIndex(slideIndex)}
               >
                 <span
