@@ -13,7 +13,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ErrorCode } from '@movie-server/shared';
+import { ErrorCode, isAppleNativeHlsUserAgent } from '@movie-server/shared';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { createReadStream } from 'fs';
@@ -159,13 +159,16 @@ export class StreamController {
     this.assertStreamDelivery(req);
     const filePath = this.hlsPackager.resolveSegmentPath(this.id(sessionId), segment);
     const lower = segment.toLowerCase();
+    const apple = isAppleNativeHlsUserAgent(String(req.headers['user-agent'] ?? ''));
     res.setHeader(
       'Content-Type',
-      lower.endsWith('.ts')
-        ? 'video/MP2T'
-        : lower.endsWith('.mp4')
-          ? 'video/mp4'
-          : 'video/iso.segment',
+      apple
+        ? lower.endsWith('.ts')
+          ? 'video/MP2T'
+          : lower.endsWith('.mp4')
+            ? 'video/mp4'
+            : 'video/iso.segment'
+        : 'application/octet-stream',
     );
     res.setHeader('Cache-Control', 'private, no-store');
     res.status(200);
