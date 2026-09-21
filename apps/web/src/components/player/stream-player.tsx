@@ -1523,7 +1523,10 @@ export function StreamPlayer({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(track.url!, { credentials: "include" });
+        const res = await fetch(track.url!, {
+          credentials: "include",
+          headers: playbackClientHeaders(),
+        });
         if (!res.ok) {
           throw new Error("unavailable");
         }

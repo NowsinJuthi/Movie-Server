@@ -87,5 +87,14 @@ export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDelive
     return true;
   }
 
+  // Sidecar <audio src> — browsers send dest=audio, not dest=video.
+  if (
+    dest === 'audio' &&
+    (site === 'same-origin' || site === 'same-site') &&
+    /\/watch(\/|\?|$)/i.test(referer)
+  ) {
+    return true;
+  }
+
   return false;
 }

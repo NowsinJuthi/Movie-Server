@@ -79,6 +79,22 @@ describe('stream-request-guard', () => {
     ).not.toThrow();
   });
 
+  it('allows sidecar audio element requests from the watch page', () => {
+    expect(() =>
+      assertPlaybackClientRequest(
+        mockReq({
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-dest': 'audio',
+          'sec-fetch-mode': 'no-cors',
+          referer: 'https://movies.amarpin.com/home/movies/abc/watch',
+        }),
+        devPolicy,
+      ),
+    ).not.toThrow();
+  });
+
   it('blocks Chrome dest=video even with watch Referer (IDM integration)', () => {
     expect(() =>
       assertPlaybackClientRequest(
