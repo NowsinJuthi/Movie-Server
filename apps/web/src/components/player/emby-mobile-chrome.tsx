@@ -354,7 +354,7 @@ export function EmbyMobileChrome({
       {/* Spacer only — iOS Safari will not paint video if a full-screen element sits above it. */}
       <div className="pointer-events-none relative z-10 min-h-0" aria-hidden />
 
-      {/* Bottom dock — Emby order: tools → transport → scrubber */}
+      {/* Bottom dock — transport → scrubber → tool icons */}
       <div
         className={cn(
           "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overflow-x-hidden overscroll-contain",
@@ -365,39 +365,6 @@ export function EmbyMobileChrome({
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <div className="mb-3 mx-auto flex w-full max-w-lg items-center justify-evenly px-1">
-          {onOpenEpisodes ? (
-            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
-              <ListVideo className="h-5 w-5" />
-            </MobileIconButton>
-          ) : null}
-          <MobileIconButton
-            label={volumeOpen ? "Hide volume" : "Volume"}
-            active={volumeOpen}
-            onClick={() => setVolumePanelOpen(!volumeOpen)}
-          >
-            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </MobileIconButton>
-          <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
-            <Captions className="h-5 w-5" />
-          </MobileIconButton>
-          <MobileIconButton label="Audio" active={audioOn} onClick={onToggleAudio}>
-            <AudioLines className="h-5 w-5" />
-          </MobileIconButton>
-          <button
-            type="button"
-            aria-label="Quality"
-            onClick={onOpenQuality}
-            onTouchStart={stopControlBubble}
-            className="inline-flex h-10 min-w-[2.5rem] touch-manipulation items-center justify-center px-1 text-[11px] font-bold tabular-nums text-white/85 active:text-white"
-          >
-            {qualityLabel}
-          </button>
-          <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
-            <Settings className="h-5 w-5" />
-          </MobileIconButton>
-        </div>
-
         <div className="mb-3 flex items-center justify-center">
           <MobileTransportCluster
             compact={fullscreen}
@@ -463,6 +430,39 @@ export function EmbyMobileChrome({
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />
+
+        <div className="mt-2 mx-auto flex w-full max-w-lg items-center justify-evenly px-1">
+          {onOpenEpisodes ? (
+            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
+              <ListVideo className="h-5 w-5" />
+            </MobileIconButton>
+          ) : null}
+          <MobileIconButton
+            label={volumeOpen ? "Hide volume" : "Volume"}
+            active={volumeOpen}
+            onClick={() => setVolumePanelOpen(!volumeOpen)}
+          >
+            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </MobileIconButton>
+          <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
+            <Captions className="h-5 w-5" />
+          </MobileIconButton>
+          <MobileIconButton label="Audio" active={audioOn} onClick={onToggleAudio}>
+            <AudioLines className="h-5 w-5" />
+          </MobileIconButton>
+          <button
+            type="button"
+            aria-label="Quality"
+            onClick={onOpenQuality}
+            onTouchStart={stopControlBubble}
+            className="inline-flex h-10 min-w-[2.5rem] touch-manipulation items-center justify-center px-1 text-[11px] font-bold tabular-nums text-white/85 active:text-white"
+          >
+            {qualityLabel}
+          </button>
+          <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
+            <Settings className="h-5 w-5" />
+          </MobileIconButton>
+        </div>
       </div>
     </div>
   );
