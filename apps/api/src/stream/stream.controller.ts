@@ -128,6 +128,26 @@ export class StreamController {
   @Public()
   @SkipSubscription()
   @SkipThrottle()
+  @Get(':sessionId/key')
+  async key(
+    @Param('sessionId') sessionId: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    this.assertStreamDelivery(req);
+    const filePath = this.hlsPackager.resolveKeyPath(this.id(sessionId));
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.status(200);
+    const stream = createReadStream(filePath);
+    pipeToResponse(stream, res);
+  }
+
+  @Public()
+  @SkipSubscription()
+  @SkipThrottle()
   @Get(':sessionId/hls/:segment')
   async hlsSegment(
     @Param('sessionId') sessionId: string,

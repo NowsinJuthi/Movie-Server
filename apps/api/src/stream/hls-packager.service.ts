@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
@@ -20,6 +21,8 @@ import {
 const PLAYLIST_NAME = 'stream.m3u8';
 const SEGMENT_PATTERN = /^seg\d+\.(?:ts|m4s)$/i;
 const INIT_SEGMENT_NAME = 'init.mp4';
+const HLS_KEY_NAME = 'enc.key';
+const HLS_KEYINFO_NAME = 'enc.keyinfo';
 
 type SessionPackState = {
   startSeconds: number;
@@ -114,6 +117,10 @@ export class HlsPackagerService {
     return rewriteHlsPlaylist(raw, sessionId, mediaToken);
   }
 
+  resolveKeyPath(sessionId: string): string {
+    return path.join(this.outputDir(sessionId), HLS_KEY_NAME);
+  }
+
   resolveSegmentPath(sessionId: string, segment: string): string {
     const name = path.basename(segment);
     if (!SEGMENT_PATTERN.test(name) && name !== INIT_SEGMENT_NAME) {
@@ -206,6 +213,13 @@ export class HlsPackagerService {
 
       const playlistPath = path.join(outDir, PLAYLIST_NAME);
       const segmentSeconds = packagingSegmentSeconds(this.config, plan, startSeconds);
+      let keyInfoPath: string | undefined;
+      try {
+        keyInfoPath = await writeHlsKeyInfo(outDir);
+      } catch (error) {
+        reject(error);
+        return;
+      }
       const args = buildFfmpegHlsArgs(
         absPath,
         outDir,
@@ -213,6 +227,7 @@ export class HlsPackagerService {
         segmentSeconds,
         startSeconds,
         this.config,
+        keyInfoPath,
       );
 
       const child = spawn(bin, args, { windowsHide: true });
@@ -315,6 +330,7 @@ export function buildFfmpegHlsArgs(
   segmentSeconds: number,
   startSeconds: number,
   config: ConfigService,
+  keyInfoPath?: string,
 ): string[] {
   const playlistPath = path.join(outDir, PLAYLIST_NAME);
   const fmp4 = usesFmp4Segments(plan);
@@ -338,6 +354,7 @@ export function buildFfmpegHlsArgs(
     ...(fmp4
       ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', INIT_SEGMENT_NAME]
       : []),
+    ...(keyInfoPath ? ['-hls_key_info_file', keyInfoPath] : []),
     '-hls_segment_filename',
     segmentPath,
     playlistPath,
@@ -363,6 +380,12 @@ export function rewriteHlsPlaylist(
         return line.replace(
           /URI="[^"]+"/,
           `URI="${prefix}${INIT_SEGMENT_NAME}?mt=${mt}"`,
+        );
+      }
+      if (trimmed.startsWith('#EXT-X-KEY:')) {
+        return line.replace(
+          /URI="[^"]+"/,
+          `URI="/api/v1/stream/${sessionId}/key?mt=${mt}"`,
         );
       }
       if (!trimmed || trimmed.startsWith('#')) {
@@ -404,4 +427,17 @@ function packagingPlanKey(plan: TranscodePlan): string {
     `o${plan.audioOrdinal}`,
     plan.probe.videoCodec ?? '',
   ].join(':');
+}
+
+async function writeHlsKeyInfo(outDir: string): Promise<string> {
+  const keyPath = path.join(outDir, HLS_KEY_NAME);
+  try {
+    await fs.access(keyPath);
+  } catch {
+    await fs.writeFile(keyPath, randomBytes(16));
+  }
+  const infoPath = path.join(outDir, HLS_KEYINFO_NAME);
+  const iv = randomBytes(16).toString('hex');
+  await fs.writeFile(infoPath, `${HLS_KEY_NAME}\n${keyPath}\n${iv}\n`);
+  return infoPath;
 }

@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# Insert stream location into the live aaPanel vhost so /api/v1/stream/ hits Next.js :3000.
+# Point aaPanel /api/v1 at Next.js :3000 and pin /api/v1/stream/ in the vhost.
 set -euo pipefail
-VHOST="${1:-/www/server/panel/vhost/nginx/movies.amarpin.com.conf}"
-MARKER="location ^~ /api/v1/stream/"
-python3 - "$VHOST" << 'PY'
+
+python3 << 'PY'
 from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-text = path.read_text()
-if "location ^~ /api/v1/stream/" in text:
-    print(f"already present: {path}")
-    raise SystemExit(0)
+
+proxy_dir = Path("/www/server/panel/vhost/nginx/proxy/movies.amarpin.com")
+if proxy_dir.is_dir():
+    for path in proxy_dir.glob("*"):
+        if not path.is_file():
+            continue
+        text = path.read_text(errors="ignore")
+        if "127.0.0.1:4000" in text and "api/v1" in text:
+            path.write_text(text.replace("http://127.0.0.1:4000", "http://127.0.0.1:3000"))
+            print(f"proxy 4000→3000: {path}")
+
+vhosts = [
+    Path("/www/server/panel/vhost/nginx/movies.amarpin.com.conf"),
+    Path("/www/server/nginx/conf/vhost/movies.amarpin.com.conf"),
+]
 block = """
     location ^~ /api/v1/stream/ {
         if ($http_user_agent ~* "(IDM|Internet.Download.Manager|Download.Master|FDM|Free.Download.Manager)") {
@@ -30,12 +38,21 @@ block = """
 
 """
 needle = "include /www/server/panel/vhost/nginx/proxy/movies.amarpin.com/*.conf;"
-idx = text.find(needle)
-if idx < 0:
-    raise SystemExit(f"proxy include not found in {path}")
-path.write_text(text[:idx] + block + text[idx:])
-print(f"inserted stream location into {path}")
+for path in vhosts:
+    if not path.is_file():
+        continue
+    text = path.read_text()
+    if "location ^~ /api/v1/stream/" not in text:
+        idx = text.find(needle)
+        if idx < 0:
+            print(f"skip insert, no proxy include: {path}")
+            continue
+        path.write_text(text[:idx] + block + text[idx:])
+        print(f"inserted stream location: {path}")
+    else:
+        print(f"stream location already present: {path}")
 PY
+
 nginx -t
 nginx -s reload
-echo "nginx stream location OK"
+echo "nginx stream/API now via Next.js :3000"

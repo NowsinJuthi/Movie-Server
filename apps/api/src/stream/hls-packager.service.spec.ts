@@ -8,12 +8,15 @@ import {
 import type { TranscodePlan } from './stream-transcode.util';
 
 describe('rewriteHlsPlaylist', () => {
-  it('rewrites segment lines with media token auth paths', () => {
-    const raw = ['#EXTM3U', '#EXTINF:4.0,', 'seg000.ts', 'seg001.ts'].join('\n');
-    const out = rewriteHlsPlaylist(raw, 'abc123', 'tok456');
-    expect(out).toContain('/api/v1/stream/abc123/hls/seg000.ts?mt=tok456');
-    expect(out).toContain('/api/v1/stream/abc123/hls/seg001.ts?mt=tok456');
-    expect(out).toContain('#EXTM3U');
+  it('rewrites AES-128 key URI onto the guarded key endpoint', () => {
+    const raw = [
+      '#EXTM3U',
+      '#EXT-X-KEY:METHOD=AES-128,URI="enc.key",IV=0x1',
+      '#EXTINF:4.0,',
+      'seg000.ts',
+    ].join('\n');
+    const out = rewriteHlsPlaylist(raw, 'enc123', 'tok456');
+    expect(out).toContain('#EXT-X-KEY:METHOD=AES-128,URI="/api/v1/stream/enc123/key?mt=tok456",IV=0x1');
   });
 
   it('does not apply an absolute movie offset to a restarted playlist', () => {
