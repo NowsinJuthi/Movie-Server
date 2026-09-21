@@ -19,6 +19,7 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  PictureInPicture2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SeekBar } from "./seek-bar";
@@ -236,6 +237,8 @@ export type EmbyMobileChromeProps = {
   subtitlesOn: boolean;
   audioOn: boolean;
   settingsOn: boolean;
+  pipSupported?: boolean;
+  pipActive?: boolean;
   volume: number;
   muted: boolean;
   onGoBack: () => void;
@@ -250,6 +253,7 @@ export type EmbyMobileChromeProps = {
   onToggleSubtitles: () => void;
   onToggleAudio: () => void;
   onToggleSettings: () => void;
+  onTogglePip?: () => void;
   onToggleFullscreen: () => void;
   onOpenQuality: () => void;
   hasPreviousEpisode?: boolean;
@@ -274,6 +278,8 @@ export function EmbyMobileChrome({
   subtitlesOn,
   audioOn,
   settingsOn,
+  pipSupported = false,
+  pipActive = false,
   volume,
   muted,
   onGoBack,
@@ -288,6 +294,7 @@ export function EmbyMobileChrome({
   onToggleSubtitles,
   onToggleAudio,
   onToggleSettings,
+  onTogglePip,
   onToggleFullscreen,
   onOpenQuality,
   hasPreviousEpisode,
@@ -444,6 +451,15 @@ export function EmbyMobileChrome({
           >
             {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </MobileIconButton>
+          {pipSupported && onTogglePip ? (
+            <MobileIconButton
+              label={pipActive ? "Exit picture in picture" : "Picture in picture"}
+              active={pipActive}
+              onClick={onTogglePip}
+            >
+              <PictureInPicture2 className="h-5 w-5" />
+            </MobileIconButton>
+          ) : null}
           <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
             <Captions className="h-5 w-5" />
           </MobileIconButton>

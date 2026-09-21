@@ -1055,7 +1055,14 @@ export function StreamPlayer({
   }, [countdown, goToPlayerHref, next]);
 
   useEffect(() => {
-    setPipSupported("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled));
+    const syncPipSupported = () => {
+      const video = videoRef.current;
+      const supported =
+        ("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled)) ||
+        (video != null && typeof video.requestPictureInPicture === "function");
+      setPipSupported(supported);
+    };
+    syncPipSupported();
 
     const syncFullscreen = () => {
       const video = videoRef.current;
@@ -1087,6 +1094,15 @@ export function StreamPlayer({
       video?.removeEventListener("webkitendfullscreen", syncFullscreen);
     };
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const video = videoRef.current;
+    const supported =
+      ("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled)) ||
+      (video != null && typeof video.requestPictureInPicture === "function");
+    setPipSupported(supported);
+  }, [loading]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -1333,12 +1349,17 @@ export function StreamPlayer({
   const togglePip = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !pipSupported) return;
-    if (document.pictureInPictureElement) {
-      await document.exitPictureInPicture();
-    } else {
-      await video.requestPictureInPicture();
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+      revealControls();
+    } catch {
+      /* PiP denied or unsupported at runtime */
     }
-  }, [pipSupported]);
+  }, [pipSupported, revealControls]);
 
   const skipTo = useCallback((seconds: number | null) => {
     if (seconds == null) return;
@@ -2102,6 +2123,8 @@ export function StreamPlayer({
             subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
             audioOn={sheet === "audio" || audioTracks.length > 1}
             settingsOn={sheet === "settings"}
+            pipSupported={pipSupported}
+            pipActive={pip}
             volume={volume}
             muted={muted}
             onGoBack={goBack}
@@ -2130,6 +2153,7 @@ export function StreamPlayer({
             onToggleSubtitles={toggleSubtitlesMenu}
             onToggleAudio={toggleAudioMenu}
             onToggleSettings={toggleSettingsMenu}
+            onTogglePip={() => void togglePip()}
             onToggleFullscreen={() => void toggleFullscreen()}
             onOpenQuality={() => {
               setSheet("settings");
