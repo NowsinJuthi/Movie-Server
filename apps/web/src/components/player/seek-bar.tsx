@@ -25,6 +25,7 @@ export function SeekBar({
   onScrubbingChange,
   variant = "default",
   transcode = false,
+  emphasis = false,
 }: {
   currentTime: number;
   duration: number;
@@ -36,6 +37,8 @@ export function SeekBar({
   variant?: "default" | "emby";
   /** Live HLS transcode — hide misleading full-buffer bar from Safari */
   transcode?: boolean;
+  /** Taller track + touch target (mobile player) */
+  emphasis?: boolean;
 }) {
   const accentClass = "bg-primary";
   const trackRef = useRef<HTMLDivElement>(null);
@@ -121,12 +124,13 @@ export function SeekBar({
   }, [scrubbing, endScrub, ratioFromClientX]);
 
   const isMobileVariant = variant === "emby";
+  const mobileEmphasis = isMobileVariant && emphasis;
 
   return (
     <div
       className={cn(
         "group/seek relative w-full select-none",
-        isMobileVariant ? "py-3" : "py-2",
+        mobileEmphasis ? "py-4" : isMobileVariant ? "py-3" : "py-2",
       )}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
@@ -160,7 +164,7 @@ export function SeekBar({
         aria-valuetext={formatSeekTime(displayRatio * duration)}
         className={cn(
           "relative w-full cursor-pointer touch-none outline-none",
-          isMobileVariant && "min-h-11",
+          mobileEmphasis ? "min-h-[3.25rem]" : isMobileVariant && "min-h-11",
         )}
         onClick={(event) => {
           event.preventDefault();
@@ -195,14 +199,20 @@ export function SeekBar({
         <div
           className={cn(
             "absolute inset-x-0",
-            isMobileVariant ? "-top-4 -bottom-4" : "-top-2 -bottom-2",
+            mobileEmphasis ? "-top-5 -bottom-5" : isMobileVariant ? "-top-4 -bottom-4" : "-top-2 -bottom-2",
           )}
         />
 
         <div
           className={cn(
             "relative w-full overflow-hidden rounded-full bg-white/20 transition-[height] duration-150",
-            active ? "h-[5px]" : "h-[3px]",
+            mobileEmphasis
+              ? active
+                ? "h-[7px]"
+                : "h-[5px]"
+              : active
+                ? "h-[5px]"
+                : "h-[3px]",
           )}
         >
           {/* Buffered — hidden for transcode (Safari reports fantasy ranges) */}
@@ -225,9 +235,9 @@ export function SeekBar({
             "pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-[width,height,opacity,transform] duration-150",
             accentClass,
             variant === "emby"
-              ? active
+              ? mobileEmphasis || active
                 ? "h-4 w-4 opacity-100"
-                : "h-3 w-3 opacity-100"
+                : "h-3.5 w-3.5 opacity-100"
               : active
                 ? "h-3.5 w-3.5 opacity-100"
                 : "h-2.5 w-2.5 opacity-0 group-hover/seek:opacity-100",

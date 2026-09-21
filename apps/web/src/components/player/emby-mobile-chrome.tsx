@@ -58,28 +58,39 @@ function MobileSeekWithTimes({
     longTimes ? "text-[10px]" : fullscreen ? "text-xs" : "text-[11px]",
   );
 
+  const labelClass =
+    "text-[10px] font-medium uppercase tracking-[0.12em] text-white/45 leading-none";
+
   return (
-    <div className="mb-2 flex items-center gap-1.5 sm:gap-2">
-      <span className={cn(timeClass, "min-w-[2.5rem] text-left text-white/90")} aria-label="Elapsed">
-        {formatTime(currentTime)}
-      </span>
-      <div className="min-w-0 flex-1">
-        <SeekBar
-          variant="emby"
-          currentTime={currentTime}
-          duration={duration}
-          bufferedEnd={bufferedEnd}
-          transcode={transcode}
-          onSeek={onSeek}
-          onScrubbingChange={onScrubbingChange}
-        />
+    <div className="mb-2">
+      <div className="mb-1 flex items-center gap-1.5 sm:gap-2">
+        <span className={cn(labelClass, "min-w-[2.5rem] shrink-0")}>Watched</span>
+        <span className="min-w-0 flex-1" aria-hidden />
+        <span className={cn(labelClass, "min-w-[2.5rem] shrink-0 text-right")}>Remaining</span>
       </div>
-      <span
-        className={cn(timeClass, "min-w-[2.5rem] text-right text-primary")}
-        aria-label="Remaining"
-      >
-        {duration > 0 ? formatTime(remaining) : "—"}
-      </span>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <span className={cn(timeClass, "min-w-[2.5rem] text-left text-white/90")} aria-label="Elapsed">
+          {formatTime(currentTime)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <SeekBar
+            variant="emby"
+            emphasis
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            transcode={transcode}
+            onSeek={onSeek}
+            onScrubbingChange={onScrubbingChange}
+          />
+        </div>
+        <span
+          className={cn(timeClass, "min-w-[2.5rem] text-right text-primary")}
+          aria-label="Remaining"
+        >
+          {duration > 0 ? formatTime(remaining) : "—"}
+        </span>
+      </div>
     </div>
   );
 }
