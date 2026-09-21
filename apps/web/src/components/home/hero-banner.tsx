@@ -67,7 +67,7 @@ export function HeroBanner({
       ))}
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/55 max-md:via-black/25 md:max-lg:via-black/55" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent max-md:from-background/80 lg:to-black/40" />
-      <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-20 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
+      <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-8 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
         <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
         </p>
@@ -87,12 +87,12 @@ export function HeroBanner({
         <p className="mt-4 hidden max-w-xl text-sm leading-6 text-white/80 md:line-clamp-3 md:block md:text-base">
           {active.description}
         </p>
-        <div className="mt-3 flex items-center gap-2.5 md:hidden">
+        <div className="mt-3 flex w-full items-center gap-2 md:hidden">
           <button
             type="button"
             aria-label="Play"
             onClick={play}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
           >
             <Play className="ml-px h-4 w-4 fill-current" />
           </button>
@@ -100,10 +100,30 @@ export function HeroBanner({
             type="button"
             aria-label="More info"
             onClick={() => router.push(active.href)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
           >
             <Info className="h-4 w-4" />
           </button>
+          {slides.length > 1 ? (
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
+              {slides.map((slide, slideIndex) => (
+                <button
+                  key={slide.id}
+                  type="button"
+                  aria-label={`Go to slide ${slideIndex + 1}`}
+                  className="inline-flex h-9 w-6 shrink-0 touch-manipulation items-center justify-center"
+                  onClick={() => setIndex(slideIndex)}
+                >
+                  <span
+                    className={cn(
+                      "rounded-full transition-all",
+                      slideIndex === index ? "h-2 w-5 bg-primary" : "h-2 w-2 bg-white/45",
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="mt-6 hidden flex-wrap gap-3 md:flex">
           <Button className="h-12 min-w-32 bg-white text-black hover:bg-white/90" onClick={play}>
@@ -140,7 +160,7 @@ export function HeroBanner({
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 md:bottom-6 md:gap-2">
+          <div className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 gap-2 md:flex">
             {slides.map((slide, slideIndex) => (
               <button
                 key={slide.id}
