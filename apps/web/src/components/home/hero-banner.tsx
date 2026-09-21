@@ -65,34 +65,39 @@ export function HeroBanner({
           />
         </div>
       ))}
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent max-lg:via-black/55" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent max-lg:to-transparent lg:to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/55 max-md:via-black/25 md:max-lg:via-black/55" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent max-md:from-background/80 lg:to-black/40" />
       <div className="relative flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-10 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+        <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
         </p>
-        <h1 className="mt-3 max-w-xl text-4xl font-bold leading-tight md:text-6xl">{active.title}</h1>
-        <p className="mt-3 text-sm text-white/80">
-          {active.year}
-          {rating ? ` · ${rating.toFixed(1)}` : ""}
-          {active.certification ? ` · ${active.certification}` : ` · ${active.maturityRating}`}
-          {active.maxResolution ? ` · ${active.maxResolution}` : ""}
-          {active.kind === "series" ? " · Series" : ""}
+        <h1 className="max-w-xl text-xl font-bold leading-snug sm:text-2xl md:mt-3 md:text-4xl md:leading-tight lg:text-6xl">
+          {active.title}
+        </h1>
+        <p className="mt-1 text-sm text-white/80 md:mt-3">
+          <span className="md:hidden">{active.year}</span>
+          <span className="hidden md:inline">
+            {active.year}
+            {rating ? ` · ${rating.toFixed(1)}` : ""}
+            {active.certification ? ` · ${active.certification}` : ` · ${active.maturityRating}`}
+            {active.maxResolution ? ` · ${active.maxResolution}` : ""}
+            {active.kind === "series" ? " · Series" : ""}
+          </span>
         </p>
-        <p className="mt-4 line-clamp-3 max-w-xl text-sm leading-6 text-white/80 md:text-base">
+        <p className="mt-4 hidden max-w-xl text-sm leading-6 text-white/80 md:line-clamp-3 md:block md:text-base">
           {active.description}
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button className="h-12 min-w-32 bg-white text-black hover:bg-white/90" onClick={play}>
+        <div className="mt-4 flex flex-wrap gap-3 md:mt-6">
+          <Button className="h-10 min-w-28 bg-white text-black hover:bg-white/90 md:h-12 md:min-w-32" onClick={play}>
             <Play className="h-4 w-4 fill-current" />
             Play
           </Button>
-          <Button variant="secondary" className="h-12 min-w-32" onClick={() => router.push(active.href)}>
+          <Button variant="secondary" className="h-10 min-w-28 md:h-12 md:min-w-32" onClick={() => router.push(active.href)}>
             <Info className="h-4 w-4" />
             More info
           </Button>
           {onToggleList ? (
-            <Button variant="outline" className="h-12" onClick={() => onToggleList(active)}>
+            <Button variant="outline" className="hidden h-12 md:inline-flex" onClick={() => onToggleList(active)}>
               {active.inMyList ? "Remove from My List" : "Add to My List"}
             </Button>
           ) : null}
