@@ -639,7 +639,7 @@ export function StreamPlayer({
           transcodeRetryRef.current?.();
           return;
         }
-        if (usesPackagedHls(info)) {
+        if (usesPackagedHls(info) || !isAppleMobileDevice()) {
           setLoading(false);
           setError(
             "Playback failed to start. Wait a moment and tap Retry, or check that ffmpeg can read this file on the server.",
@@ -793,7 +793,11 @@ export function StreamPlayer({
         }
         return;
       }
-      attachProgressive(info);
+      if (isAppleMobileDevice()) {
+        attachProgressive(info);
+        return;
+      }
+      attachHls(info);
     },
     [attachHls, attachNativeHls, attachProgressive, usesPackagedHls],
   );

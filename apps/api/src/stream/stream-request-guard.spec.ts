@@ -63,11 +63,12 @@ describe('stream-request-guard', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it('allows native video when Referer is the watch page', () => {
+  it('allows native Safari video on the watch page', () => {
     expect(() =>
       assertPlaybackClientRequest(
         mockReq({
-          'user-agent': 'Mozilla/5.0',
+          'user-agent':
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
           'sec-fetch-site': 'same-origin',
           'sec-fetch-dest': 'video',
           'sec-fetch-mode': 'no-cors',
@@ -78,11 +79,28 @@ describe('stream-request-guard', () => {
     ).not.toThrow();
   });
 
+  it('blocks Chrome dest=video even with watch Referer (IDM integration)', () => {
+    expect(() =>
+      assertPlaybackClientRequest(
+        mockReq({
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'sec-fetch-site': 'same-origin',
+          'sec-fetch-dest': 'video',
+          'sec-fetch-mode': 'no-cors',
+          referer: 'https://movies.amarpin.com/home/movies/abc/watch',
+        }),
+        devPolicy,
+      ),
+    ).toThrow(ForbiddenException);
+  });
+
   it('blocks forged video element metadata without watch Referer', () => {
     expect(() =>
       assertPlaybackClientRequest(
         mockReq({
-          'user-agent': 'Mozilla/5.0',
+          'user-agent':
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
           'sec-fetch-site': 'same-origin',
           'sec-fetch-dest': 'video',
           'sec-fetch-mode': 'no-cors',

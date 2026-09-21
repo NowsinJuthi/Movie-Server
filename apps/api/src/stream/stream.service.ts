@@ -357,10 +357,17 @@ export class StreamService {
     resolution: string,
     mediaToken: string,
   ): Promise<string> {
-    if (!session.videoTranscode && !session.videoRemux) {
-      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+    try {
+      return await this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
+    } catch {
+      if (!session.videoTranscode && !session.videoRemux) {
+        return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+      }
+      throw new NotFoundException({
+        error: ErrorCode.PlaybackUnavailable,
+        message: 'HLS playlist is not ready.',
+      });
     }
-    return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
   }
 
   async seekHls(

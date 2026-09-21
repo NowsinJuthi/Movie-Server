@@ -33,6 +33,14 @@ export function isDownloadManagerUserAgent(userAgent: string): boolean {
   return DOWNLOAD_TOOL_UA.test(userAgent);
 }
 
+/** Safari / iOS native HLS cannot set custom headers. Windows IDM spoofs Chrome, not Safari. */
+export function isAppleNativeHlsUserAgent(userAgent: string): boolean {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) {
+    return true;
+  }
+  return /Safari/i.test(userAgent) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Android/i.test(userAgent);
+}
+
 export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDeliveryPolicy): boolean {
   const ua = readHeader(headers, 'user-agent');
   if (isDownloadManagerUserAgent(ua)) {
@@ -68,9 +76,11 @@ export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDelive
     return true;
   }
 
-  // Native `<video>` / Safari HLS — no custom headers; require watch-page Referer (IDM replay usually omits it).
+  // Native HLS only on Apple — IDM Chrome integration sends dest=video + watch Referer.
   if (
+    isAppleNativeHlsUserAgent(ua) &&
     dest === 'video' &&
+    mode === 'no-cors' &&
     (site === 'same-origin' || site === 'same-site') &&
     /\/watch(\/|\?|$)/i.test(referer)
   ) {

@@ -107,6 +107,12 @@ export class StreamController {
         resolution,
         startSeconds,
       );
+    } else {
+      try {
+        await this.streams.ensureDirectPlayHls(sid, userId, resolution, startSeconds);
+      } catch {
+        /* fallback: single-file playlist if ffmpeg copy packaging is not ready */
+      }
     }
     const body = await this.streams.readVariantPlaylist(
       session,
