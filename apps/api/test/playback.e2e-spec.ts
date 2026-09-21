@@ -9,6 +9,7 @@ import os from 'os';
 import path from 'path';
 import { ErrorCode, UserRole } from '@movie-server/shared';
 import { UsersService } from '../src/users/users.service';
+import { asPlaybackClient } from './stream-test-headers';
 
 const password = 'StrongPass1x';
 const prefix = '/api/v1';
@@ -261,16 +262,16 @@ describe('Playback streaming (e2e)', () => {
     assertNoPaths(playback.body);
     const sessionId = playback.body.session.id as string;
 
-    const master = await request(server)
-      .get(`${prefix}/stream/${sessionId}/master`)
+    const master = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${sessionId}/master`))
       .set('Cookie', viewer);
     expect(master.status).toBe(200);
     expect(String(master.text)).toContain('#EXTM3U');
     expect(String(master.text)).toContain('v/480p');
     expect(String(master.headers['content-type'])).toMatch(/mpegurl|x-mpegURL/i);
 
-    const variant = await request(server)
-      .get(`${prefix}/stream/${sessionId}/v/480p`)
+    const variant = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${sessionId}/v/480p`))
       .set('Cookie', viewer);
     expect(variant.status).toBe(200);
     expect(String(variant.text)).toContain('../media?quality=480p');
@@ -278,13 +279,13 @@ describe('Playback streaming (e2e)', () => {
     const anonMaster = await request(server).get(`${prefix}/stream/${sessionId}/master`);
     expect(anonMaster.status).toBe(401);
 
-    const otherMaster = await request(server)
-      .get(`${prefix}/stream/${sessionId}/master`)
+    const otherMaster = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${sessionId}/master`))
       .set('Cookie', other);
     expect(otherMaster.status).toBe(403);
 
-    const missingFile = await request(server)
-      .get(`${prefix}/stream/${sessionId}/media`)
+    const missingFile = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${sessionId}/media`))
       .set('Cookie', viewer);
     expect(missingFile.status).toBe(404);
     expect(missingFile.body.error).toBe(ErrorCode.PlaybackUnavailable);
@@ -380,14 +381,14 @@ describe('Playback streaming (e2e)', () => {
     const fileSession = filePlayback.body.session.id as string;
     assertNoPaths(filePlayback.body);
 
-    const full = await request(server)
-      .get(`${prefix}/stream/${fileSession}/media`)
+    const full = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer);
     expect([200, 206]).toContain(full.status);
     expect(full.body.length ?? Number(full.headers['content-length'])).toBeGreaterThan(0);
 
-    const ranged = await request(server)
-      .get(`${prefix}/stream/${fileSession}/media`)
+    const ranged = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer)
       .set('Range', 'bytes=0-99');
     expect(ranged.status).toBe(206);
@@ -401,8 +402,8 @@ describe('Playback streaming (e2e)', () => {
       .send({ published: false });
     expect(unpublished.status).toBe(200);
 
-    const staleMedia = await request(server)
-      .get(`${prefix}/stream/${fileSession}/media`)
+    const staleMedia = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${fileSession}/media`))
       .set('Cookie', viewer);
     expect([401, 404]).toContain(staleMedia.status);
 

@@ -19,6 +19,14 @@ async function proxy(req: NextRequest, context: RouteContext): Promise<Response>
   if (range) headers.set("range", range);
   const accept = req.headers.get("accept");
   if (accept) headers.set("accept", accept);
+  const playbackClient = req.headers.get("x-playback-client");
+  if (playbackClient) headers.set("x-playback-client", playbackClient);
+  const secFetchSite = req.headers.get("sec-fetch-site");
+  if (secFetchSite) headers.set("sec-fetch-site", secFetchSite);
+  const secFetchMode = req.headers.get("sec-fetch-mode");
+  if (secFetchMode) headers.set("sec-fetch-mode", secFetchMode);
+  const secFetchDest = req.headers.get("sec-fetch-dest");
+  if (secFetchDest) headers.set("sec-fetch-dest", secFetchDest);
 
   const upstream = await fetch(target, {
     method: req.method,

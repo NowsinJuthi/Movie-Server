@@ -22,6 +22,7 @@ import { RequestUser } from '../auth/auth.types';
 import { Public } from '../common/decorators/public.decorator';
 import { RequireSubscription } from '../subscriptions/decorators/subscription.decorators';
 import { SkipSubscription } from '../subscriptions/decorators/skip-subscription.decorator';
+import { assertPlaybackClientRequest } from './stream-request-guard';
 import { StreamService, isSessionId } from './stream.service';
 import { buildMasterPlaylist } from './hls-playlist';
 import { HlsPackagerService } from './hls-packager.service';
@@ -54,6 +55,7 @@ export class StreamController {
   ) {
     const sid = this.id(sessionId);
     const userId = await this.streams.resolveMediaUser(sid, mediaToken, req);
+    assertPlaybackClientRequest(req);
     const session = await this.streams.load(sid, userId);
     const body = buildMasterPlaylist(
       session.variants.map((variant) => ({
@@ -81,6 +83,7 @@ export class StreamController {
   ) {
     const sid = this.id(sessionId);
     const userId = await this.streams.resolveMediaUser(sid, mediaToken, req);
+    assertPlaybackClientRequest(req);
     const session = await this.streams.load(sid, userId);
     const resolution = quality.replace(/\.m3u8$/i, '');
     if (!session.variants.some((variant) => variant.resolution === resolution)) {
@@ -120,6 +123,7 @@ export class StreamController {
     @Res() res: Response,
   ) {
     await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    assertPlaybackClientRequest(req);
     const filePath = this.hlsPackager.resolveSegmentPath(this.id(sessionId), segment);
     const lower = segment.toLowerCase();
     res.setHeader(
@@ -148,6 +152,7 @@ export class StreamController {
     @Res() res: Response,
   ) {
     const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    assertPlaybackClientRequest(req);
     const ua = req.headers['user-agent'] ?? '';
     const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
     const file = await this.streams.openMedia(this.id(sessionId), userId, quality, {
@@ -193,6 +198,7 @@ export class StreamController {
     @Res() res: Response,
   ) {
     const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    assertPlaybackClientRequest(req);
     const startSeconds = startParam ? Number(startParam) : 0;
     const file = await this.streams.openAudio(
       this.id(sessionId),
@@ -236,6 +242,7 @@ export class StreamController {
     @Res() res: Response,
   ) {
     const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    assertPlaybackClientRequest(req);
     const body = await this.streams.openSubtitle(this.id(sessionId), userId, assetId);
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');

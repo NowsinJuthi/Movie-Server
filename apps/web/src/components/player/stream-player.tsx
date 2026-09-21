@@ -61,6 +61,7 @@ import {
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
+import { applyPlaybackClientHeader, playbackClientHeaders } from "@/lib/playback-client";
 import { appendStreamQuery, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
@@ -467,7 +468,7 @@ export function StreamPlayer({
       const warmBytes = isAppleMobileDevice() ? 8_388_607 : 2_097_151;
       await fetch(url, {
         credentials: "include",
-        headers: { Range: `bytes=0-${warmBytes}` },
+        headers: { ...playbackClientHeaders(), Range: `bytes=0-${warmBytes}` },
       });
     } catch {
       /* warm SMB/page cache; playback still works if this fails */
@@ -676,6 +677,7 @@ export function StreamPlayer({
             capLevelToPlayerSize: !videoTranscode,
             xhrSetup(xhr) {
               xhr.withCredentials = true;
+              applyPlaybackClientHeader(xhr);
             },
           });
           hlsRef.current = hls;
@@ -770,7 +772,11 @@ export function StreamPlayer({
   const attachPlayback = useCallback(
     (info: PlaybackSessionInfo) => {
       if (info.directPlay) {
-        attachProgressive(info);
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
+        } else {
+          attachHls(info);
+        }
         return;
       }
       if (info.hevcStream && !browserSupportsHevcDirectStream()) {
