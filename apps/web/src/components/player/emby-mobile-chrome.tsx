@@ -34,7 +34,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function MobilePlaybackTimeStrip({
+function MobileSeekTimes({
   currentTime,
   duration,
   fullscreen,
@@ -44,44 +44,19 @@ function MobilePlaybackTimeStrip({
   fullscreen: boolean;
 }) {
   const remaining = Math.max(0, duration - currentTime);
-  const hasDuration = duration > 0;
-  const pct = hasDuration ? Math.min(100, Math.round((currentTime / duration) * 100)) : 0;
+  const timeClass = cn("font-semibold tabular-nums leading-tight", fullscreen ? "text-[15px]" : "text-sm");
 
   return (
-    <div
-      className={cn(
-        "mb-2 rounded-xl bg-black/50 px-3 py-2.5 ring-1 ring-white/12 backdrop-blur-md",
-        fullscreen && "mb-2.5 py-3",
-      )}
-    >
-      <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-white/45">
-        <span>Watched</span>
-        <span className="tabular-nums text-white/70">{hasDuration ? `${pct}%` : "—"}</span>
-        <span>Remaining</span>
+    <div className="-mt-1 mb-2 flex items-start justify-between gap-4 px-0.5">
+      <div className="min-w-0 text-left">
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/45">Watched</p>
+        <p className={cn(timeClass, "text-white")}>{formatTime(currentTime)}</p>
       </div>
-      <div className="flex items-center justify-between gap-2 tabular-nums">
-        <span className={cn("shrink-0 font-semibold text-white", fullscreen ? "text-base" : "text-sm")}>
-          {formatTime(currentTime)}
-        </span>
-        <div className="min-w-0 flex-1 px-1 text-center">
-          <div className="mx-auto h-1 max-w-[8rem] overflow-hidden rounded-full bg-white/15">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-[var(--brand-deep)] transition-[width] duration-300 ease-out"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="mt-1 truncate text-[10px] text-white/40">
-            {hasDuration ? `Total ${formatTime(duration)}` : "Duration loading…"}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 text-right font-semibold text-primary",
-            fullscreen ? "text-base" : "text-sm",
-          )}
-        >
-          {hasDuration ? formatTime(remaining) : "—"}
-        </span>
+      <div className="min-w-0 text-right">
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/45">Remaining</p>
+        <p className={cn(timeClass, "text-primary")}>
+          {duration > 0 ? formatTime(remaining) : "—"}
+        </p>
       </div>
     </div>
   );
@@ -351,8 +326,6 @@ export function EmbyMobileChrome({
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <MobilePlaybackTimeStrip currentTime={currentTime} duration={duration} fullscreen={fullscreen} />
-
         <SeekBar
           variant="emby"
           currentTime={currentTime}
@@ -362,6 +335,8 @@ export function EmbyMobileChrome({
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />
+
+        <MobileSeekTimes currentTime={currentTime} duration={duration} fullscreen={fullscreen} />
 
         <div className="mb-2 flex items-center justify-center">
           <MobileTransportCluster
