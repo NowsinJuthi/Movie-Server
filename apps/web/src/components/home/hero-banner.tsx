@@ -87,21 +87,37 @@ export function HeroBanner({
         <p className="mt-4 hidden max-w-xl text-sm leading-6 text-white/80 md:line-clamp-3 md:block md:text-base">
           {active.description}
         </p>
-        <div className="mt-4 flex flex-wrap gap-3 md:mt-6">
-          <Button className="h-10 min-w-28 bg-white text-black hover:bg-white/90 md:h-12 md:min-w-32" onClick={play}>
+        <div className="mt-3 flex items-center gap-2.5 md:hidden">
+          <button
+            type="button"
+            aria-label="Play"
+            onClick={play}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
+          >
+            <Play className="ml-px h-4 w-4 fill-current" />
+          </button>
+          <button
+            type="button"
+            aria-label="More info"
+            onClick={() => router.push(active.href)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-6 hidden flex-wrap gap-3 md:flex">
+          <Button className="h-12 min-w-32 bg-white text-black hover:bg-white/90" onClick={play}>
             <Play className="h-4 w-4 fill-current" />
             Play
           </Button>
-          <Button variant="secondary" className="h-10 min-w-28 md:h-12 md:min-w-32" onClick={() => router.push(active.href)}>
+          <Button variant="secondary" className="h-12 min-w-32" onClick={() => router.push(active.href)}>
             <Info className="h-4 w-4" />
             More info
           </Button>
           {onToggleList ? (
-            <div className="hidden md:contents">
-              <Button variant="outline" className="h-12" onClick={() => onToggleList(active)}>
-                {active.inMyList ? "Remove from My List" : "Add to My List"}
-              </Button>
-            </div>
+            <Button variant="outline" className="h-12" onClick={() => onToggleList(active)}>
+              {active.inMyList ? "Remove from My List" : "Add to My List"}
+            </Button>
           ) : null}
         </div>
       </div>
