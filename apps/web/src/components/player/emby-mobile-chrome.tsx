@@ -59,7 +59,12 @@ function MobileSeekWithTimes({
   );
 
   return (
-    <div className={cn("mb-2 w-full", fullscreen && "-mx-1.5 w-[calc(100%+0.75rem)] max-w-none sm:-mx-2 sm:w-[calc(100%+1rem)]")}>
+    <div
+      className={cn(
+        "mb-0 mt-2 w-full pt-1",
+        fullscreen && "-mx-1.5 w-[calc(100%+0.75rem)] max-w-none sm:-mx-2 sm:w-[calc(100%+1rem)]",
+      )}
+    >
       <div className="w-full">
         <SeekBar
           variant="emby"
@@ -348,16 +353,6 @@ export function EmbyMobileChrome({
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <MobileSeekWithTimes
-          currentTime={currentTime}
-          duration={duration}
-          fullscreen={fullscreen}
-          bufferedEnd={bufferedEnd}
-          transcode={transcode}
-          onSeek={onSeek}
-          onScrubbingChange={onScrubbingChange}
-        />
-
         <div className="mb-2 flex items-center justify-center">
           <MobileTransportCluster
             compact={fullscreen}
@@ -417,7 +412,7 @@ export function EmbyMobileChrome({
         <div
           className={cn(
             "flex flex-wrap items-center justify-center gap-1",
-            fullscreen && "gap-0.5 pb-0.5",
+            fullscreen && "gap-0.5",
           )}
         >
           {onOpenEpisodes ? (
@@ -451,6 +446,16 @@ export function EmbyMobileChrome({
             <Settings className="h-5 w-5" />
           </MobileIconButton>
         </div>
+
+        <MobileSeekWithTimes
+          currentTime={currentTime}
+          duration={duration}
+          fullscreen={fullscreen}
+          bufferedEnd={bufferedEnd}
+          transcode={transcode}
+          onSeek={onSeek}
+          onScrubbingChange={onScrubbingChange}
+        />
       </div>
     </div>
   );
