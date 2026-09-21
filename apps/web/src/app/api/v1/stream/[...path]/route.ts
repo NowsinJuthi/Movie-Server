@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ErrorCode } from "@movie-server/shared";
+import {
+  applyStreamProxyHeader,
+  assertWebStreamProxyAllowed,
+  streamProxyPolicyFromEnv,
+} from "@/lib/stream-delivery-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,12 +13,38 @@ const API = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
+function incomingHeaderBag(req: NextRequest): Record<string, string> {
+  const bag: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    bag[key] = value;
+  });
+  return bag;
+}
+
 async function proxy(req: NextRequest, context: RouteContext): Promise<Response> {
+  try {
+    assertWebStreamProxyAllowed(incomingHeaderBag(req));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    return NextResponse.json({ error: ErrorCode.Forbidden, message }, { status: 403 });
+  }
+
+  const proxySecret = streamProxyPolicyFromEnv().streamProxySecret;
+  if (!proxySecret && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: ErrorCode.Forbidden, message: "Stream proxy is not configured." },
+      { status: 503 },
+    );
+  }
+
   const { path } = await context.params;
   const target = new URL(`${API}/api/v1/stream/${path.map(encodeURIComponent).join("/")}`);
   target.search = req.nextUrl.search;
 
   const headers = new Headers();
+  if (proxySecret) {
+    applyStreamProxyHeader(headers, proxySecret);
+  }
   const cookie = req.headers.get("cookie");
   if (cookie) headers.set("cookie", cookie);
   const userAgent = req.headers.get("user-agent");

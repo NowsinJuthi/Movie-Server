@@ -10,6 +10,7 @@ WorkingDirectory=/www/wwwroot/movies.amarpin.com/apps/web/.next/standalone/apps/
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
+EnvironmentFile=-/www/wwwroot/movies.amarpin.com/.env
 # Direct node (no npm start:web needed on VPS)
 ExecStart=/usr/bin/node server.js
 Restart=on-failure

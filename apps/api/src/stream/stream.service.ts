@@ -41,7 +41,7 @@ import { StorageFactory } from '../library/storage/storage.factory';
 import { toPublicPlayback } from './playback-public';
 import { PlaybackSessionStore } from './playback-session.store';
 import { StoredPlaybackSession, StoredPlaybackTrack, StoredPlaybackVariant } from './playback-session.types';
-import { buildMediaPlaylist, variantBandwidth } from './hls-playlist';
+import { variantBandwidth } from './hls-playlist';
 import { pickStoredTrack, preferredSubtitleCode, toPlaybackTrack } from './playback-tracks.util';
 import { isPlayableSubtitleFormat, subtitleFormatFromName, toSafeWebVtt } from './subtitle-text';
 import { isAudioFile, isSubtitleFile } from '../library/matching/filename-parser';
@@ -334,14 +334,29 @@ export class StreamService {
     });
   }
 
+  /** Package MP4 direct-play as fMP4 HLS so playlists never expose one full-file /media URL. */
+  async ensureDirectPlayHls(
+    sessionId: string,
+    userId: string,
+    preferredResolution?: string,
+    startSeconds = 0,
+  ): Promise<void> {
+    const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
+    if (session.videoTranscode || session.videoRemux) {
+      return;
+    }
+    const plan = await buildTranscodePlan(absPath, this.config);
+    await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
+      startSeconds: Math.max(0, startSeconds),
+      plan,
+    });
+  }
+
   async readVariantPlaylist(
     session: StoredPlaybackSession,
     resolution: string,
     mediaToken: string,
   ): Promise<string> {
-    if (!session.videoTranscode && !session.videoRemux) {
-      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
-    }
     return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
   }
 

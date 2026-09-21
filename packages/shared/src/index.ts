@@ -12,6 +12,7 @@ export * from './movie-upload-request';
 export * from './permissions';
 export * from './personalization';
 export * from './playback';
+export * from './stream-delivery-guard';
 export * from './plan-display';
 export * from './profile';
 export * from './role-assignment';

@@ -1,44 +1,22 @@
 import { ForbiddenException } from '@nestjs/common';
-import { ErrorCode, PLAYBACK_CLIENT_HEADER, PLAYBACK_CLIENT_VALUE } from '@movie-server/shared';
+import {
+  ErrorCode,
+  STREAM_DELIVERY_FORBIDDEN_MESSAGE,
+  isStreamDeliveryAllowed,
+  type StreamDeliveryPolicy,
+} from '@movie-server/shared';
 import { Request } from 'express';
 
-const DOWNLOAD_TOOL_UA =
-  /internet download manager|\bidm\b|fdm[\/.]|free download manager|wget\/|curl\/|libcurl|aria2|uget\/|motrix|jdownloader|nxstyle|ffmpeg|streamlink/i;
-
-export function isDownloadManagerUserAgent(userAgent: string): boolean {
-  return DOWNLOAD_TOOL_UA.test(userAgent);
-}
+export { isDownloadManagerUserAgent } from '@movie-server/shared';
 
 /** Reject download managers and replay of copied stream URLs outside the web player. */
-export function assertPlaybackClientRequest(req: Request): void {
-  const ua = String(req.headers['user-agent'] ?? '');
-  if (isDownloadManagerUserAgent(ua)) {
-    throw new ForbiddenException({
-      error: ErrorCode.Forbidden,
-      message: 'Playback is only available in the AmarPin player.',
-    });
-  }
-
-  const client = String(req.headers[PLAYBACK_CLIENT_HEADER.toLowerCase()] ?? '');
-  const site = String(req.headers['sec-fetch-site'] ?? '');
-  const dest = String(req.headers['sec-fetch-dest'] ?? '');
-  const mode = String(req.headers['sec-fetch-mode'] ?? '');
-
-  if (dest === 'video' && (site === 'same-origin' || site === 'same-site')) {
-    return;
-  }
-
-  if (
-    client === PLAYBACK_CLIENT_VALUE &&
-    mode === 'cors' &&
-    dest === 'empty' &&
-    (site === 'same-origin' || site === 'same-site')
-  ) {
+export function assertPlaybackClientRequest(req: Request, policy: StreamDeliveryPolicy): void {
+  if (isStreamDeliveryAllowed(req.headers, policy)) {
     return;
   }
 
   throw new ForbiddenException({
     error: ErrorCode.Forbidden,
-    message: 'Playback is only available in the AmarPin player.',
+    message: STREAM_DELIVERY_FORBIDDEN_MESSAGE,
   });
 }

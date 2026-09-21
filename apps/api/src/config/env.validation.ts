@@ -73,6 +73,8 @@ export const envSchema = z.object({
   SMB_MOUNT_USE_SUDO: booleanish.optional().default(true),
   /** Temp HLS segment pack directory (must be writable by the API user). */
   HLS_PACK_DIR: z.string().optional().default(''),
+  /** Shared secret: Next stream proxy → API (production stream delivery). */
+  STREAM_PROXY_SECRET: z.string().min(16).optional(),
   TMDB_API_KEY: z.string().optional().default(''),
   LIBRARY_AUTO_IMPORT: booleanish.default(true),
   LIBRARY_AUTO_PUBLISH: booleanish.default(true),

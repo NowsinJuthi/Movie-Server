@@ -274,7 +274,7 @@ describe('Playback streaming (e2e)', () => {
       .get(`${prefix}/stream/${sessionId}/v/480p`))
       .set('Cookie', viewer);
     expect(variant.status).toBe(200);
-    expect(String(variant.text)).toContain('../media?quality=480p');
+    expect(String(variant.text)).toMatch(/\/api\/v1\/stream\/[a-f0-9]{32}\/hls\//);
 
     const anonMaster = await request(server).get(`${prefix}/stream/${sessionId}/master`);
     expect(anonMaster.status).toBe(401);
