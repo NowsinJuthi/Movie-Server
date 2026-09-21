@@ -181,6 +181,12 @@ export function isStandalonePwa(): boolean {
   );
 }
 
+/** True when the device is held portrait — used to rotate in-page player on iOS. */
+export function isDevicePortrait(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(orientation: portrait)").matches;
+}
+
 /** iOS home-screen PWA: native video fullscreen typically rotates to landscape. */
 export function enterIosNativeVideoFullscreen(video: HTMLVideoElement): boolean {
   const v = video as WebkitVideo;
@@ -194,6 +200,21 @@ export function enterIosNativeVideoFullscreen(video: HTMLVideoElement): boolean 
   } catch {
     return false;
   }
+}
+
+/**
+ * Enter mobile immersive playback. Call synchronously from a user gesture (tap / play).
+ * iOS tries native video fullscreen first; otherwise use in-page pseudo + portrait rotation.
+ */
+export function beginMobileImmersivePlayback(video: HTMLVideoElement): "native" | "pseudo" {
+  if (isAppleMobileDevice()) {
+    if (enterIosNativeVideoFullscreen(video)) {
+      return "native";
+    }
+    return "pseudo";
+  }
+  void lockPlaybackLandscape();
+  return "pseudo";
 }
 
 /** Best-effort landscape lock after mobile fullscreen (Android; iOS ignores). */

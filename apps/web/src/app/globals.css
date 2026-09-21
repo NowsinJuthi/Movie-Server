@@ -143,6 +143,22 @@ body {
   }
 }
 
+/* iOS PWA/Safari: pseudo fullscreen cannot lock orientation — rotate shell in portrait. */
+@media (orientation: portrait) {
+  .mobile-player-shell-landscape-emulate {
+    position: fixed !important;
+    inset: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 100dvh !important;
+    height: 100dvw !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center;
+  }
+}
+
 .home-row-scroller {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;

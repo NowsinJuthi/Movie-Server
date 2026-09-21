@@ -51,7 +51,7 @@ import {
   isCoarsePointerMobile,
   isLocalTimeBuffered,
   isVideoInNativeFullscreen,
-  isStandalonePwa,
+  beginMobileImmersivePlayback,
   enterIosNativeVideoFullscreen,
   localTimelineSeconds,
   lockPlaybackLandscape,
@@ -246,6 +246,16 @@ export function StreamPlayer({
   const mobileLayout = useMobilePlayerLayout();
   const mobileLayoutRef = useRef(mobileLayout);
   mobileLayoutRef.current = mobileLayout;
+  const [devicePortrait, setDevicePortrait] = useState(false);
+
+  const applyMobileImmersive = useCallback((video: HTMLVideoElement) => {
+    if (!(mobileLayoutRef.current || isCoarsePointerMobile())) return;
+    if (isVideoInNativeFullscreen(video)) return;
+    if (beginMobileImmersivePlayback(video) === "pseudo") {
+      setPseudoFullscreen(true);
+      setControls(true);
+    }
+  }, []);
 
   const goToPlayerHref = useCallback(
     (href: string, options?: { autoplay?: boolean }) => {
@@ -390,6 +400,9 @@ export function StreamPlayer({
   const tryStartPlayback = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current;
     if (!video) return false;
+    if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+      applyMobileImmersive(video);
+    }
     setLoading(true);
     const preferAudible = wantsAudibleAutoplay();
     try {
@@ -447,7 +460,7 @@ export function StreamPlayer({
       setLoading(false);
       return false;
     }
-  }, [wantsAudibleAutoplay]);
+  }, [applyMobileImmersive, wantsAudibleAutoplay]);
 
   const warmMediaUrl = useCallback(async (url: string) => {
     try {
@@ -519,6 +532,7 @@ export function StreamPlayer({
     }
     const video = videoRef.current;
     if (!video) return false;
+    applyMobileImmersive(video);
     mobileStartMutedRef.current = false;
     video.muted = false;
     setMuted(false);
@@ -531,7 +545,7 @@ export function StreamPlayer({
     } catch {
       return tryStartPlayback();
     }
-  }, [awaitingTap, iosMutedPlay, tryStartPlayback]);
+  }, [applyMobileImmersive, awaitingTap, iosMutedPlay, tryStartPlayback]);
 
   const attachProgressive = useCallback(
     (info: PlaybackSessionInfo, resolution?: VideoResolution | "auto") => {
@@ -966,17 +980,10 @@ export function StreamPlayer({
       revealControls();
       if (mobileLayoutRef.current || isCoarsePointerMobile()) {
         const v = videoRef.current;
-        if (v && !isVideoInNativeFullscreen(v)) {
-          if (isAppleMobileDevice() && isStandalonePwa()) {
-            if (!enterIosNativeVideoFullscreen(v)) {
-              setPseudoFullscreen(true);
-              setControls(true);
-              void lockPlaybackLandscape();
-            }
-          } else {
+        if (v && !isVideoInNativeFullscreen(v) && !pseudoFullscreenRef.current) {
+          if (beginMobileImmersivePlayback(v) === "pseudo") {
             setPseudoFullscreen(true);
             setControls(true);
-            void lockPlaybackLandscape();
           }
         }
       }
@@ -1139,11 +1146,21 @@ export function StreamPlayer({
       return;
     }
     if (video.paused) {
+      if (mobileLayout || isCoarsePointerMobile()) {
+        applyMobileImmersive(video);
+      }
       void video.play().catch(() => undefined);
     } else {
       video.pause();
     }
-  }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback, unlockMobileAudible]);
+  }, [
+    applyMobileImmersive,
+    awaitingTap,
+    iosMutedPlay,
+    mobileLayout,
+    tryStartPlayback,
+    unlockMobileAudible,
+  ]);
 
   const seekPlaybackTo = useCallback(
     async (targetSeconds: number) => {
@@ -1339,6 +1356,10 @@ export function StreamPlayer({
       if (pseudoFullscreen) {
         setPseudoFullscreen(false);
         unlockPlaybackOrientation();
+        revealControls();
+        return;
+      }
+      if (enterIosNativeVideoFullscreen(video)) {
         revealControls();
         return;
       }
@@ -1942,6 +1963,17 @@ export function StreamPlayer({
     };
   }, [mobileLayout]);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const sync = () => setDevicePortrait(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const iosPortraitLandscapeEmulate =
+    pseudoFullscreen && isAppleMobileDevice() && devicePortrait;
+
   return (
     <div
       ref={shellRef}
@@ -1951,6 +1983,7 @@ export function StreamPlayer({
           ? cn(
               "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden",
               mobileImmersive && "z-[2147483646]",
+              iosPortraitLandscapeEmulate && "mobile-player-shell-landscape-emulate",
             )
           : "relative min-h-screen",
       )}
