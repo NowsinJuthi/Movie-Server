@@ -2620,7 +2620,7 @@ export function StreamPlayer({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="ml-1 hidden min-h-10 text-white/80 hover:bg-white/10 md:inline-flex"
+                  className="ml-1 hidden min-h-10 rounded-full bg-white/10 px-3.5 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-white/15 backdrop-blur-md hover:bg-white/16 hover:text-white md:inline-flex"
                   onClick={() => goToPlayerHref(previous.href)}
                 >
                   Previous
@@ -2628,8 +2628,9 @@ export function StreamPlayer({
               ) : null}
               {next ? (
                 <Button
+                  variant="ghost"
                   size="sm"
-                  className="ml-1 hidden min-h-10 md:inline-flex"
+                  className="ml-1 hidden min-h-10 rounded-full bg-white/10 px-3.5 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-white/15 backdrop-blur-md hover:bg-white/16 hover:text-white md:inline-flex"
                   onClick={() => goToPlayerHref(next.href)}
                 >
                   <SkipForward className="h-4 w-4" />
