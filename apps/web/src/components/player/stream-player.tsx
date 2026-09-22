@@ -681,7 +681,6 @@ export function StreamPlayer({
             // Growing on-demand pack, not a broadcast. Start at local 0 and never
             // snap to ffmpeg's advancing live edge (that jumps long movies to the end).
             startPosition: 0.001,
-            liveSyncOnStall: false,
             liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
             liveMaxLatencyDurationCount: Infinity,
             maxLiveSyncPlaybackRate: 1,
@@ -1317,7 +1316,6 @@ export function StreamPlayer({
             hls.stopLoad();
             hls.config.autoStartLoad = false;
             hls.config.startPosition = 0.001;
-            hls.config.liveSyncOnStall = false;
             hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
             hls.on(HlsLib.Events.ERROR, onError);
             hls.loadSource(nextSrc);
