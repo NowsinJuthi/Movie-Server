@@ -10,6 +10,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/auth-api";
 import { ApiError } from "@/lib/api";
@@ -58,7 +59,7 @@ export default function RegisterPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" autoComplete="new-password" {...form.register("password")} />
+          <PasswordInput id="password" autoComplete="new-password" {...form.register("password")} />
         </div>
         <Button className="w-full" disabled={mutation.isPending || Boolean(success)}>
           {mutation.isPending ? "Creating account..." : "Create account"}

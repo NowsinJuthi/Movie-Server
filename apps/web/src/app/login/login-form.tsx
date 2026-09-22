@@ -11,6 +11,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/auth-api";
 import { ApiError } from "@/lib/api";
@@ -92,7 +93,7 @@ export default function LoginForm() {
               Forgot password?
             </Link>
           </div>
-          <Input id="password" type="password" autoComplete="current-password" {...form.register("password")} />
+          <PasswordInput id="password" autoComplete="current-password" {...form.register("password")} />
         </div>
         <Button className="w-full" disabled={mutation.isPending}>
           {mutation.isPending ? "Signing in..." : "Sign in"}
