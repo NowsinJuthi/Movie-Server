@@ -9,7 +9,6 @@ import {
   Minimize,
   Pause,
   Play,
-  ListVideo,
   RotateCcw,
   RotateCw,
   Settings,
@@ -192,33 +191,6 @@ function MobileTransportCluster({
   );
 }
 
-function MobileIconButton({
-  label,
-  onClick,
-  active,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  active?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      onTouchStart={stopControlBubble}
-      className={cn(
-        "inline-flex h-10 w-10 touch-manipulation items-center justify-center text-white/80 transition-colors active:text-white",
-        active && "text-primary",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 export type EmbyMobileChromeProps = {
   visible: boolean;
   title: string;
@@ -248,7 +220,6 @@ export type EmbyMobileChromeProps = {
   hasNextEpisode?: boolean;
   onPreviousEpisode?: () => void;
   onNextEpisode?: () => void;
-  onOpenEpisodes?: () => void;
 };
 
 export function EmbyMobileChrome({
@@ -280,7 +251,6 @@ export function EmbyMobileChrome({
   hasNextEpisode,
   onPreviousEpisode,
   onNextEpisode,
-  onOpenEpisodes,
 }: EmbyMobileChromeProps) {
   const [volumeOpen, setVolumeOpen] = useState(false);
   const displayVolume = muted ? 0 : volume;
@@ -325,15 +295,41 @@ export function EmbyMobileChrome({
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-          onClick={onToggleFullscreen}
-          onTouchStart={stopControlBubble}
-          className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
-        >
-          {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
-        </button>
+        <div className="flex shrink-0 items-center">
+          <button
+            type="button"
+            aria-label={volumeOpen ? "Hide volume" : "Volume"}
+            onClick={() => setVolumePanelOpen(!volumeOpen)}
+            onTouchStart={stopControlBubble}
+            className={cn(
+              "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
+              volumeOpen && "text-primary",
+            )}
+          >
+            {muted || volume === 0 ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+          </button>
+          <button
+            type="button"
+            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            onClick={onToggleFullscreen}
+            onTouchStart={stopControlBubble}
+            className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
+          >
+            {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
+          </button>
+          <button
+            type="button"
+            aria-label="Settings"
+            onClick={onToggleSettings}
+            onTouchStart={stopControlBubble}
+            className={cn(
+              "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
+              settingsOn && "text-primary",
+            )}
+          >
+            <Settings className="h-6 w-6" />
+          </button>
+        </div>
       </header>
 
       {/* Spacer only — iOS Safari will not paint video if a full-screen element sits above it. */}
@@ -415,24 +411,6 @@ export function EmbyMobileChrome({
           onSeek={onSeek}
           onScrubbingChange={onScrubbingChange}
         />
-
-        <div className="mt-2 mx-auto flex w-full max-w-lg items-center justify-evenly px-1">
-          {onOpenEpisodes ? (
-            <MobileIconButton label="All episodes" onClick={onOpenEpisodes}>
-              <ListVideo className="h-5 w-5" />
-            </MobileIconButton>
-          ) : null}
-          <MobileIconButton
-            label={volumeOpen ? "Hide volume" : "Volume"}
-            active={volumeOpen}
-            onClick={() => setVolumePanelOpen(!volumeOpen)}
-          >
-            {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </MobileIconButton>
-          <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
-            <Settings className="h-5 w-5" />
-          </MobileIconButton>
-        </div>
       </div>
     </div>
   );

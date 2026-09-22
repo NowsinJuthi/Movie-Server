@@ -2214,7 +2214,6 @@ export function StreamPlayer({
             hasNextEpisode={Boolean(next)}
             onPreviousEpisode={previous ? () => goToPlayerHref(previous.href) : undefined}
             onNextEpisode={next ? () => goToPlayerHref(next.href) : undefined}
-            onOpenEpisodes={next || previous ? () => goToPlayerHref(backHref, { autoplay: false }) : undefined}
           />
         ) : (
           <>
@@ -2788,6 +2787,12 @@ export function StreamPlayer({
                     void togglePip();
                     closeSheet();
                   }}
+                />
+              ) : null}
+              {next || previous ? (
+                <SettingsMenuRow
+                  label="Episodes"
+                  onClick={() => goToPlayerHref(backHref, { autoplay: false })}
                 />
               ) : null}
               <SettingsMenuRow label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
