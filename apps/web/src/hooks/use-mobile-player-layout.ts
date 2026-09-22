@@ -7,7 +7,9 @@ export function useMobilePlayerLayout(): boolean {
   const [mobile, setMobile] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 768px), (hover: none) and (pointer: coarse)");
+    const query = window.matchMedia(
+      "(max-width: 1023px), (max-height: 520px) and (pointer: coarse), (hover: none) and (pointer: coarse)",
+    );
     const sync = () => setMobile(query.matches);
     sync();
     query.addEventListener("change", sync);

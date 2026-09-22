@@ -2254,9 +2254,11 @@ export function StreamPlayer({
               <Cast className="h-5 w-5 opacity-70" />
             </IconButton>
             {pipSupported ? (
-              <IconButton label="Picture in picture" onClick={() => void togglePip()}>
-                <PictureInPicture2 className={cn("h-5 w-5", pip && "text-white")} />
-              </IconButton>
+              <span className="hidden lg:inline-flex">
+                <IconButton label="Picture in picture" onClick={() => void togglePip()}>
+                  <PictureInPicture2 className={cn("h-5 w-5", pip && "text-white")} />
+                </IconButton>
+              </span>
             ) : null}
             <IconButton label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => void toggleFullscreen()}>
               {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
@@ -2279,7 +2281,7 @@ export function StreamPlayer({
               <h1 className="truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
-              <div className="relative">
+              <div className="relative hidden lg:block">
                 {sheet === "subtitles" ? (
                   <div
                     role="menu"
@@ -2339,7 +2341,7 @@ export function StreamPlayer({
                   <Captions className={cn("h-5 w-5", sheet === "subtitles" && "text-white")} />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="relative hidden lg:block">
                 {sheet === "audio" ? (
                   <div
                     role="menu"
@@ -2389,7 +2391,7 @@ export function StreamPlayer({
                   <AudioLines className={cn("h-5 w-5", (sheet === "audio" || audioTracks.length > 1) && "text-white")} />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="relative hidden lg:block">
                 {sheet === "speed" ? (
                   <div
                     role="menu"
