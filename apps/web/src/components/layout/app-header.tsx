@@ -825,7 +825,6 @@ function AccountMenu({
                 </MenuItem>
               </li>
             </ul>
-            <ThemeSelector variant="menu" />
             {isAdmin ? (
               <>
                 <p className={styles.accountMenuSectionLabel}>Workspace</p>
