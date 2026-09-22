@@ -4,6 +4,8 @@ import { brandingAssetSrc } from "@/lib/settings-api";
 
 export const DEFAULT_PUBLIC_BRANDING: PublicBranding = {
   siteName: "AmarPin",
+  logoLightUrl: null,
+  logoDarkUrl: null,
   logoUrl: null,
   faviconUrl: null,
 };

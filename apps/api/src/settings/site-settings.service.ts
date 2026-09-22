@@ -121,16 +121,36 @@ export class SiteSettingsService implements OnModuleInit {
     return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo` : null;
   }
 
+  logoLightPublicPath(key?: string | null): string | null {
+    return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo/light` : null;
+  }
+
+  logoDarkPublicPath(key?: string | null): string | null {
+    return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo/dark` : null;
+  }
+
   faviconPublicPath(key?: string | null): string | null {
     return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/favicon` : null;
+  }
+
+  private resolveLightLogoKey(doc: SiteSettingsDocument): string | null {
+    return doc.logoLightKey ?? doc.logoKey ?? doc.logoDarkKey ?? null;
+  }
+
+  private resolveDarkLogoKey(doc: SiteSettingsDocument): string | null {
+    return doc.logoDarkKey ?? doc.logoKey ?? doc.logoLightKey ?? null;
   }
 
   async getPublicBranding(): Promise<PublicBranding> {
     const doc = await this.ensureDoc();
     const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
+    const lightKey = this.resolveLightLogoKey(doc);
+    const darkKey = this.resolveDarkLogoKey(doc);
     return {
       siteName: doc.siteName?.trim() || envName,
-      logoUrl: this.logoPublicPath(doc.logoKey),
+      logoLightUrl: this.logoLightPublicPath(lightKey),
+      logoDarkUrl: this.logoDarkPublicPath(darkKey),
+      logoUrl: this.logoLightPublicPath(lightKey) ?? this.logoPublicPath(doc.logoKey),
       faviconUrl: this.faviconPublicPath(doc.faviconKey),
     };
   }
@@ -160,6 +180,8 @@ export class SiteSettingsService implements OnModuleInit {
 
     return {
       siteName,
+      logoLightUrl: doc.logoLightKey ? this.logoLightPublicPath(doc.logoLightKey) : null,
+      logoDarkUrl: doc.logoDarkKey ? this.logoDarkPublicPath(doc.logoDarkKey) : null,
       logoUrl: this.logoPublicPath(doc.logoKey),
       faviconUrl: this.faviconPublicPath(doc.faviconKey),
       smtp: {
@@ -298,6 +320,63 @@ export class SiteSettingsService implements OnModuleInit {
     return this.getAdminSettings();
   }
 
+  async uploadLogoLight(file: { mimetype: string; buffer: Buffer }): Promise<AdminSiteSettings> {
+    return this.uploadThemeLogo(file, 'light');
+  }
+
+  async uploadLogoDark(file: { mimetype: string; buffer: Buffer }): Promise<AdminSiteSettings> {
+    return this.uploadThemeLogo(file, 'dark');
+  }
+
+  private async uploadThemeLogo(
+    file: { mimetype: string; buffer: Buffer },
+    theme: 'light' | 'dark',
+  ): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    if (file.buffer.length > this.branding.maxBytes()) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Logo file is too large.',
+      });
+    }
+    let key: string;
+    try {
+      key = await this.branding.save(file);
+    } catch (error) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: error instanceof Error ? error.message : 'Invalid logo file.',
+      });
+    }
+    const previous = theme === 'light' ? doc.logoLightKey : doc.logoDarkKey;
+    if (theme === 'light') {
+      doc.logoLightKey = key;
+    } else {
+      doc.logoDarkKey = key;
+    }
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
+  async clearLogoLight(): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    const previous = doc.logoLightKey;
+    doc.logoLightKey = null;
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
+  async clearLogoDark(): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    const previous = doc.logoDarkKey;
+    doc.logoDarkKey = null;
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
   async clearFavicon(): Promise<AdminSiteSettings> {
     const doc = await this.ensureDoc();
     const previous = doc.faviconKey;
@@ -309,10 +388,29 @@ export class SiteSettingsService implements OnModuleInit {
 
   async openLogo() {
     const doc = await this.ensureDoc();
-    if (!doc.logoKey) {
+    const key = doc.logoKey ?? this.resolveLightLogoKey(doc);
+    if (!key) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Logo not set.' });
     }
-    return this.branding.open(doc.logoKey);
+    return this.branding.open(key);
+  }
+
+  async openLogoLight() {
+    const doc = await this.ensureDoc();
+    const key = this.resolveLightLogoKey(doc);
+    if (!key) {
+      throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Light logo not set.' });
+    }
+    return this.branding.open(key);
+  }
+
+  async openLogoDark() {
+    const doc = await this.ensureDoc();
+    const key = this.resolveDarkLogoKey(doc);
+    if (!key) {
+      throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Dark logo not set.' });
+    }
+    return this.branding.open(key);
   }
 
   async openFavicon() {

@@ -32,6 +32,52 @@ export class AdminSettingsController {
     return { settings: await this.settings.updateSettings(dto) };
   }
 
+  @Post('logo/light')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  async uploadLogoLight(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 })],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return {
+      settings: await this.settings.uploadLogoLight({
+        mimetype: file.mimetype,
+        buffer: file.buffer,
+      }),
+    };
+  }
+
+  @Post('logo/dark')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  async uploadLogoDark(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 })],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return {
+      settings: await this.settings.uploadLogoDark({
+        mimetype: file.mimetype,
+        buffer: file.buffer,
+      }),
+    };
+  }
+
   @Post('logo')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -76,6 +122,16 @@ export class AdminSettingsController {
         buffer: file.buffer,
       }),
     };
+  }
+
+  @Delete('logo/light')
+  async clearLogoLight() {
+    return { settings: await this.settings.clearLogoLight() };
+  }
+
+  @Delete('logo/dark')
+  async clearLogoDark() {
+    return { settings: await this.settings.clearLogoDark() };
   }
 
   @Delete('logo')

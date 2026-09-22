@@ -1,5 +1,10 @@
 export type PublicBranding = {
   siteName: string;
+  /** Resolved light-theme logo (falls back to legacy `logoUrl` key when needed). */
+  logoLightUrl: string | null;
+  /** Resolved dark-theme logo (falls back to legacy `logoUrl` key when needed). */
+  logoDarkUrl: string | null;
+  /** Legacy single logo; prefer `logoLightUrl` / `logoDarkUrl`. */
   logoUrl: string | null;
   faviconUrl: string | null;
 };
@@ -26,6 +31,9 @@ export type AdminEmailDomainSettings = {
 
 export type AdminSiteSettings = {
   siteName: string;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
+  /** Legacy upload; used as fallback when theme logos are missing. */
   logoUrl: string | null;
   faviconUrl: string | null;
   smtp: AdminSmtpSettings;

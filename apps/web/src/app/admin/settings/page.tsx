@@ -101,17 +101,33 @@ export default function AdminSettingsPage() {
     },
   });
 
-  const logoMutation = useMutation({
-    mutationFn: (file: File) => settingsApi.uploadLogo(file),
+  const logoLightMutation = useMutation({
+    mutationFn: (file: File) => settingsApi.uploadLogoLight(file),
     onSuccess: async (data) => {
       setError(null);
-      setSuccess("Logo updated.");
+      setSuccess("Light mode logo updated.");
       applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
     onError: (err: unknown) => {
       setSuccess(null);
-      setError(err instanceof ApiError ? err.message : "Logo upload failed.");
+      setError(err instanceof ApiError ? err.message : "Light logo upload failed.");
+    },
+  });
+
+  const logoDarkMutation = useMutation({
+    mutationFn: (file: File) => settingsApi.uploadLogoDark(file),
+    onSuccess: async (data) => {
+      setError(null);
+      setSuccess("Dark mode logo updated.");
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    },
+    onError: (err: unknown) => {
+      setSuccess(null);
+      setError(err instanceof ApiError ? err.message : "Dark logo upload failed.");
     },
   });
 
@@ -129,10 +145,19 @@ export default function AdminSettingsPage() {
     },
   });
 
-  const clearLogoMutation = useMutation({
-    mutationFn: () => settingsApi.clearLogo(),
+  const clearLogoLightMutation = useMutation({
+    mutationFn: () => settingsApi.clearLogoLight(),
     onSuccess: async (data) => {
-      setSuccess("Logo removed.");
+      setSuccess("Light mode logo removed.");
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    },
+  });
+
+  const clearLogoDarkMutation = useMutation({
+    mutationFn: () => settingsApi.clearLogoDark(),
+    onSuccess: async (data) => {
+      setSuccess("Dark mode logo removed.");
       applySettings(data.settings);
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
@@ -223,6 +248,8 @@ export default function AdminSettingsPage() {
   const settings = query.data;
   const loadError = query.error instanceof ApiError ? query.error.message : null;
   const bust = settings?.siteName;
+  const lightLogoPreview = settings ? (settings.logoLightUrl ?? settings.logoUrl) : null;
+  const darkLogoPreview = settings ? (settings.logoDarkUrl ?? settings.logoUrl) : null;
 
   return (
     <AdminPage
@@ -319,6 +346,7 @@ export default function AdminSettingsPage() {
                 <h2 className="text-base font-semibold">Website branding</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Site name appears in the header, admin panel, browser title, and email subjects.
+                  Upload separate logos for light and dark mode (PNG, SVG, or WebP).
                 </p>
               </div>
               <div className="space-y-2">
@@ -331,42 +359,78 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
-              <div className="grid flex-1 grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-3 rounded-lg border border-border/70 p-4">
-                  <p className="text-sm font-medium">Logo</p>
-                  {settings.logoUrl ? (
+              <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
+                <div className="space-y-3 rounded-lg border border-border/70 bg-background/40 p-4">
+                  <p className="text-sm font-medium">Logo — light mode</p>
+                  <p className="text-xs text-muted-foreground">Shown when the site uses light theme.</p>
+                  {lightLogoPreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={brandingAssetSrc(settings.logoUrl, bust) ?? undefined}
-                      alt="Logo preview"
+                      src={brandingAssetSrc(lightLogoPreview, bust) ?? undefined}
+                      alt="Light mode logo preview"
                       className="h-12 w-auto max-w-full object-contain"
                     />
                   ) : (
-                    <p className="text-xs text-muted-foreground">No logo uploaded</p>
+                    <p className="text-xs text-muted-foreground">No light logo uploaded</p>
                   )}
                   <Input
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/svg+xml"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) logoMutation.mutate(file);
+                      if (file) logoLightMutation.mutate(file);
                       e.target.value = "";
                     }}
                   />
-                  {settings.logoUrl ? (
+                  {settings.logoLightUrl ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={clearLogoMutation.isPending}
-                      onClick={() => clearLogoMutation.mutate()}
+                      disabled={clearLogoLightMutation.isPending}
+                      onClick={() => clearLogoLightMutation.mutate()}
                     >
-                      Remove logo
+                      Remove light logo
                     </Button>
                   ) : null}
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-border/70 p-4">
+                <div className="space-y-3 rounded-lg border border-border/70 bg-zinc-950/80 p-4">
+                  <p className="text-sm font-medium text-zinc-100">Logo — dark mode</p>
+                  <p className="text-xs text-zinc-400">Shown when the site uses dark theme.</p>
+                  {darkLogoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={brandingAssetSrc(darkLogoPreview, bust) ?? undefined}
+                      alt="Dark mode logo preview"
+                      className="h-12 w-auto max-w-full object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-zinc-500">No dark logo uploaded</p>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) logoDarkMutation.mutate(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {settings.logoDarkUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={clearLogoDarkMutation.isPending}
+                      onClick={() => clearLogoDarkMutation.mutate()}
+                    >
+                      Remove dark logo
+                    </Button>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-border/70 p-4 sm:col-span-2 lg:col-span-1">
                   <p className="text-sm font-medium">Favicon</p>
                   {settings.faviconUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element

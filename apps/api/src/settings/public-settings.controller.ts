@@ -40,6 +40,28 @@ export class PublicSettingsController {
   @Public()
   @SkipLicense()
   @SkipThrottle()
+  @Get('branding/logo/light')
+  @Header('Cache-Control', 'public, max-age=300')
+  async logoLight(@Res() res: Response) {
+    const { stream, mime } = await this.settings.openLogoLight();
+    res.type(mime);
+    stream.pipe(res);
+  }
+
+  @Public()
+  @SkipLicense()
+  @SkipThrottle()
+  @Get('branding/logo/dark')
+  @Header('Cache-Control', 'public, max-age=300')
+  async logoDark(@Res() res: Response) {
+    const { stream, mime } = await this.settings.openLogoDark();
+    res.type(mime);
+    stream.pipe(res);
+  }
+
+  @Public()
+  @SkipLicense()
+  @SkipThrottle()
   @Get('branding/logo')
   @Header('Cache-Control', 'public, max-age=300')
   async logo(@Res() res: Response) {

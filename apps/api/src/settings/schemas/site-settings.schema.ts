@@ -29,6 +29,12 @@ export class SiteSettings {
   logoKey?: string | null;
 
   @Prop({ type: String, default: null })
+  logoLightKey?: string | null;
+
+  @Prop({ type: String, default: null })
+  logoDarkKey?: string | null;
+
+  @Prop({ type: String, default: null })
   faviconKey?: string | null;
 
   @Prop({ default: false })

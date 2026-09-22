@@ -11,8 +11,7 @@ import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
-import { useBranding } from "@/components/branding/site-brand";
-import { brandingAssetSrc } from "@/lib/settings-api";
+import { useBranding, useThemeLogo } from "@/components/branding/site-brand";
 import styles from "@/components/license/license-page.module.css";
 
 const schema = z.object({
@@ -24,8 +23,8 @@ type FormValues = z.infer<typeof schema>;
 export default function LicensePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { siteName, logoUrl } = useBranding();
-  const logoSrc = brandingAssetSrc(logoUrl);
+  const { siteName } = useBranding();
+  const logoSrc = useThemeLogo();
   const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),

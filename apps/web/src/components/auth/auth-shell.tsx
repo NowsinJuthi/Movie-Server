@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AuthGraphic } from "./auth-graphic";
-import { useBranding } from "@/components/branding/site-brand";
-import { brandingAssetSrc } from "@/lib/settings-api";
+import { useBranding, useThemeLogo } from "@/components/branding/site-brand";
 import { ThemeSelector } from "@/components/theme/theme-selector";
 import styles from "./auth-shell.module.css";
 
@@ -17,8 +16,8 @@ export function AuthShell({
   description: string;
   children: ReactNode;
 }) {
-  const { siteName, logoUrl } = useBranding();
-  const logoSrc = brandingAssetSrc(logoUrl);
+  const { siteName } = useBranding();
+  const logoSrc = useThemeLogo();
 
   return (
     <main className={styles.page}>
