@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomeCard } from "@movie-server/shared";
-import { ChevronLeft, ChevronRight, Info, Play } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Info, Play, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,15 @@ export function HeroBanner({
   if (!active) return null;
 
   const rating = active.ratings.imdb ?? active.ratings.tmdb ?? active.ratings.audience;
+  const metaLine = [
+    active.year,
+    rating != null ? rating.toFixed(1) : null,
+    active.certification ?? active.maturityRating,
+    active.maxResolution,
+    active.kind === "series" ? "Series" : null,
+  ]
+    .filter((part) => part != null && part !== "")
+    .join(" · ");
 
   const play = () => {
     rememberPlayerReturn();
@@ -66,36 +75,32 @@ export function HeroBanner({
         </div>
       ))}
       <div className="absolute inset-0 z-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/50 max-md:via-black/20 md:max-lg:via-black/55" />
-      <div className="absolute inset-x-0 bottom-0 z-0 h-[45%] bg-gradient-to-t from-background from-[12%] via-background/55 via-[42%] to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 z-0 h-[45%] bg-gradient-to-t from-black from-[18%] via-black/65 via-[48%] to-transparent" />
       <div className="relative z-[2] flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-6 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
         <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
           {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
         </p>
-        <h1 className="max-w-xl text-xl font-bold leading-snug sm:text-2xl md:mt-3 md:text-4xl md:leading-tight lg:text-6xl">
+        <h1 className="max-w-xl text-xl font-bold leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.55)] sm:text-2xl md:mt-3 md:text-4xl md:leading-tight lg:text-6xl">
           {active.title}
         </h1>
         <p className="mt-1 text-sm text-white/80 md:mt-3">
-          <span className="md:hidden">{active.year}</span>
-          <span className="hidden md:inline">
-            {active.year}
-            {rating ? ` · ${rating.toFixed(1)}` : ""}
-            {active.certification ? ` · ${active.certification}` : ` · ${active.maturityRating}`}
-            {active.maxResolution ? ` · ${active.maxResolution}` : ""}
-            {active.kind === "series" ? " · Series" : ""}
-          </span>
+          <span className="md:hidden">{active.year || ""}</span>
+          <span className="hidden md:inline">{metaLine}</span>
         </p>
         <p className="mt-4 hidden max-w-xl text-sm leading-6 text-white/80 md:line-clamp-3 md:block md:text-base">
           {active.description}
         </p>
         <div className="relative mt-3 flex w-full items-center gap-2 md:hidden">
-          <button
-            type="button"
-            aria-label="Play"
-            onClick={play}
-            className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
-          >
-            <Play className="ml-px h-4 w-4 fill-current" />
-          </button>
+          {active.playable ? (
+            <button
+              type="button"
+              aria-label="Play"
+              onClick={play}
+              className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.35)] active:scale-[0.96]"
+            >
+              <Play className="ml-px h-4 w-4 fill-current" />
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label="More info"
@@ -104,6 +109,16 @@ export function HeroBanner({
           >
             <Info className="h-4 w-4" />
           </button>
+          {onToggleList ? (
+            <button
+              type="button"
+              aria-label={active.inMyList ? "Remove from My List" : "Add to My List"}
+              onClick={() => onToggleList(active)}
+              className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
+            >
+              {active.inMyList ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </button>
+          ) : null}
           {slides.length > 1 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="pointer-events-auto flex items-center gap-1">
@@ -128,10 +143,12 @@ export function HeroBanner({
           ) : null}
         </div>
         <div className="mt-6 hidden flex-wrap gap-3 md:flex">
-          <Button className="h-12 min-w-32 bg-white text-black hover:bg-white/90" onClick={play}>
-            <Play className="h-4 w-4 fill-current" />
-            Play
-          </Button>
+          {active.playable ? (
+            <Button className="h-12 min-w-32 bg-white text-black hover:bg-white/90" onClick={play}>
+              <Play className="h-4 w-4 fill-current" />
+              Play
+            </Button>
+          ) : null}
           <Button variant="secondary" className="h-12 min-w-32" onClick={() => router.push(active.href)}>
             <Info className="h-4 w-4" />
             More info

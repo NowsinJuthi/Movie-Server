@@ -48,7 +48,7 @@ export function MediaCarousel({
       <div className="group/row relative overflow-visible">
         <button
           type="button"
-          className="absolute left-0 top-0 z-10 hidden h-full w-10 items-center justify-center bg-gradient-to-r from-background to-transparent text-white md:flex md:opacity-0 md:group-hover/row:opacity-100"
+          className="absolute left-0 top-0 z-10 hidden h-full w-10 items-center justify-center bg-gradient-to-r from-background to-transparent text-foreground md:flex md:opacity-0 md:group-hover/row:opacity-100"
           onClick={() => scroll(-1)}
           aria-label={`Scroll ${row.title} left`}
         >
@@ -71,7 +71,7 @@ export function MediaCarousel({
         </div>
         <button
           type="button"
-          className="absolute right-0 top-0 z-10 hidden h-full w-10 items-center justify-center bg-gradient-to-l from-background to-transparent text-white md:flex md:opacity-0 md:group-hover/row:opacity-100"
+          className="absolute right-0 top-0 z-10 hidden h-full w-10 items-center justify-center bg-gradient-to-l from-background to-transparent text-foreground md:flex md:opacity-0 md:group-hover/row:opacity-100"
           onClick={() => scroll(1)}
           aria-label={`Scroll ${row.title} right`}
         >

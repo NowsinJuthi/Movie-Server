@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeSelector } from "@/components/theme/theme-selector";
@@ -125,11 +126,7 @@ export function AppHeader({
   const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
   const logoButton = (
-    <button
-      type="button"
-      className={styles.logoBtn}
-      onClick={() => router.push("/home")}
-    >
+    <Link href="/home" className={cn(styles.logoBtn, "no-underline")}>
       {logoSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={logoSrc} alt={siteName} className={styles.logoImg} />
@@ -141,7 +138,7 @@ export function AppHeader({
           ) : null}
         </>
       )}
-    </button>
+    </Link>
   );
 
   const headerActions = (
@@ -160,7 +157,11 @@ export function AppHeader({
         <Button
           variant="ghost"
           className="hidden md:inline-flex"
-          onClick={() => router.push("/account/subscription")}
+          onClick={() =>
+            router.push(
+              planLabel.trim().toLowerCase() === "subscribe" ? "/subscribe" : "/account/subscription",
+            )
+          }
         >
           {planLabel}
         </Button>
@@ -632,17 +633,16 @@ function HeaderLink({
   icon: ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
-  const router = useRouter();
   return (
-    <button
-      type="button"
-      className={cn(styles.navLink, active && styles.navLinkActive)}
-      onClick={() => router.push(href)}
+    <Link
+      href={href}
+      className={cn(styles.navLink, "no-underline", active && styles.navLinkActive)}
+      aria-current={active ? "page" : undefined}
     >
       <BrowseNavItemContent icon={icon} active={active}>
         {children}
       </BrowseNavItemContent>
-    </button>
+    </Link>
   );
 }
 
@@ -728,7 +728,7 @@ function AccountMenu({
       </button>
       {open ? (
         <div role="menu" className={styles.accountMenuDropdown}>
-          <div className={styles.accountMenuPanel}>
+          <div className={cn(styles.accountMenuPanel, "brand-scrollbar")}>
             <div className={styles.accountMenuHead}>
               <span className={styles.browseSectionIcon} aria-hidden>
                 <UserRound className="h-3.5 w-3.5" />
@@ -946,7 +946,6 @@ function NavMenu({
   /** When true, dropdown shows only footer actions (e.g. Requests menu). */
   footerOnly?: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1015,15 +1014,19 @@ function NavMenu({
                 <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
               ) : (
                 items.map((item) => (
-                  <button
+                  <Link
                     key={item.id}
-                    type="button"
+                    href={item.href}
                     role="menuitem"
-                    className={cn(styles.navDropdownItem, item.active && styles.navDropdownItemActive)}
+                    className={cn(
+                      styles.navDropdownItem,
+                      "no-underline",
+                      item.active && styles.navDropdownItemActive,
+                    )}
+                    aria-current={item.active ? "page" : undefined}
                     onClick={() => {
                       cancelScheduledClose();
                       setOpen(false);
-                      router.push(item.href);
                     }}
                   >
                     <span
@@ -1035,7 +1038,7 @@ function NavMenu({
                       <ItemIcon className="h-3.5 w-3.5" />
                     </span>
                     <span className="min-w-0 truncate">{item.label}</span>
-                  </button>
+                  </Link>
                 ))
               )
             ) : null}
@@ -1045,15 +1048,14 @@ function NavMenu({
                 {footerItems.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <button
+                    <Link
                       key={item.id}
-                      type="button"
+                      href={item.href}
                       role="menuitem"
-                      className={styles.navDropdownFooterItem}
+                      className={cn(styles.navDropdownFooterItem, "no-underline")}
                       onClick={() => {
                         cancelScheduledClose();
                         setOpen(false);
-                        router.push(item.href);
                       }}
                     >
                       {Icon ? (
@@ -1062,7 +1064,7 @@ function NavMenu({
                         </span>
                       ) : null}
                       <span className="min-w-0 truncate">{item.label}</span>
-                    </button>
+                    </Link>
                   );
                 })}
               </>

@@ -144,6 +144,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--primary);
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -234,6 +235,7 @@
   font-weight: 600;
   letter-spacing: 0.015em;
   color: color-mix(in oklch, var(--foreground) 82%, transparent);
+  text-decoration: none;
   box-shadow: none;
   transition:
     color 0.2s ease,
@@ -378,6 +380,7 @@
   font-size: 0.8125rem;
   font-weight: 500;
   color: color-mix(in oklch, var(--foreground) 78%, transparent);
+  text-decoration: none;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
 }
@@ -415,6 +418,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--primary);
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -581,11 +585,14 @@
   top: 100%;
   z-index: 70;
   min-width: min(18rem, calc(100vw - 1.5rem));
+  max-height: min(70dvh, calc(100dvh - var(--site-header-offset) - 0.75rem));
   padding-top: 0.45rem;
 }
 
 .accountMenuPanel {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: inherit;
   border-radius: 0.75rem;
   border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
   background: linear-gradient(

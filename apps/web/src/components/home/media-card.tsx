@@ -54,7 +54,7 @@ export function MediaCard({
       <div className="mt-2 px-0.5 text-center">
         <button
           type="button"
-          className="line-clamp-2 w-full text-sm font-medium leading-snug text-white hover:underline"
+          className="line-clamp-2 w-full text-sm font-medium leading-snug text-foreground hover:underline"
           onClick={() => setInfoOpen(true)}
         >
           {card.title}
@@ -62,7 +62,7 @@ export function MediaCard({
         {card.year ? (
           <button
             type="button"
-            className="mt-0.5 text-xs text-white/60 hover:text-white/80 hover:underline"
+            className="mt-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
             onClick={() => setInfoOpen(true)}
           >
             {card.year}
