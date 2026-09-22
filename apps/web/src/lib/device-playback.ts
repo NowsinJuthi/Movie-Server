@@ -169,18 +169,20 @@ export function localTimelineSeconds(displaySeconds: number, originSeconds: numb
   return Math.max(0, displaySeconds - originSeconds);
 }
 
-/** True when a packaged-HLS local time is already buffered. */
+/** True when a packaged-HLS local time is already in the decoder buffer. */
 export function isLocalTimeBuffered(
   video: HTMLVideoElement,
   localSeconds: number,
   slack = 0.35,
 ): boolean {
-  if (video.seekable.length === 0) {
+  const ranges = video.buffered;
+  if (ranges.length === 0) {
     return false;
   }
-  for (let i = 0; i < video.seekable.length; i += 1) {
-    const start = video.seekable.start(i);
-    const end = video.seekable.end(i);
+  for (let i = 0; i < ranges.length; i += 1) {
+    const start = ranges.start(i);
+    const end = ranges.end(i);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
     if (localSeconds >= start - slack && localSeconds <= end + slack) {
       return true;
     }

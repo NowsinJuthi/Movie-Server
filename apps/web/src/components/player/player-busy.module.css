@@ -8,16 +8,23 @@
   justify-content: center;
 }
 
+.overlay,
+.overlay * {
+  pointer-events: none;
+}
+
 .overlayPreparing {
   background: rgb(0 0 0 / 0.48);
   backdrop-filter: blur(2px);
 }
 
 .overlayBuffering {
+  z-index: 8;
   background: transparent;
 }
 
 .freeze {
+  pointer-events: none;
   position: absolute;
   inset: 0;
   z-index: 0;

@@ -1175,26 +1175,25 @@ export function StreamPlayer({
     const video = videoRef.current;
     if (!video || video.videoWidth < 2 || video.videoHeight < 2) return;
     const canvas = freezeCanvasRef.current;
+    const maxWidth = 960;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const width = Math.max(2, Math.round(video.videoWidth * scale));
+    const height = Math.max(2, Math.round(video.videoHeight * scale));
     try {
       if (canvas) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
-        ctx.drawImage(video, 0, 0);
-        try {
-          setFreezeFrame(canvas.toDataURL("image/jpeg", 0.72));
-        } catch {
-          /* Tainted canvas still paints; skip the extra JPEG snapshot. */
-        }
+        ctx.drawImage(video, 0, 0, width, height);
         return;
       }
       const shot = document.createElement("canvas");
-      shot.width = video.videoWidth;
-      shot.height = video.videoHeight;
+      shot.width = width;
+      shot.height = height;
       const ctx = shot.getContext("2d");
       if (!ctx) return;
-      ctx.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0, width, height);
       setFreezeFrame(shot.toDataURL("image/jpeg", 0.72));
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
@@ -2203,7 +2202,7 @@ export function StreamPlayer({
         ref={freezeCanvasRef}
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-0 z-[29] h-full w-full bg-transparent",
+          "pointer-events-none absolute inset-0 z-[2] h-full w-full bg-transparent",
           videoObjectClass,
           buffering && !loading ? "opacity-100" : "opacity-0",
         )}
