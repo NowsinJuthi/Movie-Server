@@ -207,6 +207,7 @@ export function StreamPlayer({
   const hideTimer = useRef<number | null>(null);
   const recoverCount = useRef(0);
   const seekingRef = useRef(false);
+  const pendingSeekRef = useRef<number | null>(null);
   const seekPlaybackRef = useRef<(seconds: number) => void>(() => undefined);
   const transcodeFallbackRef = useRef(false);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
@@ -995,6 +996,7 @@ export function StreamPlayer({
     const onPlay = () => {
       setPlaying(true);
       setLoading(false);
+      if (seekingRef.current) return;
       revealControls();
       if (mobileLayoutRef.current || isCoarsePointerMobile()) {
         const v = videoRef.current;
@@ -1006,6 +1008,7 @@ export function StreamPlayer({
       }
     };
     const onPause = () => {
+      if (seekingRef.current) return;
       setPlaying(false);
       setControls(true);
       void persistProgress(true);
@@ -1183,7 +1186,12 @@ export function StreamPlayer({
     async (targetSeconds: number) => {
       const video = videoRef.current;
       const info = sessionRef.current;
-      if (!video || !info || seekingRef.current) return;
+      if (!video || !info) return;
+      if (seekingRef.current) {
+        pendingSeekRef.current = targetSeconds;
+        setCurrentTime(targetSeconds);
+        return;
+      }
       const wasPlaying = !video.paused;
       const total = durationHintRef.current || duration;
       const target = Math.max(0, Math.min(targetSeconds, total > 0 ? total : targetSeconds));
@@ -1214,7 +1222,7 @@ export function StreamPlayer({
       }
 
       seekingRef.current = true;
-      setBuffering(true);
+      pendingSeekRef.current = null;
       try {
         mediaOriginRef.current = target;
         const nextSrc = `${variantHlsUrl(info, {
@@ -1287,10 +1295,16 @@ export function StreamPlayer({
       } catch {
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
+        pendingSeekRef.current = null;
         setError("Seek failed. Try again in a moment.");
       } finally {
         seekingRef.current = false;
         setBuffering(false);
+        const queued = pendingSeekRef.current;
+        pendingSeekRef.current = null;
+        if (queued != null) {
+          void seekPlaybackTo(queued);
+        }
       }
     },
     [duration, quality, usesPackagedHls],
@@ -2143,7 +2157,7 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || buffering) && !error && !(mobileLayout && playing && !loading) ? (
+      {(loading || (buffering && !mobileLayout)) && !error ? (
         <div
           className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
           role="status"
