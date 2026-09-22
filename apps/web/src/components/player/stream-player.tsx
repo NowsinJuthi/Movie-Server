@@ -572,7 +572,8 @@ export function StreamPlayer({
       const video = videoRef.current;
       if (!video) return;
       detachEngine();
-      const origin = Math.max(0, resumeRef.current);
+      const remuxOffset = Boolean(info.remuxStream || info.transcode || info.hevcStream);
+      const origin = remuxOffset ? Math.max(0, resumeRef.current) : 0;
       mediaOriginRef.current = origin;
       usingHlsRef.current = false;
       setUsingHls(false);
@@ -583,12 +584,15 @@ export function StreamPlayer({
       const src = appendStreamQuery(remuxProgressiveUrl(info), {
         quality: chosen ?? undefined,
         audio: info.selectedAudioId ?? undefined,
-        t: origin > 0.5 ? String(Math.floor(origin)) : undefined,
+        t: remuxOffset && origin > 0.5 ? String(Math.floor(origin)) : undefined,
       });
       setIosMutedPlay(false);
       video.src = src;
       video.load();
-      void warmMediaUrl(src);
+      // A second Range fetch starts another ffmpeg remux and starves the player.
+      if (!remuxOffset) {
+        void warmMediaUrl(src);
+      }
       if (isAppleMobileDevice() || mobileLayoutRef.current) {
         const onReady = () => startMobileAttachedPlayback(video);
         if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -807,11 +811,8 @@ export function StreamPlayer({
   const attachPlayback = useCallback(
     (info: PlaybackSessionInfo) => {
       if (info.directPlay) {
-        if (isAppleMobileDevice()) {
-          attachNativeHls(info);
-        } else {
-          attachHls(info);
-        }
+        // MP4/M4V: native byte-range stream — HLS packaging made these buffer.
+        attachProgressive(info);
         return;
       }
       if (info.hevcStream && !browserSupportsHevcDirectStream()) {
