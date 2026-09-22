@@ -153,6 +153,36 @@ export class HlsPackagerService {
     this.sessionPack.delete(sessionId);
   }
 
+  /** Removes on-disk pack folders that are not tied to a live Redis session. */
+  async sweepOrphanDirs(liveSessionIds: ReadonlySet<string>): Promise<number> {
+    let entries: { name: string; isDirectory: () => boolean }[];
+    try {
+      entries = await fs.readdir(this.baseDir, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return 0;
+      }
+      throw error;
+    }
+
+    let removed = 0;
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const sessionId = entry.name;
+      if (liveSessionIds.has(sessionId)) {
+        continue;
+      }
+      if (this.processes.has(sessionId) || this.starting.has(sessionId)) {
+        continue;
+      }
+      await this.cleanup(sessionId);
+      removed += 1;
+    }
+    return removed;
+  }
+
   private async stopPackaging(sessionId: string): Promise<void> {
     const proc = this.processes.get(sessionId);
     if (proc) {

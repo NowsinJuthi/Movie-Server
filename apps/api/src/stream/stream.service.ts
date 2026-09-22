@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -64,9 +66,12 @@ import {
 const API = '/api/v1';
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
 
+const HLS_ORPHAN_SWEEP_MS = 15 * 60 * 1000;
+
 @Injectable()
-export class StreamService {
+export class StreamService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StreamService.name);
+  private hlsSweepTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly sessions: PlaybackSessionStore,
@@ -84,6 +89,32 @@ export class StreamService {
     @InjectModel(LibraryItem.name) private readonly items: Model<LibraryItemDocument>,
     @InjectModel(MediaLibrary.name) private readonly libraries: Model<MediaLibraryDocument>,
   ) {}
+
+  onModuleInit(): void {
+    void this.sweepOrphanHlsPacks('startup');
+    this.hlsSweepTimer = setInterval(() => void this.sweepOrphanHlsPacks('interval'), HLS_ORPHAN_SWEEP_MS);
+  }
+
+  onModuleDestroy(): void {
+    if (this.hlsSweepTimer) {
+      clearInterval(this.hlsSweepTimer);
+      this.hlsSweepTimer = null;
+    }
+  }
+
+  private async sweepOrphanHlsPacks(reason: 'startup' | 'interval'): Promise<void> {
+    try {
+      const liveIds = await this.sessions.listLiveSessionIds();
+      const removed = await this.hlsPackager.sweepOrphanDirs(liveIds);
+      if (removed > 0) {
+        this.logger.log(`HLS pack sweep (${reason}): removed ${removed} orphan folder(s)`);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `HLS pack sweep failed (${reason}): ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
 
   async open(input: {
     user: RequestUser;
