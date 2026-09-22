@@ -111,9 +111,6 @@ export class StreamService {
     const deviceId = (input.deviceId?.trim() || 'default').slice(0, 80);
     const deviceLabel = (input.deviceLabel?.trim() || 'AmarPin').slice(0, 80);
     const isAppleMobile = /iPhone|iPad|iPod/i.test(deviceLabel);
-    // iOS gets Emby-style HEVC copy in CMAF/fMP4 HLS. Ignore the older web
-    // bundle's blanket force flag so capable iPhones do not software-encode 1080p.
-    const forceVideoTranscode = Boolean(input.forceVideoTranscode) && !isAppleMobile;
     const entitlement = await this.access.assertQuality(input.user.id, input.quality);
     const maxQuality = entitlement.maxVideoQuality;
     if (!maxQuality) {
@@ -191,18 +188,15 @@ export class StreamService {
       const rawPlan = this.remux.available()
         ? await this.resolveTranscodePlan(located.absPath, selected.libraryItemId)
         : null;
-      // iOS HEVC must use CMAF/fMP4 HLS (chosen by HlsPackagerService), not
-      // MPEG-TS. Other clients continue to use their declared capabilities.
-      const allowHevcDirect =
-        (isAppleMobile || Boolean(input.clientHevc)) && !forceVideoTranscode;
+      // Emby Direct Stream: copy video always. HEVC stays HEVC (CMAF/fMP4 on iOS).
       let transcodePlan = rawPlan
-        ? applyClientCapabilities(rawPlan, { hevcDirectStream: allowHevcDirect })
+        ? applyClientCapabilities(rawPlan, { hevcDirectStream: true })
         : null;
-      if (forceVideoTranscode && transcodePlan) {
+      if (transcodePlan) {
         transcodePlan = {
           ...transcodePlan,
-          encodeVideo: true,
-          transcode: true,
+          encodeVideo: false,
+          transcode: transcodePlan.encodeAudio,
         };
       }
       if (transcodePlan && selectedAudio?.embedded) {

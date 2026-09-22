@@ -95,14 +95,11 @@ export function planTranscode(probe: LibraryProbe, mode: 'auto' | 'always' | 'ne
   if (mode === 'never') {
     return { transcode: false, encodeVideo: false, encodeAudio: false, audioOrdinal, probe };
   }
-  if (mode === 'always') {
-    return { transcode: true, encodeVideo: true, encodeAudio: true, audioOrdinal, probe };
-  }
-  const encodeVideo = !isBrowserSafeVideoCodec(probe.videoCodec);
-  const encodeAudio = !isBrowserSafeAudioCodec(audioCodec);
+  // Emby Direct Stream: never re-encode video. Audio may still be AAC for the browser.
+  const encodeAudio = mode === 'always' || !isBrowserSafeAudioCodec(audioCodec);
   return {
-    transcode: encodeVideo || encodeAudio,
-    encodeVideo,
+    transcode: encodeAudio,
+    encodeVideo: false,
     encodeAudio,
     audioOrdinal,
     probe,

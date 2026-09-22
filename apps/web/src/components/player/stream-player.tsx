@@ -53,7 +53,6 @@ import {
   peekPlayerReturn,
 } from "@/lib/player-return";
 import {
-  browserSupportsHevcDirectStream,
   displayTimelineSeconds,
   effectiveVideoDuration,
   isAppleMobileDevice,
@@ -219,7 +218,6 @@ export function StreamPlayer({
   const pendingSeekRef = useRef<number | null>(null);
   const seekPackRef = useRef(false);
   const seekPlaybackRef = useRef<(seconds: number) => void | Promise<void>>(() => undefined);
-  const transcodeFallbackRef = useRef(false);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
   const repeatModeRef = useRef<RepeatMode>("none");
 
@@ -671,11 +669,6 @@ export function StreamPlayer({
 
       const fallback = () => {
         setUsingHls(false);
-        if (usesPackagedHls(info) && !transcodeFallbackRef.current) {
-          transcodeFallbackRef.current = true;
-          transcodeRetryRef.current?.();
-          return;
-        }
         if (usesPackagedHls(info) || !isAppleMobileDevice()) {
           setLoading(false);
           setError(
@@ -815,23 +808,15 @@ export function StreamPlayer({
   const attachPlayback = useCallback(
     (info: PlaybackSessionInfo) => {
       if (info.directPlay) {
-        // MP4/M4V: native byte-range stream — HLS packaging made these buffer.
         attachProgressive(info);
         return;
       }
-      if (info.hevcStream && !browserSupportsHevcDirectStream()) {
-        transcodeFallbackRef.current = true;
-        transcodeRetryRef.current?.();
-        return;
-      }
-      // Desktop/Android: Emby Direct Stream — copy remux to fMP4, no library convert.
-      // iOS still needs packaged HLS because Safari will not play MKV remux pipes.
-      if (info.remuxStream && !info.transcode && !isAppleMobileDevice()) {
+      // Emby Direct Stream: copy remux only. Never fall back to video encode.
+      if ((info.remuxStream || info.hevcStream || info.audioTranscode) && !isAppleMobileDevice()) {
         attachProgressive(info);
         return;
       }
-      // Encoded HLS (HEVC→H.264) + iOS remux/hevc.
-      if (usesPackagedHls(info)) {
+      if (usesPackagedHls(info) || isAppleMobileDevice()) {
         if (isAppleMobileDevice()) {
           attachNativeHls(info);
         } else {
@@ -850,11 +835,6 @@ export function StreamPlayer({
 
   const boot = useCallback(
     async (requested: VideoQuality, options?: { forceVideoTranscode?: boolean }) => {
-      if (options?.forceVideoTranscode) {
-        transcodeFallbackRef.current = true;
-      } else {
-        transcodeFallbackRef.current = false;
-      }
       setLoading(true);
       setError(null);
       setCountdown(null);
@@ -903,7 +883,7 @@ export function StreamPlayer({
   useEffect(() => {
     transcodeRetryRef.current = () => {
       const q = sessionRef.current?.selectedQuality ?? preferredQuality;
-      void boot(q, { forceVideoTranscode: true });
+      void boot(q);
     };
   }, [boot, preferredQuality]);
 
@@ -1102,11 +1082,6 @@ export function StreamPlayer({
     const onError = () => {
       const info = sessionRef.current;
       if (!info) return;
-      if (usesPackagedHls(info) && !transcodeFallbackRef.current) {
-        transcodeFallbackRef.current = true;
-        transcodeRetryRef.current?.();
-        return;
-      }
       if (usingHlsRef.current && !usesPackagedHls(info)) {
         attachProgressive(info, quality === "auto" ? undefined : quality);
         return;
@@ -1117,7 +1092,7 @@ export function StreamPlayer({
           ? "Playback failed. Tap Retry — if it keeps failing, check ffmpeg and SMB access on the server."
           : isAppleMobileDevice()
             ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
-            : "This file could not be played in the browser. Use MP4 (H.264 + AAC). HEVC/VP9 or unsupported codecs need conversion.",
+            : "This file could not be played in the browser. The video was not converted — the original stream is used.",
       );
     };
 
