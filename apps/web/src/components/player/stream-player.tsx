@@ -680,7 +680,8 @@ export function StreamPlayer({
             liveDurationInfinity: encoding,
             // Growing on-demand pack, not a broadcast. Start at local 0 and never
             // snap to ffmpeg's advancing live edge (that jumps long movies to the end).
-            startPosition: 0,
+            startPosition: 0.001,
+            liveSyncOnStall: false,
             liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
             liveMaxLatencyDurationCount: Infinity,
             maxLiveSyncPlaybackRate: 1,
@@ -964,6 +965,7 @@ export function StreamPlayer({
     };
 
     const onTime = () => {
+      if (seekingRef.current) return;
       const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
       const displayTime = usingHlsRef.current
         ? displayTimelineSeconds(video.currentTime, origin, durationHintRef.current)
@@ -1275,6 +1277,9 @@ export function StreamPlayer({
       setBuffering(true);
       try {
         mediaOriginRef.current = target;
+        await streamApi
+          .seekHls(info.id, target, quality === "auto" ? undefined : quality)
+          .catch(() => undefined);
         const nextSrc = `${variantHlsUrl(info, {
           startSeconds: target,
           resolution: quality === "auto" ? "auto" : quality,
@@ -1294,7 +1299,12 @@ export function StreamPlayer({
               window.clearTimeout(timeout);
               hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
               hls.off(HlsLib.Events.ERROR, onError);
-              hls.startLoad(0);
+              hls.startLoad(0.001);
+              try {
+                video.currentTime = 0;
+              } catch {
+                /* native / live MSE may ignore this until the first fragment */
+              }
               resolve();
             };
             const onError = (_event: string, data: { fatal?: boolean }) => {
@@ -1306,7 +1316,8 @@ export function StreamPlayer({
             };
             hls.stopLoad();
             hls.config.autoStartLoad = false;
-            hls.config.startPosition = 0;
+            hls.config.startPosition = 0.001;
+            hls.config.liveSyncOnStall = false;
             hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
             hls.on(HlsLib.Events.ERROR, onError);
             hls.loadSource(nextSrc);
@@ -1347,6 +1358,11 @@ export function StreamPlayer({
         }
 
         setCurrentTime(target);
+        try {
+          video.currentTime = 0;
+        } catch {
+          /* keep origin mapping even if the element rejects the assignment */
+        }
         if (wasPlaying) {
           void video.play().catch(() => undefined);
         } else if (video.readyState >= 2) {

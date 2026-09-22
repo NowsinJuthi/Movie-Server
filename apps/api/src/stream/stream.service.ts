@@ -382,17 +382,13 @@ export class StreamService {
   ): Promise<void> {
     const session = await this.sessions.requireOwned(sessionId, userId);
     await this.ensurePlayable(session, userId);
-    if (!session.videoTranscode && !session.videoRemux) {
+    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
+    const generation = `seek-${Date.now()}`;
+    if (session.videoTranscode || session.videoRemux) {
+      await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped, generation);
       return;
     }
-    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
-    await this.ensureMobileHls(
-      sessionId,
-      userId,
-      preferredResolution,
-      clamped,
-      `seek-${Date.now()}`,
-    );
+    await this.ensureDirectPlayHls(sessionId, userId, preferredResolution, clamped, generation);
   }
 
   async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {
