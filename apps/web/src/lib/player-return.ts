@@ -49,6 +49,7 @@ export function clearPlayerReturn(): void {
 /** Mark an internal watch URL as an explicit user-requested autoplay navigation. */
 export function autoplayPlayerHref(href: string): string {
   if (!isSafeAppPath(href)) return href;
+  markMobileAutoplayTap();
   const [withoutHash, hash = ""] = href.split("#", 2);
   const separator = withoutHash.includes("?") ? "&" : "?";
   return `${withoutHash}${separator}autoplay=1${hash ? `#${hash}` : ""}`;

@@ -475,7 +475,11 @@ export function StreamPlayer({
           /* fall through to the manual play affordance */
         }
       }
-      setAwaitingTap(true);
+      // Desktop: keep the normal play control. Do not block the movie behind a
+      // second "Tap to play" overlay after a poster click already asked to play.
+      if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+        setAwaitingTap(true);
+      }
       setLoading(false);
       return false;
     }
@@ -1078,6 +1082,9 @@ export function StreamPlayer({
         setBuffering(false);
       }
       applyResume();
+      if (autoplayRequestedRef.current && video.paused && !seekingRef.current) {
+        void tryStartPlayback();
+      }
     };
     const onEnded = () => {
       void persistProgress(true);
@@ -1138,7 +1145,7 @@ export function StreamPlayer({
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
     };
-  }, [applyResume, attachProgressive, autoPlayNext, boot, durationHint, next, persistProgress, preferredQuality, quality, revealControls, usesPackagedHls, usingHls]);
+  }, [applyResume, attachProgressive, autoPlayNext, boot, durationHint, next, persistProgress, preferredQuality, quality, revealControls, tryStartPlayback, usesPackagedHls, usingHls]);
 
   useEffect(() => {
     if (countdown == null || !next) return;
@@ -2187,7 +2194,7 @@ export function StreamPlayer({
             : cn("h-screen w-full", videoObjectClass),
         )}
         playsInline
-        autoPlay={mobileLayout && autoplayRequestedRef.current}
+        autoPlay={autoplayRequestedRef.current}
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
         preload="auto"
@@ -2233,20 +2240,6 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {awaitingTap && !error && !mobileLayout ? (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
-          <button
-            type="button"
-            className="flex min-h-16 min-w-16 flex-col items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-semibold text-primary-foreground shadow-lg active:scale-95"
-            onClick={() => {
-              void tryStartPlayback();
-            }}
-          >
-            <Play className="h-10 w-10 fill-current" />
-            <span>Tap to play</span>
-          </button>
-        </div>
-      ) : null}
       <audio ref={audioRef} preload="metadata" className="hidden" />
 
       {showStats ? (
