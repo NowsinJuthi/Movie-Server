@@ -2182,12 +2182,7 @@ export function StreamPlayer({
             bufferedEnd={bufferedEnd}
             transcode={packagedPlayback}
             fullscreen={mobileImmersive}
-            qualityLabel={qualityMenuValue}
-            subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
-            audioOn={sheet === "audio" || audioTracks.length > 1}
             settingsOn={sheet === "settings"}
-            pipSupported={pipSupported}
-            pipActive={pip}
             volume={volume}
             muted={muted}
             onGoBack={goBack}
@@ -2213,15 +2208,8 @@ export function StreamPlayer({
                 revealControls();
               }
             }}
-            onToggleSubtitles={toggleSubtitlesMenu}
-            onToggleAudio={toggleAudioMenu}
             onToggleSettings={toggleSettingsMenu}
-            onTogglePip={() => void togglePip()}
             onToggleFullscreen={() => void toggleFullscreen()}
-            onOpenQuality={() => {
-              setSheet("settings");
-              setSettingsView("quality");
-            }}
             hasPreviousEpisode={Boolean(previous)}
             hasNextEpisode={Boolean(next)}
             onPreviousEpisode={previous ? () => goToPlayerHref(previous.href) : undefined}
@@ -2792,6 +2780,16 @@ export function StreamPlayer({
                 value={selectedSubtitle?.languageLabel ?? "Off"}
                 onClick={() => setSheet("subtitles")}
               />
+              {pipSupported ? (
+                <SettingsMenuRow
+                  label="Picture in picture"
+                  value={pip ? "On" : "Off"}
+                  onClick={() => {
+                    void togglePip();
+                    closeSheet();
+                  }}
+                />
+              ) : null}
               <SettingsMenuRow label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
             </ul>
           ) : null}

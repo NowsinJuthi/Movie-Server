@@ -4,8 +4,6 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Minus, Plus, X } from "lucide-react";
 import {
-  AudioLines,
-  Captions,
   ChevronLeft,
   Maximize,
   Minimize,
@@ -19,7 +17,6 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
-  PictureInPicture2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SeekBar } from "./seek-bar";
@@ -233,12 +230,7 @@ export type EmbyMobileChromeProps = {
   bufferedEnd: number;
   transcode?: boolean;
   fullscreen: boolean;
-  qualityLabel: string;
-  subtitlesOn: boolean;
-  audioOn: boolean;
   settingsOn: boolean;
-  pipSupported?: boolean;
-  pipActive?: boolean;
   volume: number;
   muted: boolean;
   onGoBack: () => void;
@@ -250,12 +242,8 @@ export type EmbyMobileChromeProps = {
   onSeek: (ratio: number) => void;
   onSeekBy: (seconds: number) => void;
   onScrubbingChange: (active: boolean) => void;
-  onToggleSubtitles: () => void;
-  onToggleAudio: () => void;
   onToggleSettings: () => void;
-  onTogglePip?: () => void;
   onToggleFullscreen: () => void;
-  onOpenQuality: () => void;
   hasPreviousEpisode?: boolean;
   hasNextEpisode?: boolean;
   onPreviousEpisode?: () => void;
@@ -274,12 +262,7 @@ export function EmbyMobileChrome({
   bufferedEnd,
   transcode = false,
   fullscreen,
-  qualityLabel,
-  subtitlesOn,
-  audioOn,
   settingsOn,
-  pipSupported = false,
-  pipActive = false,
   volume,
   muted,
   onGoBack,
@@ -291,12 +274,8 @@ export function EmbyMobileChrome({
   onSeek,
   onSeekBy,
   onScrubbingChange,
-  onToggleSubtitles,
-  onToggleAudio,
   onToggleSettings,
-  onTogglePip,
   onToggleFullscreen,
-  onOpenQuality,
   hasPreviousEpisode,
   hasNextEpisode,
   onPreviousEpisode,
@@ -450,30 +429,6 @@ export function EmbyMobileChrome({
           >
             {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </MobileIconButton>
-          {pipSupported && onTogglePip ? (
-            <MobileIconButton
-              label={pipActive ? "Exit picture in picture" : "Picture in picture"}
-              active={pipActive}
-              onClick={onTogglePip}
-            >
-              <PictureInPicture2 className="h-5 w-5" />
-            </MobileIconButton>
-          ) : null}
-          <MobileIconButton label="Subtitles" active={subtitlesOn} onClick={onToggleSubtitles}>
-            <Captions className="h-5 w-5" />
-          </MobileIconButton>
-          <MobileIconButton label="Audio" active={audioOn} onClick={onToggleAudio}>
-            <AudioLines className="h-5 w-5" />
-          </MobileIconButton>
-          <button
-            type="button"
-            aria-label="Quality"
-            onClick={onOpenQuality}
-            onTouchStart={stopControlBubble}
-            className="inline-flex h-10 min-w-[2.5rem] touch-manipulation items-center justify-center px-1 text-[11px] font-bold tabular-nums text-white/85 active:text-white"
-          >
-            {qualityLabel}
-          </button>
           <MobileIconButton label="Settings" active={settingsOn} onClick={onToggleSettings}>
             <Settings className="h-5 w-5" />
           </MobileIconButton>
