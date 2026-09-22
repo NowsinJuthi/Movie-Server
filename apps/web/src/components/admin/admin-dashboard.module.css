@@ -1,0 +1,391 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .dashboard {
+    gap: 1.125rem;
+  }
+}
+
+.heroRow {
+  display: grid;
+  gap: 0.625rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .heroRow {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 0.95fr);
+    gap: 0.75rem;
+  }
+}
+
+.heroCard {
+  position: relative;
+  display: flex;
+  min-height: 7.5rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  color: var(--primary-foreground);
+  box-shadow:
+    0 18px 40px -22px color-mix(in oklch, var(--brand-deep) 75%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.heroCard:active {
+  transform: scale(0.99);
+}
+
+.heroCard:hover {
+  box-shadow:
+    0 22px 48px -20px color-mix(in oklch, var(--primary) 55%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.heroCardA {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--brand-soft) 92%, white) 0%,
+    var(--primary) 48%,
+    var(--brand-deep) 100%
+  );
+}
+
+.heroCardB {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary) 75%, white) 0%,
+    var(--brand-soft) 42%,
+    color-mix(in oklch, var(--brand-deep) 88%, black) 100%
+  );
+}
+
+.heroLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.92;
+}
+
+.heroValue {
+  margin-top: 0.35rem;
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.heroHint {
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.88;
+}
+
+.heroMiniStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.miniStat {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  background: color-mix(in oklch, var(--card) 94%, transparent);
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.miniStat:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+.miniStatLeft {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.miniIcon {
+  display: grid;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+
+.miniTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.miniSub {
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.badge {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.badgeMuted {
+  composes: badge;
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  color: var(--muted-foreground);
+}
+
+.chartGrid {
+  display: grid;
+  gap: 0.625rem;
+}
+
+@media (min-width: 1024px) {
+  .chartGrid {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+.chartGridBottom {
+  composes: chartGrid;
+}
+
+@media (min-width: 1024px) {
+  .chartGridBottom {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.chartCard {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in oklch, var(--card) 96%, transparent) 0%,
+    color-mix(in oklch, var(--background) 88%, transparent) 100%
+  );
+  padding: 1rem 1rem 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .chartCard {
+    padding: 1.1rem 1.15rem 1rem;
+  }
+}
+
+.chartHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.chartTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.chartDesc {
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.chartBody {
+  min-height: 10rem;
+}
+
+.chartBodyTall {
+  composes: chartBody;
+  min-height: 11.5rem;
+}
+
+.chartBodyShort {
+  composes: chartBody;
+  min-height: 9rem;
+}
+
+.chartFooter {
+  margin-top: 0.65rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.chartLink {
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.chartLink:hover {
+  text-decoration: underline;
+}
+
+.statTiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+}
+
+@media (min-width: 640px) {
+  .statTiles {
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .statTiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.statTile {
+  position: relative;
+  display: flex;
+  min-height: 5.25rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklch, var(--border) 68%, transparent);
+  background: color-mix(in oklch, var(--card) 90%, transparent);
+  padding: 0.75rem 0.85rem;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.statTile:hover {
+  border-color: color-mix(in oklch, var(--primary) 38%, transparent);
+  box-shadow: 0 10px 28px -18px color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+.statTileLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.statTileValue {
+  margin-top: 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.statTileHint {
+  margin-top: 0.3rem;
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+  line-height: 1.35;
+}
+
+.management {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.managementPanel {
+  composes: chartCard;
+  padding: 0;
+}
+
+.managementPanelInteractive {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.managementPanelInteractive:hover {
+  border-color: color-mix(in oklch, var(--primary) 38%, transparent);
+}
+
+.serverRings {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .serverRings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ringWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.ringLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.ringDetail {
+  font-size: 0.625rem;
+  line-height: 1.35;
+  color: var(--muted-foreground);
+  max-width: 12rem;
+}
+
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legendDot {
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.loading {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
