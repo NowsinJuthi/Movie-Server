@@ -26,12 +26,21 @@ type ThemeSelectorProps = {
 };
 
 export function ThemeSelector({ variant = "menu", className }: ThemeSelectorProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const mounted = useIsClient();
   const labelId = useId();
 
-  const active = mounted ? (theme ?? "system") : "system";
   const compact = variant === "compact";
+  const options = compact ? OPTIONS.filter((option) => option.value !== "system") : OPTIONS;
+  const active = mounted
+    ? compact
+      ? theme === "light" || theme === "dark"
+        ? theme
+        : (resolvedTheme ?? "dark")
+      : (theme ?? "system")
+    : compact
+      ? null
+      : "system";
 
   const group = (
     <div
@@ -40,7 +49,7 @@ export function ThemeSelector({ variant = "menu", className }: ThemeSelectorProp
       aria-label={variant === "compact" ? "Color theme" : undefined}
       className={cn(styles.group, compact && styles.compact)}
     >
-      {OPTIONS.map(({ value, label, icon: Icon }) => {
+      {options.map(({ value, label, icon: Icon }) => {
         const selected = active === value;
         return (
           <button
