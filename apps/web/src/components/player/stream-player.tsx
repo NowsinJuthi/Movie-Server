@@ -2967,26 +2967,6 @@ export function StreamPlayer({
                 value={selectedSubtitle?.languageLabel ?? "Off"}
                 onClick={() => setSettingsView("subtitles")}
               />
-              {pipSupported ? (
-                <SettingsMenuRow
-                  touch
-                  label="Picture in picture"
-                  value={pip ? "On" : "Off"}
-                  onClick={() => {
-                    void togglePip();
-                    closeSheet();
-                  }}
-                />
-              ) : null}
-              <SettingsMenuRow
-                touch
-                label="Cast"
-                value="Off"
-                onClick={() => {
-                  toast.message("Cast is not available in the browser player.");
-                  closeSheet();
-                }}
-              />
               {next || previous ? (
                 <SettingsMenuRow
                   touch
