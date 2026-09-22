@@ -29,7 +29,12 @@ export function appendStreamQuery(
 /** Direct variant playlist — used for transcode titles (faster start + seek restart). */
 export function variantHlsUrl(
   info: PlaybackSessionInfo,
-  options?: { startSeconds?: number; resolution?: VideoResolution | "auto" },
+  options?: {
+    startSeconds?: number;
+    resolution?: VideoResolution | "auto";
+    /** New pack even when startSeconds is 0 (seek-to-start of a long live playlist). */
+    seekRestart?: boolean;
+  },
 ): string {
   const resolution =
     options?.resolution && options.resolution !== "auto"
@@ -38,9 +43,12 @@ export function variantHlsUrl(
   const master = toAbsoluteStreamUrl(info.hlsUrl);
   const url = new URL(master);
   url.pathname = url.pathname.replace(/\/master$/, `/v/${resolution}.m3u8`);
-  const startSeconds = options?.startSeconds ?? 0;
-  if (startSeconds > 1) {
+  const startSeconds = Math.max(0, options?.startSeconds ?? 0);
+  if (options?.seekRestart || startSeconds > 1) {
     url.searchParams.set("t", String(Math.floor(startSeconds)));
+  }
+  if (options?.seekRestart) {
+    url.searchParams.set("g", String(Date.now()));
   }
   return url.toString();
 }

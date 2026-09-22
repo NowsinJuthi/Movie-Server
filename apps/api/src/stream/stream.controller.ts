@@ -85,6 +85,7 @@ export class StreamController {
     @Param('quality') quality: string,
     @Query('mt') mediaToken: string | undefined,
     @Query('t') startParam: string | undefined,
+    @Query('g') packGeneration: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -96,7 +97,7 @@ export class StreamController {
     if (!session.variants.some((variant) => variant.resolution === resolution)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Variant not found.' });
     }
-    const requestedStart = startParam ? Number(startParam) : 0;
+    const requestedStart = startParam != null && startParam !== '' ? Number(startParam) : 0;
     const startSeconds = Number.isFinite(requestedStart)
       ? Math.max(0, Math.min(requestedStart, session.durationSeconds || requestedStart))
       : 0;
@@ -106,10 +107,17 @@ export class StreamController {
         userId,
         resolution,
         startSeconds,
+        packGeneration,
       );
     } else {
       try {
-        await this.streams.ensureDirectPlayHls(sid, userId, resolution, startSeconds);
+        await this.streams.ensureDirectPlayHls(
+          sid,
+          userId,
+          resolution,
+          startSeconds,
+          packGeneration,
+        );
       } catch {
         /* fallback: single-file playlist if ffmpeg copy packaging is not ready */
       }

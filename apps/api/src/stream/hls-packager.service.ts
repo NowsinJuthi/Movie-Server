@@ -27,6 +27,7 @@ const HLS_KEYINFO_NAME = 'enc.keyinfo';
 type SessionPackState = {
   startSeconds: number;
   plan: TranscodePlan;
+  generation?: string;
 };
 
 @Injectable()
@@ -57,22 +58,37 @@ export class HlsPackagerService {
   async ensureFirstSegment(
     sessionId: string,
     absPath: string,
-    options?: { startSeconds?: number; timeoutMs?: number; plan?: TranscodePlan },
+    options?: {
+      startSeconds?: number;
+      timeoutMs?: number;
+      plan?: TranscodePlan;
+      generation?: string;
+      forceRestart?: boolean;
+    },
   ): Promise<string> {
     const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     const prior = this.sessionPack.get(sessionId);
     const plan = options?.plan ?? prior?.plan ?? (await buildTranscodePlan(absPath, this.config));
+    const generation = options?.generation;
+    const shouldRestart = Boolean(
+      options?.forceRestart ||
+        (prior &&
+          (prior.startSeconds !== startSeconds ||
+            packagingPlanKey(prior.plan) !== packagingPlanKey(plan) ||
+            (generation != null && generation !== prior.generation))),
+    );
 
-    if (
-      prior &&
-      (prior.startSeconds !== startSeconds || packagingPlanKey(prior.plan) !== packagingPlanKey(plan))
-    ) {
+    if (prior && shouldRestart) {
       await this.stopPackaging(sessionId);
     }
-    this.sessionPack.set(sessionId, { startSeconds, plan });
+    this.sessionPack.set(sessionId, {
+      startSeconds,
+      plan,
+      generation: generation ?? prior?.generation,
+    });
 
     const existing = this.starting.get(sessionId);
-    if (existing) {
+    if (existing && !shouldRestart) {
       return existing;
     }
 
@@ -87,7 +103,7 @@ export class HlsPackagerService {
     const initialSegments = startSeconds > 0.5 ? 1 : hlsInitialSegments(this.config, plan);
     try {
       await this.assertSegmentsReady(outDir, initialSegments, plan);
-      if (!prior || prior.startSeconds === startSeconds) {
+      if (!shouldRestart) {
         return outDir;
       }
     } catch {

@@ -323,6 +323,7 @@ export class StreamService {
     userId: string,
     preferredResolution?: string,
     startSeconds = 0,
+    packGeneration?: string,
   ): Promise<void> {
     const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
     if (!session.videoTranscode && !session.videoRemux) {
@@ -331,6 +332,7 @@ export class StreamService {
     await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
       startSeconds: Math.max(0, startSeconds),
       plan: this.sessionTranscodePlan(session),
+      generation: packGeneration,
     });
   }
 
@@ -340,6 +342,7 @@ export class StreamService {
     userId: string,
     preferredResolution?: string,
     startSeconds = 0,
+    packGeneration?: string,
   ): Promise<void> {
     const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
     if (session.videoTranscode || session.videoRemux) {
@@ -349,6 +352,7 @@ export class StreamService {
     await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
       startSeconds: Math.max(0, startSeconds),
       plan,
+      generation: packGeneration,
     });
   }
 
@@ -382,7 +386,13 @@ export class StreamService {
       return;
     }
     const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
-    await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped);
+    await this.ensureMobileHls(
+      sessionId,
+      userId,
+      preferredResolution,
+      clamped,
+      `seek-${Date.now()}`,
+    );
   }
 
   async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {

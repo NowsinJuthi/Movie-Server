@@ -678,9 +678,9 @@ export function StreamPlayer({
             enableWorker: true,
             lowLatencyMode: false,
             liveDurationInfinity: encoding,
-            // This is an on-demand movie playlist that grows while ffmpeg packages
-            // it, not a broadcast. Never chase its advancing "live edge": doing so
-            // auto-jumps the movie forward once ffmpeg gets several segments ahead.
+            // Growing on-demand pack, not a broadcast. Start at local 0 and never
+            // snap to ffmpeg's advancing live edge (that jumps long movies to the end).
+            startPosition: 0,
             liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
             liveMaxLatencyDurationCount: Infinity,
             maxLiveSyncPlaybackRate: 1,
@@ -1278,6 +1278,7 @@ export function StreamPlayer({
         const nextSrc = `${variantHlsUrl(info, {
           startSeconds: target,
           resolution: quality === "auto" ? "auto" : quality,
+          seekRestart: true,
         })}&_=${Date.now()}`;
 
         const hls = hlsRef.current;
@@ -1293,6 +1294,7 @@ export function StreamPlayer({
               window.clearTimeout(timeout);
               hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
               hls.off(HlsLib.Events.ERROR, onError);
+              hls.startLoad(0);
               resolve();
             };
             const onError = (_event: string, data: { fatal?: boolean }) => {
@@ -1303,10 +1305,11 @@ export function StreamPlayer({
               reject(new Error("Seek failed"));
             };
             hls.stopLoad();
+            hls.config.autoStartLoad = false;
+            hls.config.startPosition = 0;
             hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
             hls.on(HlsLib.Events.ERROR, onError);
             hls.loadSource(nextSrc);
-            hls.startLoad(0);
           });
         } else {
           video.src = nextSrc;
@@ -1321,6 +1324,11 @@ export function StreamPlayer({
             video.addEventListener(
               "loadedmetadata",
               () => {
+                try {
+                  video.currentTime = 0;
+                } catch {
+                  /* native live HLS may ignore this; new pack still starts at 0 */
+                }
                 window.clearTimeout(timeout);
                 resolve();
               },
