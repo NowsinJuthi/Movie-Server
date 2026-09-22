@@ -74,7 +74,67 @@ type WebkitVideo = HTMLVideoElement & {
   webkitEnterFullscreen?: () => void;
   webkitExitFullscreen?: () => void;
   webkitDisplayingFullscreen?: boolean;
+  webkitSupportsPresentationMode?: (mode: string) => boolean;
+  webkitSetPresentationMode?: (mode: string) => void;
+  webkitPresentationMode?: string;
 };
+
+/** iOS Safari ignores HTMLMediaElement.volume (always 1). */
+export function isHtmlMediaVolumeReadOnly(): boolean {
+  if (typeof document === "undefined") return false;
+  const probe = document.createElement("video");
+  const before = probe.volume;
+  try {
+    probe.volume = before === 0.5 ? 0.25 : 0.5;
+  } catch {
+    return true;
+  }
+  return probe.volume === before;
+}
+
+export function videoSupportsPictureInPicture(video?: HTMLVideoElement | null): boolean {
+  if (typeof document === "undefined") return false;
+  if (document.pictureInPictureEnabled) return true;
+  const v = video as WebkitVideo | null | undefined;
+  if (v && typeof v.webkitSetPresentationMode === "function") {
+    if (typeof v.webkitSupportsPresentationMode === "function") {
+      try {
+        return Boolean(v.webkitSupportsPresentationMode("picture-in-picture"));
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+  if ("pictureInPictureEnabled" in document && document.pictureInPictureEnabled === false) {
+    return false;
+  }
+  return typeof video?.requestPictureInPicture === "function";
+}
+
+export function isVideoInPictureInPicture(video?: HTMLVideoElement | null): boolean {
+  if (typeof document !== "undefined" && document.pictureInPictureElement) return true;
+  const v = video as WebkitVideo | null | undefined;
+  return v?.webkitPresentationMode === "picture-in-picture";
+}
+
+export async function toggleVideoPictureInPicture(video: HTMLVideoElement): Promise<void> {
+  const v = video as WebkitVideo;
+  if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function") {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      return;
+    }
+    await video.requestPictureInPicture();
+    return;
+  }
+  if (typeof v.webkitSetPresentationMode === "function") {
+    const next = v.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture";
+    v.webkitSetPresentationMode(next);
+    return;
+  }
+  throw new Error("Picture in picture is not available");
+}
 
 /** iOS Safari — div.requestFullscreen() is unsupported; use native video fullscreen instead. */
 export function isVideoInNativeFullscreen(video: HTMLVideoElement): boolean {

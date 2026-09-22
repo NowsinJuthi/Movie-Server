@@ -58,14 +58,18 @@ import {
   effectiveVideoDuration,
   isAppleMobileDevice,
   isCoarsePointerMobile,
+  isHtmlMediaVolumeReadOnly,
   isLocalTimeBuffered,
   isVideoInNativeFullscreen,
+  isVideoInPictureInPicture,
   beginMobileImmersivePlayback,
   enterIosNativeVideoFullscreen,
   localTimelineSeconds,
   lockPlaybackLandscape,
   seekVideoTo,
   toggleVideoFullscreen,
+  toggleVideoPictureInPicture,
+  videoSupportsPictureInPicture,
   releaseBrowseScrollLock,
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
@@ -79,7 +83,7 @@ import { VolumeBar } from "./volume-bar";
 import type { PlayerMediaInfo } from "./player-types";
 
 type PlayerSheet = "info" | "chapters" | "cast" | "settings" | "audio" | "speed" | "subtitles" | null;
-type SettingsView = "root" | "aspect" | "quality" | "repeat" | "correction" | "more";
+type SettingsView = "root" | "aspect" | "quality" | "repeat" | "correction" | "more" | "speed" | "audio" | "subtitles";
 type AspectRatio = "auto" | "cover" | "fill" | "16:9" | "4:3";
 type RepeatMode = "none" | "one";
 
@@ -1106,11 +1110,7 @@ export function StreamPlayer({
 
   useEffect(() => {
     const syncPipSupported = () => {
-      const video = videoRef.current;
-      const supported =
-        ("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled)) ||
-        (video != null && typeof video.requestPictureInPicture === "function");
-      setPipSupported(supported);
+      setPipSupported(videoSupportsPictureInPicture(videoRef.current));
     };
     syncPipSupported();
 
@@ -1129,7 +1129,7 @@ export function StreamPlayer({
         void lockPlaybackLandscape();
       }
     };
-    const onPip = () => setPip(Boolean(document.pictureInPictureElement));
+    const onPip = () => setPip(isVideoInPictureInPicture(videoRef.current));
     document.addEventListener("fullscreenchange", syncFullscreen);
     document.addEventListener("enterpictureinpicture", onPip);
     document.addEventListener("leavepictureinpicture", onPip);
@@ -1137,6 +1137,7 @@ export function StreamPlayer({
     const video = videoRef.current;
     video?.addEventListener("webkitbeginfullscreen", syncFullscreen);
     video?.addEventListener("webkitendfullscreen", syncFullscreen);
+    video?.addEventListener("webkitpresentationmodechanged", onPip);
 
     return () => {
       document.removeEventListener("fullscreenchange", syncFullscreen);
@@ -1144,16 +1145,13 @@ export function StreamPlayer({
       document.removeEventListener("leavepictureinpicture", onPip);
       video?.removeEventListener("webkitbeginfullscreen", syncFullscreen);
       video?.removeEventListener("webkitendfullscreen", syncFullscreen);
+      video?.removeEventListener("webkitpresentationmodechanged", onPip);
     };
   }, []);
 
   useEffect(() => {
     if (loading) return;
-    const video = videoRef.current;
-    const supported =
-      ("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled)) ||
-      (video != null && typeof video.requestPictureInPicture === "function");
-    setPipSupported(supported);
+    setPipSupported(videoSupportsPictureInPicture(videoRef.current));
   }, [loading]);
 
   const togglePlay = useCallback(() => {
@@ -1350,8 +1348,18 @@ export function StreamPlayer({
     const audio = audioRef.current;
     if (!video) return;
     const value = Math.min(1, Math.max(0, nextVolume));
-    video.volume = value;
-    if (audio) audio.volume = value;
+    try {
+      video.volume = value;
+    } catch {
+      /* iOS: volume is read-only */
+    }
+    if (audio) {
+      try {
+        audio.volume = value;
+      } catch {
+        /* iOS: volume is read-only */
+      }
+    }
     video.muted = value === 0;
     if (audio) audio.muted = value === 0;
     setVolume(value);
@@ -1430,14 +1438,11 @@ export function StreamPlayer({
     const video = videoRef.current;
     if (!video || !pipSupported) return;
     try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else {
-        await video.requestPictureInPicture();
-      }
+      await toggleVideoPictureInPicture(video);
+      setPip(isVideoInPictureInPicture(video));
       revealControls();
     } catch {
-      /* PiP denied or unsupported at runtime */
+      toast.message("Picture in picture is not available right now.");
     }
   }, [pipSupported, revealControls]);
 
@@ -2050,7 +2055,19 @@ export function StreamPlayer({
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
+    revealControls();
   };
+
+  useEffect(() => {
+    if (!trackNotice) return;
+    toast.message(trackNotice);
+  }, [trackNotice]);
+
+  const [volumeSliderEnabled, setVolumeSliderEnabled] = useState(true);
+
+  useEffect(() => {
+    setVolumeSliderEnabled(!isHtmlMediaVolumeReadOnly());
+  }, []);
 
   useEffect(() => {
     if (mobileLayout || !sheet || sheet === "info" || sheet === "chapters" || sheet === "cast") {
@@ -2108,7 +2125,7 @@ export function StreamPlayer({
         className={cn(
           "border-0 bg-black outline-none",
           mobileLayout
-            ? "absolute inset-0 z-[1] h-full w-full object-contain"
+            ? cn("absolute inset-0 z-[1] h-full w-full", videoObjectClass)
             : cn("h-screen w-full", videoObjectClass),
         )}
         playsInline
@@ -2148,6 +2165,12 @@ export function StreamPlayer({
         </div>
       ) : null}
 
+      {mobileLayout && buffering && !loading && !error ? (
+        <div className="pointer-events-none absolute inset-0 z-[6] flex items-center justify-center">
+          <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
+        </div>
+      ) : null}
+
       {awaitingTap && !error && !mobileLayout ? (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
           <button
@@ -2165,7 +2188,14 @@ export function StreamPlayer({
       <audio ref={audioRef} preload="metadata" className="hidden" />
 
       {showStats ? (
-        <div className="pointer-events-none absolute left-4 top-20 z-20 max-w-sm rounded-lg bg-black/75 px-3 py-2 font-mono text-[11px] leading-relaxed text-green-300 ring-1 ring-white/10">
+        <div
+          className={cn(
+            "pointer-events-none absolute z-30 max-w-[min(100%-2rem,24rem)] rounded-lg bg-black/75 px-3 py-2 font-mono text-[11px] leading-relaxed text-green-300 ring-1 ring-white/10",
+            mobileLayout
+              ? "left-4 top-[max(4.75rem,calc(env(safe-area-inset-top)+3.75rem))]"
+              : "left-4 top-20",
+          )}
+        >
           <p>Player stats</p>
           <p>
             time {formatTime(currentTime)} / {formatTime(duration)}
@@ -2226,7 +2256,12 @@ export function StreamPlayer({
 
       {inIntro ? (
         <Button
-          className="absolute right-6 top-24 z-20 min-h-12 px-6 text-base"
+          className={cn(
+            "absolute z-30 min-h-12 px-6 text-base",
+            mobileLayout
+              ? "right-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-24",
+          )}
           onClick={() => skipTo(markersRef.current.introEndSeconds)}
         >
           Skip intro
@@ -2234,7 +2269,12 @@ export function StreamPlayer({
       ) : null}
       {inRecap ? (
         <Button
-          className="absolute right-6 top-24 z-20 min-h-12 px-6 text-base"
+          className={cn(
+            "absolute z-30 min-h-12 px-6 text-base",
+            mobileLayout
+              ? "right-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-24",
+          )}
           onClick={() => skipTo(markersRef.current.recapEndSeconds)}
         >
           Skip recap
@@ -2301,6 +2341,7 @@ export function StreamPlayer({
             onGoBack={goBack}
             onVolumeChange={changeVolume}
             onToggleMute={toggleMute}
+            volumeSliderEnabled={volumeSliderEnabled}
             onVolumePanelChange={(open) => {
               if (open) {
                 setControls(true);
@@ -2883,30 +2924,25 @@ export function StreamPlayer({
 
       {mobileLayout && sheet === "settings" ? (
         <MobileBottomSheet
-          title={
-            settingsView === "quality"
-              ? "Quality"
-              : settingsView === "aspect"
-                ? "Aspect ratio"
-                : settingsView === "repeat"
-                  ? "Repeat"
-                  : "Settings"
-          }
+          title={mobileSettingsTitle(settingsView)}
           onClose={closeSheet}
+          onBack={settingsView === "root" ? undefined : () => setSettingsView("root")}
         >
           {settingsView === "root" ? (
             <ul className="py-1">
-              <SettingsMenuRow label="Quality" value={qualityMenuValue} onClick={() => setSettingsView("quality")} />
-              <SettingsMenuRow label="Aspect ratio" value={aspectLabel} onClick={() => setSettingsView("aspect")} />
-              <SettingsMenuRow label="Playback speed" value={formatSpeedLabel(rate)} onClick={() => setSheet("speed")} />
-              <SettingsMenuRow label="Audio" value={selectedAudio?.languageLabel ?? "Default"} onClick={() => setSheet("audio")} />
+              <SettingsMenuRow touch label="Quality" value={qualityMenuValue} onClick={() => setSettingsView("quality")} />
+              <SettingsMenuRow touch label="Aspect ratio" value={aspectLabel} onClick={() => setSettingsView("aspect")} />
+              <SettingsMenuRow touch label="Playback speed" value={formatSpeedLabel(rate)} onClick={() => setSettingsView("speed")} />
+              <SettingsMenuRow touch label="Audio" value={selectedAudio?.languageLabel ?? "Default"} onClick={() => setSettingsView("audio")} />
               <SettingsMenuRow
+                touch
                 label="Subtitles"
                 value={selectedSubtitle?.languageLabel ?? "Off"}
-                onClick={() => setSheet("subtitles")}
+                onClick={() => setSettingsView("subtitles")}
               />
               {pipSupported ? (
                 <SettingsMenuRow
+                  touch
                   label="Picture in picture"
                   value={pip ? "On" : "Off"}
                   onClick={() => {
@@ -2915,34 +2951,56 @@ export function StreamPlayer({
                   }}
                 />
               ) : null}
+              <SettingsMenuRow
+                touch
+                label="Cast"
+                value="Off"
+                onClick={() => {
+                  toast.message("Cast is not available in the browser player.");
+                  closeSheet();
+                }}
+              />
               {next || previous ? (
                 <SettingsMenuRow
+                  touch
                   label="Episodes"
                   onClick={() => goToPlayerHref(backHref, { autoplay: false })}
                 />
               ) : null}
-              <SettingsMenuRow label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
+              <SettingsMenuRow touch label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
+              <SettingsMenuRow
+                touch
+                label="Stats for nerds"
+                value={showStats ? "On" : "Off"}
+                onClick={() => {
+                  setShowStats((value) => !value);
+                  closeSheet();
+                }}
+              />
+              {trackNotice ? <li className="px-5 py-3 text-xs text-amber-200">{trackNotice}</li> : null}
             </ul>
           ) : null}
           {settingsView === "quality" ? (
             <ul className="py-1">
               <SettingsChoiceRow
+                touch
                 label={usingHls ? "Auto" : "Auto - Direct"}
                 selected={quality === "auto"}
                 onClick={() => {
                   applyQuality("auto");
-                  closeSheet();
+                  setSettingsView("root");
                 }}
               />
               {qualities.map((item) => (
                 <SettingsChoiceRow
                   key={item.resolution}
+                  touch
                   label={`${item.label} (${item.quality.toUpperCase()})`}
                   selected={quality === item.resolution}
                   disabled={!item.allowed}
                   onClick={() => {
                     applyQuality(item.resolution);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
                 />
               ))}
@@ -2953,11 +3011,12 @@ export function StreamPlayer({
               {ASPECT_OPTIONS.map((option) => (
                 <SettingsChoiceRow
                   key={option.id}
+                  touch
                   label={option.label}
                   selected={aspectRatio === option.id}
                   onClick={() => {
                     setAspectRatio(option.id);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
                 />
               ))}
@@ -2968,12 +3027,64 @@ export function StreamPlayer({
               {REPEAT_OPTIONS.map((option) => (
                 <SettingsChoiceRow
                   key={option.id}
+                  touch
                   label={option.label}
                   selected={repeatMode === option.id}
                   onClick={() => {
                     setRepeatMode(option.id);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "speed" ? (
+            <ul className="py-1">
+              {SPEEDS.map((speed) => (
+                <SettingsChoiceRow
+                  key={speed}
+                  touch
+                  label={formatSpeedLabel(speed)}
+                  selected={Math.abs(rate - speed) < 0.001}
+                  onClick={() => selectSpeed(speed)}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "audio" ? (
+            <ul className="py-1">
+              {audioTracks.length === 0 ? (
+                <li className="px-5 py-3.5 text-sm text-white/50">Default audio</li>
+              ) : (
+                audioTracks.map((track) => (
+                  <SettingsChoiceRow
+                    key={track.id}
+                    touch
+                    label={formatAudioMenuLabel(track)}
+                    selected={track.id === session?.selectedAudioId}
+                    disabled={!track.playable}
+                    onClick={() => selectAudio(track.id)}
+                  />
+                ))
+              )}
+            </ul>
+          ) : null}
+          {settingsView === "subtitles" ? (
+            <ul className="py-1">
+              <SettingsChoiceRow
+                touch
+                label="Off"
+                selected={!selectedSubtitle}
+                onClick={() => selectSubtitle(null)}
+              />
+              {subtitleTracks.map((track) => (
+                <SettingsChoiceRow
+                  key={track.id}
+                  touch
+                  label={track.languageLabel || track.label}
+                  selected={track.id === session?.selectedSubtitleId}
+                  disabled={!track.playable}
+                  onClick={() => selectSubtitle(track.id)}
                 />
               ))}
             </ul>
@@ -2988,17 +3099,22 @@ function SettingsMenuRow({
   label,
   value,
   onClick,
+  touch,
 }: {
   label: string;
   value?: string;
   onClick: () => void;
+  touch?: boolean;
 }) {
   return (
     <li>
       <button
         type="button"
         role="menuitem"
-        className="flex w-full items-center justify-between gap-8 px-5 py-2.5 text-left text-sm text-white hover:bg-white/10"
+        className={cn(
+          "flex w-full items-center justify-between gap-8 px-5 text-left text-sm text-white hover:bg-white/10",
+          touch ? "py-3.5 active:bg-white/10" : "py-2.5",
+        )}
         onClick={onClick}
       >
         <span>{label}</span>
@@ -3013,11 +3129,13 @@ function SettingsChoiceRow({
   selected,
   disabled,
   onClick,
+  touch,
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
+  touch?: boolean;
 }) {
   return (
     <li>
@@ -3027,7 +3145,8 @@ function SettingsChoiceRow({
         aria-checked={selected}
         disabled={disabled}
         className={cn(
-          "flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40",
+          "flex w-full items-center gap-3 px-5 text-left text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40",
+          touch ? "py-3.5 active:bg-white/10" : "py-2.5",
           selected && "font-medium",
         )}
         onClick={onClick}
@@ -3135,6 +3254,25 @@ function formatAudioMenuLabel(track: PlaybackTrack): string {
   let text = bits.join(" ");
   if (track.isDefault) text += " (Default)";
   return text;
+}
+
+function mobileSettingsTitle(view: SettingsView): string {
+  switch (view) {
+    case "quality":
+      return "Quality";
+    case "aspect":
+      return "Aspect ratio";
+    case "repeat":
+      return "Repeat";
+    case "speed":
+      return "Playback speed";
+    case "audio":
+      return "Audio";
+    case "subtitles":
+      return "Subtitles";
+    default:
+      return "Settings";
+  }
 }
 
 function formatSpeedLabel(speed: number): string {

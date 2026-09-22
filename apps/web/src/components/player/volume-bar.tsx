@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { sliderRatioFromClient } from "./slider-geometry";
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -30,12 +31,10 @@ export function VolumeBar({
   const display = preview ?? clamp01(value);
   const active = hovering || scrubbing;
 
-  const ratioFromClientX = useCallback((clientX: number) => {
+  const ratioFromClient = useCallback((clientX: number, clientY: number) => {
     const el = trackRef.current;
     if (!el) return 0;
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0) return 0;
-    return clamp01((clientX - rect.left) / rect.width);
+    return sliderRatioFromClient(el, clientX, clientY);
   }, []);
 
   const commit = useCallback(
@@ -54,23 +53,31 @@ export function VolumeBar({
   }, []);
 
   const beginScrub = useCallback(
-    (clientX: number, event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+    (
+      clientX: number,
+      clientY: number,
+      event?: { preventDefault?: () => void; stopPropagation?: () => void },
+    ) => {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       scrubbingRef.current = true;
       setScrubbing(true);
       setHovering(true);
-      commit(ratioFromClientX(clientX));
+      commit(ratioFromClient(clientX, clientY));
     },
-    [commit, ratioFromClientX],
+    [commit, ratioFromClient],
   );
 
   useEffect(() => {
     if (!scrubbing) return;
     const onMove = (event: PointerEvent) => {
-      commit(ratioFromClientX(event.clientX));
+      if (event.pointerType === "touch") return;
+      commit(ratioFromClient(event.clientX, event.clientY));
     };
-    const onUp = () => endScrub();
+    const onUp = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      endScrub();
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -79,7 +86,7 @@ export function VolumeBar({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [scrubbing, commit, endScrub, ratioFromClientX]);
+  }, [scrubbing, commit, endScrub, ratioFromClient]);
 
   return (
     <div
@@ -102,22 +109,23 @@ export function VolumeBar({
           isMobileVariant && "min-h-10",
         )}
         onPointerDown={(event) => {
+          if (event.pointerType === "touch") return;
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
           event.stopPropagation();
           event.currentTarget.setPointerCapture?.(event.pointerId);
-          beginScrub(event.clientX);
+          beginScrub(event.clientX, event.clientY, event);
         }}
         onTouchStart={(event) => {
           if (event.touches.length !== 1) return;
           event.stopPropagation();
-          beginScrub(event.touches[0].clientX, event);
+          beginScrub(event.touches[0].clientX, event.touches[0].clientY, event);
         }}
         onTouchMove={(event) => {
           if (!scrubbingRef.current || event.touches.length !== 1) return;
           event.preventDefault();
           event.stopPropagation();
-          commit(ratioFromClientX(event.touches[0].clientX));
+          commit(ratioFromClient(event.touches[0].clientX, event.touches[0].clientY));
         }}
         onTouchEnd={(event) => {
           if (!scrubbingRef.current) return;

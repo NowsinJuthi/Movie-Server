@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   Maximize,
@@ -211,6 +211,8 @@ export type EmbyMobileChromeProps = {
   onGoBack: () => void;
   onVolumeChange: (value: number) => void;
   onToggleMute: () => void;
+  /** False on iOS — HTML video volume is read-only. */
+  volumeSliderEnabled?: boolean;
   onVolumePanelChange?: (open: boolean) => void;
   onSkinClick: () => void;
   onTogglePlay: () => void;
@@ -245,8 +247,8 @@ export function EmbyMobileChrome({
   onGoBack,
   onVolumeChange,
   onToggleMute,
+  volumeSliderEnabled = true,
   onVolumePanelChange,
-  onSkinClick,
   onTogglePlay,
   onSeek,
   onSeekBy,
@@ -262,11 +264,26 @@ export function EmbyMobileChrome({
   onNextEpisode,
 }: EmbyMobileChromeProps) {
   const [volumeOpen, setVolumeOpen] = useState(false);
+  const volumeClusterRef = useRef<HTMLDivElement>(null);
   const displayVolume = muted ? 0 : volume;
+  const showVolumeSlider = volumeSliderEnabled && volumeOpen;
 
   useEffect(() => {
     if (!visible) setVolumeOpen(false);
   }, [visible]);
+
+  useEffect(() => {
+    if (!volumeOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (volumeClusterRef.current?.contains(target)) return;
+      setVolumeOpen(false);
+      onVolumePanelChange?.(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [onVolumePanelChange, volumeOpen]);
 
   return (
     <div
@@ -297,17 +314,19 @@ export function EmbyMobileChrome({
         </div>
         <div className="flex shrink-0 items-center">
           <div
+            ref={volumeClusterRef}
             className="mr-0.5 flex items-center gap-2 pr-1"
             onPointerDown={() => {
-              if (volumeOpen) onVolumePanelChange?.(true);
+              if (showVolumeSlider) onVolumePanelChange?.(true);
             }}
             onPointerUp={() => {
-              if (volumeOpen) onVolumePanelChange?.(true);
+              if (showVolumeSlider) onVolumePanelChange?.(true);
             }}
             onTouchStart={stopControlBubble}
           >
-            {volumeOpen ? (
+            {showVolumeSlider ? (
               <VolumeBar
+                variant="mobile"
                 className="w-[5.75rem] sm:w-28"
                 value={displayVolume}
                 onChange={onVolumeChange}
@@ -315,8 +334,19 @@ export function EmbyMobileChrome({
             ) : null}
             <button
               type="button"
-              aria-label={volumeOpen ? (muted ? "Unmute" : "Mute") : "Volume"}
+              aria-label={
+                !volumeSliderEnabled || showVolumeSlider
+                  ? muted
+                    ? "Unmute"
+                    : "Mute"
+                  : "Volume"
+              }
+              aria-expanded={volumeSliderEnabled ? showVolumeSlider : undefined}
               onClick={() => {
+                if (!volumeSliderEnabled) {
+                  onToggleMute();
+                  return;
+                }
                 if (!volumeOpen) {
                   setVolumeOpen(true);
                   onVolumePanelChange?.(true);
@@ -329,41 +359,45 @@ export function EmbyMobileChrome({
               {muted || volume === 0 ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
             </button>
           </div>
-          <button
-            type="button"
-            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-            onClick={onToggleFullscreen}
-            onTouchStart={stopControlBubble}
-            className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
-          >
-            {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
-          </button>
-          {pipSupported && onTogglePip ? (
-            <button
-              type="button"
-              aria-label={pipActive ? "Exit picture in picture" : "Picture in picture"}
-              onClick={onTogglePip}
-              onTouchStart={stopControlBubble}
-              className={cn(
-                "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
-                pipActive && "text-primary",
-              )}
-            >
-              <PictureInPicture2 className="h-6 w-6" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            aria-label="Settings"
-            onClick={onToggleSettings}
-            onTouchStart={stopControlBubble}
-            className={cn(
-              "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
-              settingsOn && "text-primary",
-            )}
-          >
-            <Settings className="h-6 w-6" />
-          </button>
+          {showVolumeSlider ? null : (
+            <>
+              <button
+                type="button"
+                aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                onClick={onToggleFullscreen}
+                onTouchStart={stopControlBubble}
+                className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
+              >
+                {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
+              </button>
+              {pipSupported && onTogglePip ? (
+                <button
+                  type="button"
+                  aria-label={pipActive ? "Exit picture in picture" : "Picture in picture"}
+                  onClick={onTogglePip}
+                  onTouchStart={stopControlBubble}
+                  className={cn(
+                    "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
+                    pipActive && "text-primary",
+                  )}
+                >
+                  <PictureInPicture2 className="h-6 w-6" />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label="Settings"
+                onClick={onToggleSettings}
+                onTouchStart={stopControlBubble}
+                className={cn(
+                  "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
+                  settingsOn && "text-primary",
+                )}
+              >
+                <Settings className="h-6 w-6" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -410,10 +444,12 @@ export function EmbyMobileChrome({
 export function MobileBottomSheet({
   title,
   onClose,
+  onBack,
   children,
 }: {
   title: string;
   onClose: () => void;
+  onBack?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -425,13 +461,25 @@ export function MobileBottomSheet({
         onClick={onClose}
       />
       <div className="fixed inset-x-0 bottom-0 z-50 max-h-[min(72vh,560px)] overflow-hidden rounded-t-2xl bg-[#141414]/98 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <p className="text-base font-semibold text-white">{title}</p>
+        <div className="flex items-center justify-between border-b border-white/10 px-3 py-3">
+          <div className="flex min-w-0 items-center gap-1">
+            {onBack ? (
+              <button
+                type="button"
+                aria-label="Back"
+                onClick={onBack}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/80 active:bg-white/10"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            ) : null}
+            <p className="truncate px-2 text-base font-semibold text-white">{title}</p>
+          </div>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 active:bg-white/10"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/80 active:bg-white/10"
           >
             <X className="h-5 w-5" />
           </button>
