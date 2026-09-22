@@ -75,7 +75,6 @@ import {
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
-import { applyPlaybackClientHeader, playbackClientHeaders } from "@/lib/playback-client";
 import { appendStreamQuery, remuxProgressiveUrl, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
 import { PlayerBusyMark } from "./player-busy";
@@ -489,7 +488,7 @@ export function StreamPlayer({
       const warmBytes = isAppleMobileDevice() ? 8_388_607 : 2_097_151;
       await fetch(url, {
         credentials: "include",
-        headers: { ...playbackClientHeaders(), Range: `bytes=0-${warmBytes}` },
+        headers: { Range: `bytes=0-${warmBytes}` },
       });
     } catch {
       /* warm SMB/page cache; playback still works if this fails */
@@ -711,7 +710,6 @@ export function StreamPlayer({
             capLevelToPlayerSize: !videoTranscode,
             xhrSetup(xhr) {
               xhr.withCredentials = true;
-              applyPlaybackClientHeader(xhr);
             },
           });
           hlsRef.current = hls;
@@ -1610,7 +1608,6 @@ export function StreamPlayer({
       try {
         const res = await fetch(track.url!, {
           credentials: "include",
-          headers: playbackClientHeaders(),
         });
         if (!res.ok) {
           throw new Error("unavailable");

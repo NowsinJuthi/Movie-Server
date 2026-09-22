@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ErrorCode } from "@movie-server/shared";
-import {
-  applyStreamProxyHeader,
-  assertWebStreamProxyAllowed,
-  streamProxyPolicyFromEnv,
-} from "@/lib/stream-delivery-proxy";
+import { applyStreamProxyHeader, streamProxyPolicyFromEnv } from "@/lib/stream-delivery-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,22 +8,7 @@ const API = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-function incomingHeaderBag(req: NextRequest): Record<string, string> {
-  const bag: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    bag[key] = value;
-  });
-  return bag;
-}
-
 async function proxy(req: NextRequest, context: RouteContext): Promise<Response> {
-  try {
-    assertWebStreamProxyAllowed(incomingHeaderBag(req));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Forbidden";
-    return NextResponse.json({ error: ErrorCode.Forbidden, message }, { status: 403 });
-  }
-
   const proxySecret = streamProxyPolicyFromEnv().streamProxySecret;
 
   const { path } = await context.params;
@@ -49,8 +29,6 @@ async function proxy(req: NextRequest, context: RouteContext): Promise<Response>
   if (range) headers.set("range", range);
   const accept = req.headers.get("accept");
   if (accept) headers.set("accept", accept);
-  const playbackClient = req.headers.get("x-playback-client");
-  if (playbackClient) headers.set("x-playback-client", playbackClient);
   const secFetchSite = req.headers.get("sec-fetch-site");
   if (secFetchSite) headers.set("sec-fetch-site", secFetchSite);
   const secFetchMode = req.headers.get("sec-fetch-mode");

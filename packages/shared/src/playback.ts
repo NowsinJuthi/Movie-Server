@@ -2,10 +2,6 @@ import { PublicMovie, SubtitleFormat, VideoResolution } from './movie';
 import { WatchProgress } from './profile';
 import { VideoQuality } from './subscription';
 
-/** Sent by the AmarPin web player on stream XHR/fetch — blocks bare URL reuse (IDM, wget). */
-export const PLAYBACK_CLIENT_HEADER = 'X-Playback-Client';
-export const PLAYBACK_CLIENT_VALUE = 'AmarPin-Web';
-
 export type PlaybackMarkers = {
   introStartSeconds: number | null;
   introEndSeconds: number | null;

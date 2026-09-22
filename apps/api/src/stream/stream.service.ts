@@ -837,8 +837,7 @@ export class StreamService {
       id: session.id,
       protocol: 'hls',
       hlsUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
-      // Never advertise a full-file URL — IDM sniffs this from the playback JSON.
-      progressiveUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
+      progressiveUrl: `${API}/stream/${session.id}/media?mt=${mt}`,
       // Video re-encode only — audio-only AAC conversion (DTS/EAC3) is DirectStream, not transcode.
       transcode: Boolean(session.transcodeEncodeVideo),
       audioTranscode: Boolean(session.transcodeEncodeAudio),

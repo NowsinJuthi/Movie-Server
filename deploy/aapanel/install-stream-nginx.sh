@@ -21,9 +21,6 @@ vhosts = [
 ]
 block = """
     location ^~ /api/v1/stream/ {
-        if ($http_user_agent ~* "(IDM|Internet.Download.Manager|Download.Master|FDM|Free.Download.Manager)") {
-            return 403;
-        }
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

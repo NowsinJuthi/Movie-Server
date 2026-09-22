@@ -257,7 +257,7 @@ describe('Playback streaming (e2e)', () => {
       /^\/api\/v1\/stream\/[a-f0-9]{32}\/master\?mt=[a-f0-9]{32}$/,
     );
     expect(playback.body.session.progressiveUrl).toMatch(
-      /^\/api\/v1\/stream\/[a-f0-9]{32}\/master\?mt=[a-f0-9]{32}$/,
+      /^\/api\/v1\/stream\/[a-f0-9]{32}\/media\?mt=[a-f0-9]{32}$/,
     );
     assertNoPaths(playback.body);
     const sessionId = playback.body.session.id as string;
