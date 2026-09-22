@@ -8,6 +8,7 @@ import {
   Maximize,
   Minimize,
   Pause,
+  PictureInPicture2,
   Play,
   RotateCcw,
   RotateCw,
@@ -216,6 +217,9 @@ export type EmbyMobileChromeProps = {
   onScrubbingChange: (active: boolean) => void;
   onToggleSettings: () => void;
   onToggleFullscreen: () => void;
+  pipSupported?: boolean;
+  pipActive?: boolean;
+  onTogglePip?: () => void;
   hasPreviousEpisode?: boolean;
   hasNextEpisode?: boolean;
   onPreviousEpisode?: () => void;
@@ -247,6 +251,9 @@ export function EmbyMobileChrome({
   onScrubbingChange,
   onToggleSettings,
   onToggleFullscreen,
+  pipSupported = false,
+  pipActive = false,
+  onTogglePip,
   hasPreviousEpisode,
   hasNextEpisode,
   onPreviousEpisode,
@@ -317,6 +324,20 @@ export function EmbyMobileChrome({
           >
             {fullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
           </button>
+          {pipSupported && onTogglePip ? (
+            <button
+              type="button"
+              aria-label={pipActive ? "Exit picture in picture" : "Picture in picture"}
+              onClick={onTogglePip}
+              onTouchStart={stopControlBubble}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
+                pipActive && "text-primary",
+              )}
+            >
+              <PictureInPicture2 className="h-6 w-6" />
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label="Settings"

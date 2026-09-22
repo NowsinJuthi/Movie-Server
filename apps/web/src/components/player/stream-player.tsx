@@ -2210,6 +2210,9 @@ export function StreamPlayer({
             }}
             onToggleSettings={toggleSettingsMenu}
             onToggleFullscreen={() => void toggleFullscreen()}
+            pipSupported={pipSupported}
+            pipActive={pip}
+            onTogglePip={() => void togglePip()}
             hasPreviousEpisode={Boolean(previous)}
             hasNextEpisode={Boolean(next)}
             onPreviousEpisode={previous ? () => goToPlayerHref(previous.href) : undefined}
