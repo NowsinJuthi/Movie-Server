@@ -270,8 +270,6 @@ export function EmbyMobileChrome({
         visible && "opacity-100 transition-opacity duration-200",
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[min(52vh,420px)] bg-gradient-to-t from-black from-30% via-black/75 to-transparent" />
-
       {/* Top — back + title (Emby-style minimal bar) */}
       <header className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-3">
         <button
