@@ -197,6 +197,8 @@ export function StreamPlayer({
   }, [backHref, router]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const freezeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const capturePlaybackFrameRef = useRef<() => void>(() => undefined);
   const shellRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -223,6 +225,7 @@ export function StreamPlayer({
   const [markers, setMarkers] = useState<PlaybackMarkers>(emptyPlaybackMarkers());
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
+  const [freezeFrame, setFreezeFrame] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -1019,13 +1022,22 @@ export function StreamPlayer({
       setControls(true);
       void persistProgress(true);
     };
-    const onWaiting = () => setBuffering(true);
+    const onWaiting = () => {
+      if (!seekingRef.current) {
+        capturePlaybackFrameRef.current();
+      }
+      setBuffering(true);
+    };
     const onPlaying = () => {
+      setFreezeFrame(null);
       setBuffering(false);
       setLoading(false);
     };
     const onSeeked = () => {
-      setBuffering(false);
+      if (!seekingRef.current) {
+        setFreezeFrame(null);
+        setBuffering(false);
+      }
       void persistProgress(true);
     };
     const onLoaded = () => {
@@ -1036,6 +1048,10 @@ export function StreamPlayer({
       applyResume();
     };
     const onCanPlay = () => {
+      if (!seekingRef.current) {
+        setFreezeFrame(null);
+        setBuffering(false);
+      }
       applyResume();
     };
     const onEnded = () => {
@@ -1155,6 +1171,37 @@ export function StreamPlayer({
     setPipSupported(videoSupportsPictureInPicture(videoRef.current));
   }, [loading]);
 
+  const capturePlaybackFrame = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth < 2 || video.videoHeight < 2) return;
+    const canvas = freezeCanvasRef.current;
+    try {
+      if (canvas) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0);
+        try {
+          setFreezeFrame(canvas.toDataURL("image/jpeg", 0.72));
+        } catch {
+          /* Tainted canvas still paints; skip the extra JPEG snapshot. */
+        }
+        return;
+      }
+      const shot = document.createElement("canvas");
+      shot.width = video.videoWidth;
+      shot.height = video.videoHeight;
+      const ctx = shot.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0);
+      setFreezeFrame(shot.toDataURL("image/jpeg", 0.72));
+    } catch {
+      /* CORS-tainted canvas: keep the live video visible instead. */
+    }
+  }, []);
+  capturePlaybackFrameRef.current = capturePlaybackFrame;
+
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -1205,6 +1252,7 @@ export function StreamPlayer({
       const previousOrigin = mediaOriginRef.current;
 
       setCurrentTime(target);
+      capturePlaybackFrame();
 
       if (!usingHlsRef.current || !usesPackagedHls(info)) {
         seekVideoTo(video, target, total);
@@ -1225,6 +1273,7 @@ export function StreamPlayer({
 
       seekingRef.current = true;
       pendingSeekRef.current = null;
+      setBuffering(true);
       try {
         mediaOriginRef.current = target;
         const nextSrc = `${variantHlsUrl(info, {
@@ -1293,15 +1342,28 @@ export function StreamPlayer({
         setCurrentTime(target);
         if (wasPlaying) {
           void video.play().catch(() => undefined);
+        } else if (video.readyState >= 2) {
+          setFreezeFrame(null);
+          setBuffering(false);
+        } else {
+          video.addEventListener(
+            "loadeddata",
+            () => {
+              setFreezeFrame(null);
+              setBuffering(false);
+            },
+            { once: true },
+          );
         }
       } catch {
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
         pendingSeekRef.current = null;
+        setFreezeFrame(null);
+        setBuffering(false);
         setError("Seek failed. Try again in a moment.");
       } finally {
         seekingRef.current = false;
-        setBuffering(false);
         const queued = pendingSeekRef.current;
         pendingSeekRef.current = null;
         if (queued != null) {
@@ -1309,7 +1371,7 @@ export function StreamPlayer({
         }
       }
     },
-    [duration, quality, usesPackagedHls],
+    [capturePlaybackFrame, duration, quality, usesPackagedHls],
   );
 
   seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);
@@ -2137,6 +2199,16 @@ export function StreamPlayer({
         onClick={mobileLayout ? undefined : onSkinClick}
       />
 
+      <canvas
+        ref={freezeCanvasRef}
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 z-[29] h-full w-full bg-transparent",
+          videoObjectClass,
+          buffering && !loading ? "opacity-100" : "opacity-0",
+        )}
+      />
+
       {mobileLayout && !loading && !error ? (
         <div className="absolute inset-0 z-[5] flex touch-manipulation">
           <button
@@ -2213,7 +2285,10 @@ export function StreamPlayer({
       ) : null}
 
       {(loading || buffering) && !error ? (
-        <PlayerBusyMark mode={loading ? "preparing" : "buffering"} />
+        <PlayerBusyMark
+          mode={loading ? "preparing" : "buffering"}
+          freezeFrame={loading ? null : freezeFrame}
+        />
       ) : null}
 
       {error ? (
