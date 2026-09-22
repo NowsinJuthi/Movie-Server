@@ -457,10 +457,10 @@ export function MobileBottomSheet({
       <button
         type="button"
         aria-label="Close menu"
-        className="fixed inset-0 z-40 bg-black/55"
+        className="fixed inset-0 z-[300] bg-black/55"
         onClick={onClose}
       />
-      <div className="fixed inset-x-0 bottom-0 z-50 max-h-[min(72vh,560px)] overflow-hidden rounded-t-2xl bg-[#141414]/98 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md">
+      <div className="fixed inset-x-0 bottom-0 z-[310] max-h-[min(72vh,560px)] overflow-hidden rounded-t-2xl bg-[#141414]/98 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-md">
         <div className="flex items-center justify-between border-b border-white/10 px-3 py-3">
           <div className="flex min-w-0 items-center gap-1">
             {onBack ? (

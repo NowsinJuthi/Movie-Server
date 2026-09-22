@@ -2094,11 +2094,23 @@ export function StreamPlayer({
     : controls || !playing || sheet != null;
   const mobileImmersive = fullscreen || pseudoFullscreen;
   const mobileChromeVisible = mobileLayout && controlsVisible;
-  const closeSheet = () => {
+  const closeSheet = useCallback(() => {
     setSheet(null);
     setSettingsView("root");
     revealControls();
-  };
+  }, [revealControls]);
+
+  const mobileChromeBack = useCallback(() => {
+    if (sheet) {
+      if (sheet === "settings" && settingsView !== "root") {
+        setSettingsView("root");
+        return;
+      }
+      closeSheet();
+      return;
+    }
+    goBack();
+  }, [closeSheet, goBack, sheet, settingsView]);
 
   useEffect(() => {
     if (!trackNotice) return;
@@ -2351,7 +2363,7 @@ export function StreamPlayer({
             settingsOn={sheet === "settings"}
             volume={volume}
             muted={muted}
-            onGoBack={goBack}
+            onGoBack={mobileChromeBack}
             onVolumeChange={changeVolume}
             onToggleMute={toggleMute}
             volumeSliderEnabled={volumeSliderEnabled}
@@ -2842,7 +2854,7 @@ export function StreamPlayer({
       </div>
 
       {mobileLayout && sheet === "subtitles" ? (
-        <MobileBottomSheet title="Subtitles" onClose={closeSheet}>
+        <MobileBottomSheet title="Subtitles" onClose={closeSheet} onBack={closeSheet}>
           <ul className="py-2">
             <li>
               <button
@@ -2881,7 +2893,7 @@ export function StreamPlayer({
       ) : null}
 
       {mobileLayout && sheet === "audio" ? (
-        <MobileBottomSheet title="Audio" onClose={closeSheet}>
+        <MobileBottomSheet title="Audio" onClose={closeSheet} onBack={closeSheet}>
           <ul className="py-2">
             {audioTracks.length === 0 ? (
               <li className="px-5 py-3 text-sm text-white/50">Default audio</li>
@@ -2911,7 +2923,7 @@ export function StreamPlayer({
       ) : null}
 
       {mobileLayout && sheet === "speed" ? (
-        <MobileBottomSheet title="Playback speed" onClose={closeSheet}>
+        <MobileBottomSheet title="Playback speed" onClose={closeSheet} onBack={closeSheet}>
           <ul className="py-2">
             {SPEEDS.map((speed) => {
               const selected = Math.abs(rate - speed) < 0.001;
@@ -2939,7 +2951,9 @@ export function StreamPlayer({
         <MobileBottomSheet
           title={mobileSettingsTitle(settingsView)}
           onClose={closeSheet}
-          onBack={settingsView === "root" ? undefined : () => setSettingsView("root")}
+          onBack={
+            settingsView === "root" ? closeSheet : () => setSettingsView("root")
+          }
         >
           {settingsView === "root" ? (
             <ul className="py-1">
@@ -2991,6 +3005,15 @@ export function StreamPlayer({
                 }}
               />
               {trackNotice ? <li className="px-5 py-3 text-xs text-amber-200">{trackNotice}</li> : null}
+              <li className="mt-2 border-t border-white/10 px-3 pb-2 pt-3">
+                <button
+                  type="button"
+                  className="flex min-h-12 w-full touch-manipulation items-center justify-center rounded-xl bg-white/10 text-base font-semibold text-white active:bg-white/15"
+                  onClick={closeSheet}
+                >
+                  Done
+                </button>
+              </li>
             </ul>
           ) : null}
           {settingsView === "quality" ? (
