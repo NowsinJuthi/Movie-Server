@@ -1180,3 +1180,120 @@
     animation: none;
   }
 }
+
+/* Light mode: frosted teal glass header (desktop + mobile) */
+:global(html:not(.dark)) .siteHeader {
+  background: color-mix(in srgb, #ffffff 62%, var(--background) 18%);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 16%, #ffffff);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.82),
+    0 12px 32px -22px rgb(10 98 88 / 0.28);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+:global(html:not(.dark)) .siteHeaderTransparent {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #ffffff 70%, transparent) 0%,
+    color-mix(in srgb, var(--background) 28%, transparent) 100%
+  );
+  border-bottom-color: transparent;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+
+:global(html:not(.dark)) .iconBtn,
+:global(html:not(.dark)) .headerCircleBtn,
+:global(html:not(.dark)) .accountBtn {
+  border-color: color-mix(in srgb, var(--primary) 26%, #ffffff);
+  background: color-mix(in srgb, #ffffff 68%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.92),
+    0 8px 18px -12px rgb(10 98 88 / 0.28);
+  animation: none;
+}
+
+:global(html:not(.dark)) .iconBtn:hover,
+:global(html:not(.dark)) .headerCircleBtn:hover,
+:global(html:not(.dark)) .accountBtn:hover,
+:global(html:not(.dark)) .accountBtnOpen {
+  border-color: color-mix(in srgb, var(--primary) 42%, #ffffff);
+  background: color-mix(in srgb, #ffffff 78%, var(--primary) 8%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    0 10px 22px -12px rgb(10 98 88 / 0.32),
+    0 0 18px -8px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+:global(html:not(.dark)) .browseNavPanel {
+  border-color: color-mix(in srgb, var(--primary) 20%, #ffffff);
+  background: color-mix(in srgb, #ffffff 58%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 10px 28px -18px rgb(10 98 88 / 0.22);
+}
+
+:global(html:not(.dark)) .browseNavPanel .navLink {
+  color: color-mix(in srgb, var(--foreground) 78%, transparent);
+}
+
+:global(html:not(.dark)) .browseNavPanel .navLinkActive {
+  background: color-mix(in srgb, var(--primary) 14%, #ffffff);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.85),
+    0 0 18px -10px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+:global(html:not(.dark)) .navDropdownMenuInner,
+:global(html:not(.dark)) .accountMenuPanel {
+  border-color: color-mix(in srgb, var(--primary) 18%, #ffffff);
+  background: color-mix(in srgb, #ffffff 82%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 22px 48px -24px rgb(10 98 88 / 0.28);
+}
+
+@media (max-width: 1023px) {
+  :global(html:not(.dark)) .siteHeader,
+  :global(html:not(.dark)) .siteHeaderTransparent {
+    background: color-mix(in srgb, #ffffff 74%, var(--background) 12%);
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 14%, #ffffff);
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      0 8px 24px -18px rgb(10 98 88 / 0.2);
+  }
+
+  :global(html:not(.dark)) .iconBtn,
+  :global(html:not(.dark)) .headerCircleBtn,
+  :global(html:not(.dark)) .accountBtn {
+    background: color-mix(in srgb, #ffffff 72%, transparent);
+    backdrop-filter: blur(16px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 6px 16px -10px rgb(10 98 88 / 0.24),
+      0 0 14px -6px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+}
+
+@media (min-width: 1024px) {
+  :global(html:not(.dark)) .siteHeader {
+    background: color-mix(in srgb, #ffffff 58%, transparent);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  :global(html:not(.dark)) .iconBtn,
+  :global(html:not(.dark)) .headerCircleBtn,
+  :global(html:not(.dark)) .accountBtn {
+    background: color-mix(in srgb, #ffffff 62%, transparent);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+  }
+}
