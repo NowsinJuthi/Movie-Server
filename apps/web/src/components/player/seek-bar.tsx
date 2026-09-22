@@ -234,15 +234,19 @@ export function SeekBar({
           const step = event.shiftKey ? 0.05 : 0.01;
           if (event.key === "ArrowRight" || event.key === "ArrowUp") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(clamp01(playedRatio + step));
           } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(clamp01(playedRatio - step));
           } else if (event.key === "Home") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(0);
           } else if (event.key === "End") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(1);
           }
         }}

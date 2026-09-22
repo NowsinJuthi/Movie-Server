@@ -31,6 +31,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type {
   PlaybackMarkers,
   PlaybackSessionInfo,
@@ -208,7 +209,7 @@ export function StreamPlayer({
   const recoverCount = useRef(0);
   const seekingRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
-  const seekPlaybackRef = useRef<(seconds: number) => void>(() => undefined);
+  const seekPlaybackRef = useRef<(seconds: number) => void | Promise<void>>(() => undefined);
   const transcodeFallbackRef = useRef(false);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
   const repeatModeRef = useRef<RepeatMode>("none");
@@ -1035,7 +1036,9 @@ export function StreamPlayer({
     const onEnded = () => {
       void persistProgress(true);
       if (repeatModeRef.current === "one") {
-        seekPlaybackRef.current(0);
+        void Promise.resolve(seekPlaybackRef.current(0)).then(() => {
+          void videoRef.current?.play().catch(() => undefined);
+        });
         return;
       }
       if (autoPlayNext && next) {
@@ -1310,9 +1313,7 @@ export function StreamPlayer({
     [duration, quality, usesPackagedHls],
   );
 
-  seekPlaybackRef.current = (seconds) => {
-    void seekPlaybackTo(seconds);
-  };
+  seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);
 
   const seekBy = useCallback(
     (delta: number, options?: { reveal?: boolean }) => {
@@ -1413,11 +1414,16 @@ export function StreamPlayer({
       return;
     }
 
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await shell.requestFullscreen();
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await shell.requestFullscreen();
+      }
+    } catch {
+      /* browser blocked fullscreen */
     }
+    revealControls();
   }, [mobileLayout, pseudoFullscreen, revealControls]);
 
   const togglePip = useCallback(async () => {
@@ -1866,7 +1872,16 @@ export function StreamPlayer({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) {
+      if (
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (
+        (event.key === " " || event.key === "Enter") &&
+        (target?.tagName === "BUTTON" || Boolean(target?.closest("button")))
+      ) {
         return;
       }
       revealControls();
@@ -2036,6 +2051,21 @@ export function StreamPlayer({
     setSheet(null);
     setSettingsView("root");
   };
+
+  useEffect(() => {
+    if (mobileLayout || !sheet || sheet === "info" || sheet === "chapters" || sheet === "cast") {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-player-menu-root]")) return;
+      setSheet(null);
+      setSettingsView("root");
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [mobileLayout, sheet]);
 
   useEffect(() => {
     return () => {
@@ -2336,17 +2366,24 @@ export function StreamPlayer({
                 {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </IconButton>
             </div>
-            <IconButton label="Cast (not available)" onClick={() => undefined}>
+            <IconButton
+              label="Cast (not available)"
+              onClick={() => toast.message("Cast is not available in the browser player.")}
+            >
               <Cast className="h-5 w-5 opacity-70" />
             </IconButton>
             {pipSupported ? (
-              <span className="desktop-player-track-icon hidden xl:inline-flex">
-                <IconButton label="Picture in picture" onClick={() => void togglePip()}>
-                  <PictureInPicture2 className={cn("h-5 w-5", pip && "text-white")} />
+              <span className="desktop-player-track-icon inline-flex">
+                <IconButton label="Picture in picture" active={pip} onClick={() => void togglePip()}>
+                  <PictureInPicture2 className="h-5 w-5" />
                 </IconButton>
               </span>
             ) : null}
-            <IconButton label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => void toggleFullscreen()}>
+            <IconButton
+              label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              active={fullscreen}
+              onClick={() => void toggleFullscreen()}
+            >
               {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
             </IconButton>
           </div>
@@ -2367,7 +2404,7 @@ export function StreamPlayer({
               <h1 className="truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
-              <div className="desktop-player-track-icon relative hidden xl:block">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "subtitles" ? (
                   <div
                     role="menu"
@@ -2423,11 +2460,11 @@ export function StreamPlayer({
                     </ul>
                   </div>
                 ) : null}
-                <IconButton label="Subtitles" onClick={toggleSubtitlesMenu}>
-                  <Captions className={cn("h-5 w-5", sheet === "subtitles" && "text-white")} />
+                <IconButton label="Subtitles" active={sheet === "subtitles"} onClick={toggleSubtitlesMenu}>
+                  <Captions className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="desktop-player-track-icon relative hidden xl:block">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "audio" ? (
                   <div
                     role="menu"
@@ -2472,12 +2509,13 @@ export function StreamPlayer({
                       ? `Audio track (${selectedAudio?.languageLabel ?? "default"})`
                       : "Audio track"
                   }
+                  active={sheet === "audio"}
                   onClick={toggleAudioMenu}
                 >
-                  <AudioLines className={cn("h-5 w-5", (sheet === "audio" || audioTracks.length > 1) && "text-white")} />
+                  <AudioLines className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="desktop-player-track-icon relative hidden xl:block">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "speed" ? (
                   <div
                     role="menu"
@@ -2508,11 +2546,11 @@ export function StreamPlayer({
                     </ul>
                   </div>
                 ) : null}
-                <IconButton label="Playback speed" onClick={toggleSpeedMenu}>
-                  <Gauge className={cn("h-5 w-5", sheet === "speed" && "text-white")} />
+                <IconButton label="Playback speed" active={sheet === "speed"} onClick={toggleSpeedMenu}>
+                  <Gauge className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="relative" data-player-menu-root>
                 {sheet === "settings" ? (
                   <div
                     role="menu"
@@ -2648,8 +2686,8 @@ export function StreamPlayer({
                     ) : null}
                   </div>
                 ) : null}
-                <IconButton label="Settings" onClick={toggleSettingsMenu}>
-                  <Settings className={cn("h-5 w-5", sheet === "settings" && "text-white")} />
+                <IconButton label="Settings" active={sheet === "settings"} onClick={toggleSettingsMenu}>
+                  <Settings className="h-5 w-5" />
                 </IconButton>
               </div>
             </div>
@@ -3033,18 +3071,24 @@ function SettingsSubmenu({
 function IconButton({
   label,
   onClick,
+  active,
   children,
 }: {
   label: string;
   onClick: () => void;
+  active?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onClick={onClick}
-      className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary"
+      className={cn(
+        "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary",
+        active && "bg-white/12 text-primary",
+      )}
     >
       {children}
     </button>

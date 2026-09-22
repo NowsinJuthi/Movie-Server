@@ -133,15 +133,19 @@ export function VolumeBar({
           const step = event.shiftKey ? 0.1 : 0.05;
           if (event.key === "ArrowRight" || event.key === "ArrowUp") {
             event.preventDefault();
+            event.stopPropagation();
             onChange(clamp01(value + step));
           } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
             event.preventDefault();
+            event.stopPropagation();
             onChange(clamp01(value - step));
           } else if (event.key === "Home") {
             event.preventDefault();
+            event.stopPropagation();
             onChange(0);
           } else if (event.key === "End") {
             event.preventDefault();
+            event.stopPropagation();
             onChange(1);
           }
         }}
