@@ -126,10 +126,10 @@ export function AppHeader({
   const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
   const logoButton = (
-    <Link href="/home" className={cn(styles.logoBtn, "no-underline")}>
+    <Link href="/home" className={cn(styles.logoBtn, "no-underline")} aria-label={siteName}>
       {logoSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoSrc} alt={siteName} className={styles.logoImg} />
+        <img src={logoSrc} alt="" draggable={false} className={styles.logoImg} />
       ) : (
         <>
           {siteName}

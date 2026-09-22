@@ -203,11 +203,17 @@
   width: auto;
   max-width: 140px;
   object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .mobileLogoWrap img {
   height: 2rem;
   max-width: 120px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 @media (min-width: 640px) {
