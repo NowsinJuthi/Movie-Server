@@ -344,7 +344,7 @@ export function buildFfmpegHlsArgs(
   const fmp4 = usesFmp4Segments(plan);
   const segmentPath = path.join(outDir, fmp4 ? 'seg%03d.m4s' : 'seg%03d.ts');
   const base = [
-    ...ffmpegInputArgs(absPath, startSeconds, config),
+    ...ffmpegInputArgs(absPath, startSeconds, config, { nativeFramerate: true }),
     '-map',
     '0:v:0',
     '-map',

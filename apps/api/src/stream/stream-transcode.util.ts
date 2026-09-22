@@ -320,7 +320,12 @@ export function buildHlsTranscodeOutputArgs(
   return args;
 }
 
-export function ffmpegInputArgs(absPath: string, startSeconds: number, config?: ConfigService): string[] {
+export function ffmpegInputArgs(
+  absPath: string,
+  startSeconds: number,
+  config?: ConfigService,
+  options?: { nativeFramerate?: boolean },
+): string[] {
   const args: string[] = ['-hide_banner', '-loglevel', 'error'];
   if (startSeconds > 0.5) {
     args.push('-ss', startSeconds.toFixed(3));
@@ -328,6 +333,12 @@ export function ffmpegInputArgs(absPath: string, startSeconds: number, config?: 
   const hwaccel = config ? transcodeHwaccel(config) : 'none';
   if (hwaccel !== 'none') {
     args.push('-hwaccel', hwaccel === 'auto' ? 'auto' : hwaccel);
+  }
+  // MKV stream-copy remux is far faster than realtime. Without -re the HLS
+  // window slides to the end of the movie before the player starts, so a
+  // seek-to-start lands on the last seconds.
+  if (options?.nativeFramerate) {
+    args.push('-re');
   }
   args.push(
     '-probesize',

@@ -679,7 +679,8 @@ export function StreamPlayer({
           const hls = new HlsLib({
             enableWorker: true,
             lowLatencyMode: false,
-            liveDurationInfinity: encoding,
+            autoStartLoad: false,
+            liveDurationInfinity: false,
             // Growing on-demand pack, not a broadcast. Start at local 0 and never
             // snap to ffmpeg's advancing live edge (that jumps long movies to the end).
             startPosition: 0.001,
@@ -741,6 +742,7 @@ export function StreamPlayer({
             } else {
               hls.currentLevel = -1;
             }
+            hls.startLoad(0.001);
             if (videoTranscode) {
               setBuffering(true);
               startWhenBuffered(8);
