@@ -2165,12 +2165,6 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {mobileLayout && buffering && !loading && !error ? (
-        <div className="pointer-events-none absolute inset-0 z-[6] flex items-center justify-center">
-          <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-primary" />
-        </div>
-      ) : null}
-
       {awaitingTap && !error && !mobileLayout ? (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
           <button
