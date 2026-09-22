@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronLeft,
   Maximize,
@@ -260,7 +261,12 @@ export function EmbyMobileChrome({
   onPreviousEpisode,
   onNextEpisode,
 }: EmbyMobileChromeProps) {
+  const [volumeOpen, setVolumeOpen] = useState(false);
   const displayVolume = muted ? 0 : volume;
+
+  useEffect(() => {
+    if (!visible) setVolumeOpen(false);
+  }, [visible]);
 
   return (
     <div
@@ -292,20 +298,32 @@ export function EmbyMobileChrome({
         <div className="flex shrink-0 items-center">
           <div
             className="mr-0.5 flex items-center gap-2 pr-1"
-            onPointerDown={() => onVolumePanelChange?.(true)}
-            onPointerUp={() => onVolumePanelChange?.(false)}
-            onPointerCancel={() => onVolumePanelChange?.(false)}
+            onPointerDown={() => {
+              if (volumeOpen) onVolumePanelChange?.(true);
+            }}
+            onPointerUp={() => {
+              if (volumeOpen) onVolumePanelChange?.(true);
+            }}
             onTouchStart={stopControlBubble}
           >
-            <VolumeBar
-              className="w-[5.75rem] sm:w-28"
-              value={displayVolume}
-              onChange={onVolumeChange}
-            />
+            {volumeOpen ? (
+              <VolumeBar
+                className="w-[5.75rem] sm:w-28"
+                value={displayVolume}
+                onChange={onVolumeChange}
+              />
+            ) : null}
             <button
               type="button"
-              aria-label={muted ? "Unmute" : "Mute"}
-              onClick={onToggleMute}
+              aria-label={volumeOpen ? (muted ? "Unmute" : "Mute") : "Volume"}
+              onClick={() => {
+                if (!volumeOpen) {
+                  setVolumeOpen(true);
+                  onVolumePanelChange?.(true);
+                  return;
+                }
+                onToggleMute();
+              }}
               className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
             >
               {muted || volume === 0 ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}

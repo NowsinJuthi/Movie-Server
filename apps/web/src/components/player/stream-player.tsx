@@ -21,7 +21,15 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   PlaybackMarkers,
@@ -1293,7 +1301,7 @@ export function StreamPlayer({
   };
 
   const seekBy = useCallback(
-    (delta: number) => {
+    (delta: number, options?: { reveal?: boolean }) => {
       const video = videoRef.current;
       if (!video) return;
       const display = usingHlsRef.current
@@ -1304,7 +1312,7 @@ export function StreamPlayer({
           )
         : video.currentTime;
       void seekPlaybackTo(display + delta);
-      revealControls();
+      if (options?.reveal !== false) revealControls();
     },
     [revealControls, seekPlaybackTo],
   );
@@ -1738,6 +1746,8 @@ export function StreamPlayer({
   );
 
   const lastMobileToggleMs = useRef(0);
+  const pendingSkinToggleRef = useRef<number | null>(null);
+  const lastSkipTapRef = useRef<{ side: "left" | "right"; t: number } | null>(null);
 
   const toggleMobileControls = useCallback(() => {
     const now = Date.now();
@@ -1791,6 +1801,53 @@ export function StreamPlayer({
     togglePlay,
     tryStartPlayback,
   ]);
+
+  const onMobileSkinTap = useCallback(
+    (side: "left" | "right" | "center", event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      event.preventDefault();
+
+      const now = performance.now();
+      if (side === "left" || side === "right") {
+        const last = lastSkipTapRef.current;
+        if (last && last.side === side && now - last.t < 300) {
+          lastSkipTapRef.current = { side, t: now };
+          if (pendingSkinToggleRef.current != null) {
+            window.clearTimeout(pendingSkinToggleRef.current);
+            pendingSkinToggleRef.current = null;
+          }
+          seekBy(side === "left" ? -10 : 10, { reveal: false });
+          return;
+        }
+        lastSkipTapRef.current = { side, t: now };
+        if (pendingSkinToggleRef.current != null) {
+          window.clearTimeout(pendingSkinToggleRef.current);
+        }
+        pendingSkinToggleRef.current = window.setTimeout(() => {
+          pendingSkinToggleRef.current = null;
+          toggleMobileControls();
+        }, 300);
+        return;
+      }
+
+      lastSkipTapRef.current = null;
+      if (pendingSkinToggleRef.current != null) {
+        window.clearTimeout(pendingSkinToggleRef.current);
+        pendingSkinToggleRef.current = null;
+      }
+      toggleMobileControls();
+    },
+    [seekBy, toggleMobileControls],
+  );
+
+  useEffect(
+    () => () => {
+      if (pendingSkinToggleRef.current != null) {
+        window.clearTimeout(pendingSkinToggleRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -2019,20 +2076,32 @@ export function StreamPlayer({
       />
 
       {mobileLayout && !loading && !error ? (
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label="Show or hide player controls"
-          className="absolute inset-0 z-[5] touch-manipulation border-0 bg-transparent p-0"
-          onPointerUp={(event) => {
-            if (event.pointerType === "mouse" && event.button !== 0) return;
-            toggleMobileControls();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            toggleMobileControls();
-          }}
-        />
+        <div className="absolute inset-0 z-[5] flex touch-manipulation">
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Rewind 10 seconds"
+            className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("left", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Show or hide player controls"
+            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("center", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Forward 10 seconds"
+            className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("right", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+        </div>
       ) : null}
 
       {awaitingTap && !error && !mobileLayout ? (
