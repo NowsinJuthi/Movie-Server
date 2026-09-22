@@ -222,6 +222,7 @@ export type PublicMovie = {
   progressSeconds?: number;
   durationSeconds?: number;
   watched?: boolean;
+  createdAt?: string;
 };
 
 export type MovieListResponse = {

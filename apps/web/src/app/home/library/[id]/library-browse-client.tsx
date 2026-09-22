@@ -38,7 +38,7 @@ export function LibraryBrowseClient() {
       if (merged.genre) params.set("genre", merged.genre);
       if (merged.year) params.set("year", String(merged.year));
       if (merged.minRating != null) params.set("minRating", String(merged.minRating));
-      if (merged.sort) params.set("sort", merged.sort);
+      if (merged.sort && merged.sort !== "newest") params.set("sort", merged.sort);
       const query = params.toString();
       router.replace(query ? `/home/library/${id}?${query}` : `/home/library/${id}`, { scroll: false });
     },
