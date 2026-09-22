@@ -1,7 +1,9 @@
 import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
-import type { AdminDashboard, AdminHealth } from '@movie-server/shared';
+import type { AdminDashboard, AdminHealth, AdminServerMetrics } from '@movie-server/shared';
+import os from 'os';
+import { metricsDiskPath, readCpuUsagePercent, readStorageUsage } from './server-metrics.util';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Profile, ProfileDocument } from '../profiles/schemas/profile.schema';
 import { Movie, MovieDocument } from '../movies/schemas/movie.schema';
@@ -114,6 +116,27 @@ export class AdminDashboardService {
         enabled: movieUploadSettings.movieUploadRequestsEnabled,
         pending: movieUploadPending,
       },
+    };
+  }
+
+  async serverMetrics(): Promise<AdminServerMetrics> {
+    const totalBytes = os.totalmem();
+    const freeBytes = os.freemem();
+    const usedBytes = Math.max(0, totalBytes - freeBytes);
+    const load = os.loadavg();
+    return {
+      sampledAt: new Date().toISOString(),
+      cpu: {
+        usagePercent: readCpuUsagePercent(),
+        cores: os.cpus().length,
+        loadAverage: [load[0] ?? 0, load[1] ?? 0, load[2] ?? 0],
+      },
+      memory: {
+        usedBytes,
+        totalBytes,
+        usedPercent: totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 1000) / 10 : 0,
+      },
+      storage: await readStorageUsage(metricsDiskPath()),
     };
   }
 

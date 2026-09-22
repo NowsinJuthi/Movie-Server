@@ -3,6 +3,7 @@ import type {
   AdminCatalogTerm,
   AdminDashboard,
   AdminHealth,
+  AdminServerMetrics,
   AdminHomeHero,
   AdminHomeRow,
   AdminJobsResponse,
@@ -34,6 +35,7 @@ function qs(query: Record<string, string | number | boolean | undefined>) {
 
 export const adminApi = {
   dashboard: () => apiFetch<AdminDashboard>("/admin/dashboard"),
+  serverMetrics: () => apiFetch<AdminServerMetrics>("/admin/server-metrics"),
   health: () => apiFetch<AdminHealth>("/admin/health"),
   jobs: () => apiFetch<AdminJobsResponse>("/admin/jobs"),
   audit: (query: { q?: string; page?: number; limit?: number } = {}) =>

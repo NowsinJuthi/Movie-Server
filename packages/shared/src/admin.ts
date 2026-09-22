@@ -31,6 +31,26 @@ export type AdminHealth = {
   uptimeSeconds: number;
 };
 
+export type AdminServerMetrics = {
+  sampledAt: string;
+  cpu: {
+    usagePercent: number;
+    cores: number;
+    loadAverage: [number, number, number];
+  };
+  memory: {
+    usedBytes: number;
+    totalBytes: number;
+    usedPercent: number;
+  };
+  storage: {
+    path: string;
+    usedBytes: number;
+    totalBytes: number;
+    usedPercent: number;
+  } | null;
+};
+
 export type AdminQueueStats = {
   name: string;
   waiting: number;
