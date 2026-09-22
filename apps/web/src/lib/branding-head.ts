@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { PublicBranding } from "@movie-server/shared";
-import { brandingAssetSrc } from "@/lib/settings-api";
 
 export const DEFAULT_PUBLIC_BRANDING: PublicBranding = {
   siteName: "AmarPin",
