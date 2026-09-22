@@ -77,10 +77,7 @@ export function HeroBanner({
       <div className="absolute inset-0 z-0 bg-gradient-to-r from-black via-black/70 to-transparent max-md:from-black/50 max-md:via-black/20 md:max-lg:via-black/55" />
       <div className="absolute inset-x-0 bottom-0 z-0 h-[45%] bg-gradient-to-t from-black from-[18%] via-black/65 via-[48%] to-transparent" />
       <div className="relative z-[2] flex min-h-[72vw] max-w-3xl flex-col justify-end px-3 pb-6 pt-4 sm:px-4 md:min-h-[56vw] md:px-5 md:pb-16 md:pt-8 lg:min-h-[42vw] lg:px-6 lg:pb-24 lg:pt-[calc(var(--site-header-offset)+0.5rem)]">
-        <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-primary md:block">
-          {slides.length > 1 ? `Featured · ${index + 1}/${slides.length}` : "Featured"}
-        </p>
-        <h1 className="max-w-xl text-xl font-bold leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.55)] sm:text-2xl md:mt-3 md:text-4xl md:leading-tight lg:text-6xl">
+        <h1 className="max-w-xl line-clamp-2 text-xl font-bold leading-snug text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.55)] sm:text-2xl md:text-2xl md:leading-tight lg:max-w-2xl lg:text-3xl">
           {active.title}
         </h1>
         <p className="mt-1 text-sm text-white/80 md:mt-3">
