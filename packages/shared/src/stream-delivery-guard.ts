@@ -87,6 +87,16 @@ export function isStreamDeliveryAllowed(headers: HeaderBag, policy: StreamDelive
     return true;
   }
 
+  // Progressive `<video src>` (/media remux or byte-range) — cannot set X-Playback-Client (HLS.js uses XHR).
+  if (
+    dest === 'video' &&
+    (mode === 'no-cors' || mode === 'cors' || !mode) &&
+    (site === 'same-origin' || site === 'same-site') &&
+    /\/watch(\/|\?|$)/i.test(referer)
+  ) {
+    return true;
+  }
+
   // Sidecar <audio src> — browsers send dest=audio, not dest=video.
   if (
     dest === 'audio' &&
