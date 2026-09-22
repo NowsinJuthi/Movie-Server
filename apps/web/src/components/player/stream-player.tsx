@@ -59,7 +59,7 @@ import {
   isAppleMobileDevice,
   isCoarsePointerMobile,
   isHtmlMediaVolumeReadOnly,
-  isLocalTimeBuffered,
+  isLocalTimeInPack,
   isVideoInNativeFullscreen,
   isVideoInPictureInPicture,
   beginMobileImmersivePlayback,
@@ -623,7 +623,15 @@ export function StreamPlayer({
       setIosMutedPlay(false);
       video.src = hlsSourceFor(info, origin);
       video.load();
-      const onReady = () => startMobileAttachedPlayback(video);
+      const pinToPackStart = () => {
+        if (video.currentTime > 1.25) {
+          video.currentTime = 0.001;
+        }
+      };
+      const onReady = () => {
+        pinToPackStart();
+        startMobileAttachedPlayback(video);
+      };
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
         onReady();
         return;
@@ -743,16 +751,18 @@ export function StreamPlayer({
               hls.currentLevel = -1;
             }
             hls.startLoad(0.001);
+            const media = videoRef.current;
+            if (media && media.currentTime > 1.25) {
+              media.currentTime = 0.001;
+            }
             if (videoTranscode) {
               setBuffering(true);
               startWhenBuffered(8);
             } else if (info.audioTranscode) {
               setBuffering(true);
               startWhenBuffered(7);
-            } else if (info.remuxStream || info.hevcStream) {
-              setBuffering(true);
-              startWhenBuffered(4);
             } else {
+              // MKV/H.264 remux already waited for the first segments — start like Emby.
               void tryStartPlayback();
             }
           });
@@ -1274,7 +1284,7 @@ export function StreamPlayer({
       // A target before the current package origin cannot be represented as local time 0.
       // Restart packaging from that movie position instead of snapping back to the origin.
       const targetIsInCurrentPack = target >= origin - 0.35;
-      if (targetIsInCurrentPack && isLocalTimeBuffered(video, localTarget)) {
+      if (targetIsInCurrentPack && isLocalTimeInPack(video, localTarget)) {
         video.currentTime = localTarget;
         setCurrentTime(target);
         return;

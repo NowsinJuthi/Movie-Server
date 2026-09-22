@@ -308,10 +308,13 @@ export class HlsPackagerService {
   private async finalizePlaylist(playlistPath: string): Promise<void> {
     try {
       const raw = await fs.readFile(playlistPath, 'utf8');
-      if (raw.includes('#EXT-X-ENDLIST')) {
-        return;
+      let next = raw.includes('#EXT-X-ENDLIST') ? raw : `${raw.trim()}\n#EXT-X-ENDLIST\n`;
+      if (/#EXT-X-PLAYLIST-TYPE:EVENT/i.test(next)) {
+        next = next.replace(/#EXT-X-PLAYLIST-TYPE:EVENT/i, '#EXT-X-PLAYLIST-TYPE:VOD');
       }
-      await fs.writeFile(playlistPath, `${raw.trim()}\n#EXT-X-ENDLIST\n`, 'utf8');
+      if (next !== raw) {
+        await fs.writeFile(playlistPath, next, 'utf8');
+      }
     } catch {
       /* best effort */
     }
@@ -344,7 +347,7 @@ export function buildFfmpegHlsArgs(
   const fmp4 = usesFmp4Segments(plan);
   const segmentPath = path.join(outDir, fmp4 ? 'seg%03d.m4s' : 'seg%03d.ts');
   const base = [
-    ...ffmpegInputArgs(absPath, startSeconds, config, { nativeFramerate: true }),
+    ...ffmpegInputArgs(absPath, startSeconds, config),
     '-map',
     '0:v:0',
     '-map',
@@ -355,10 +358,14 @@ export function buildFfmpegHlsArgs(
     'hls',
     '-hls_time',
     String(segmentSeconds),
+    // Emby/Jellyfin Direct Stream: EVENT playlist from this pack start, remux as
+    // fast as the disk allows (no -re). Players start at segment 0, not live-edge.
     '-hls_list_size',
-    '12',
+    '0',
+    '-hls_playlist_type',
+    'event',
     '-hls_flags',
-    'independent_segments+delete_segments+omit_endlist+temp_file',
+    'independent_segments+omit_endlist+temp_file',
     '-avoid_negative_ts',
     'make_zero',
     ...(fmp4
@@ -382,7 +389,8 @@ export function rewriteHlsPlaylist(
 ): string {
   const mt = encodeURIComponent(mediaToken);
   const prefix = `/api/v1/stream/${sessionId}/hls/`;
-  return raw
+  const withType = ensureHlsPlaylistType(raw);
+  return withType
     .split('\n')
     .map((line) => {
       const trimmed = line.trim();
@@ -408,6 +416,15 @@ export function rewriteHlsPlaylist(
       return line;
     })
     .join('\n');
+}
+
+/** EVENT = start at first segment (Emby Direct Stream). VOD once ffmpeg finishes. */
+export function ensureHlsPlaylistType(raw: string): string {
+  if (/#EXT-X-PLAYLIST-TYPE:/i.test(raw)) {
+    return raw;
+  }
+  const type = raw.includes('#EXT-X-ENDLIST') ? 'VOD' : 'EVENT';
+  return raw.replace(/^#EXTM3U[^\n]*/m, (line) => `${line}\n#EXT-X-PLAYLIST-TYPE:${type}`);
 }
 
 function usesFmp4Segments(plan: TranscodePlan): boolean {

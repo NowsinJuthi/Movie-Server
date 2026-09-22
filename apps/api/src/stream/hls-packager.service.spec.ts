@@ -25,6 +25,12 @@ describe('rewriteHlsPlaylist', () => {
     expect(out).not.toContain('#EXT-X-START');
   });
 
+  it('marks growing packs as EVENT so players start at the first segment', () => {
+    const raw = ['#EXTM3U', '#EXTINF:4.0,', 'seg000.ts'].join('\n');
+    const out = rewriteHlsPlaylist(raw, 'abc123', 'tok456');
+    expect(out).toContain('#EXT-X-PLAYLIST-TYPE:EVENT');
+  });
+
   it('rewrites CMAF init and media segments for iOS HEVC HLS', () => {
     const raw = [
       '#EXTM3U',
@@ -64,10 +70,15 @@ describe('rewriteHlsPlaylist', () => {
     const args = buildFfmpegHlsArgs('/media/movie.mkv', '/tmp/hls', plan, 4, 0, config);
     expect(args).toEqual(
       expect.arrayContaining([
+        '-hls_playlist_type',
+        'event',
+        '-hls_list_size',
+        '0',
         '-hls_flags',
-        'independent_segments+delete_segments+omit_endlist+temp_file',
+        'independent_segments+omit_endlist+temp_file',
       ]),
     );
+    expect(args).not.toContain('-re');
   });
 
   it('uses short segments after a seek so playback resumes quickly', () => {

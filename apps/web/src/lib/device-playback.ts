@@ -190,6 +190,37 @@ export function isLocalTimeBuffered(
   return false;
 }
 
+/**
+ * True when this pack can represent the local time (buffered, or already in the
+ * EVENT playlist). Finite seekable only — live Infinity ranges are ignored so we
+ * do not treat the live edge as "the whole movie".
+ */
+export function isLocalTimeInPack(
+  video: HTMLVideoElement,
+  localSeconds: number,
+  slack = 0.5,
+): boolean {
+  if (isLocalTimeBuffered(video, localSeconds, slack)) {
+    return true;
+  }
+  if (!Number.isFinite(localSeconds) || localSeconds < -slack) {
+    return false;
+  }
+  const ranges = video.seekable;
+  if (ranges.length === 0) {
+    return false;
+  }
+  for (let i = 0; i < ranges.length; i += 1) {
+    const start = ranges.start(i);
+    const end = ranges.end(i);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    if (localSeconds >= start - slack && localSeconds <= end + slack) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** True when the target time is already buffered (no transcode restart needed). */
 export function isTimeBuffered(video: HTMLVideoElement, seconds: number, slack = 0.35): boolean {
   return isLocalTimeBuffered(video, seconds, slack);
