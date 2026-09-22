@@ -216,6 +216,7 @@ export function StreamPlayer({
   const recoverCount = useRef(0);
   const seekingRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
+  const seekPackRef = useRef(false);
   const seekPlaybackRef = useRef<(seconds: number) => void | Promise<void>>(() => undefined);
   const transcodeFallbackRef = useRef(false);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
@@ -505,6 +506,7 @@ export function StreamPlayer({
         ? variantHlsUrl(info, {
             startSeconds,
             resolution: quality === "auto" ? "auto" : quality,
+            seekRestart: seekPackRef.current,
           })
         : toAbsoluteStreamUrl(info.hlsUrl),
     [quality, usesPackagedHls],
@@ -1030,6 +1032,7 @@ export function StreamPlayer({
       setBuffering(true);
     };
     const onPlaying = () => {
+      seekingRef.current = false;
       setFreezeFrame(null);
       setBuffering(false);
       setLoading(false);
@@ -1049,7 +1052,11 @@ export function StreamPlayer({
       applyResume();
     };
     const onCanPlay = () => {
-      if (!seekingRef.current) {
+      if (seekingRef.current && video.paused) {
+        seekingRef.current = false;
+        setFreezeFrame(null);
+        setBuffering(false);
+      } else if (!seekingRef.current) {
         setFreezeFrame(null);
         setBuffering(false);
       }
@@ -1276,107 +1283,23 @@ export function StreamPlayer({
       setBuffering(true);
       try {
         mediaOriginRef.current = target;
+        resumeRef.current = target;
+        seekPackRef.current = true;
         await streamApi
           .seekHls(info.id, target, quality === "auto" ? undefined : quality)
           .catch(() => undefined);
-        const nextSrc = `${variantHlsUrl(info, {
-          startSeconds: target,
-          resolution: quality === "auto" ? "auto" : quality,
-          seekRestart: true,
-        })}&_=${Date.now()}`;
-
-        const hls = hlsRef.current;
-        if (hls) {
-          const { default: HlsLib } = await import("hls.js");
-          await new Promise<void>((resolve, reject) => {
-            const timeout = window.setTimeout(() => {
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              reject(new Error("Seek timed out"));
-            }, 90_000);
-            const onParsed = () => {
-              window.clearTimeout(timeout);
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              hls.startLoad(0.001);
-              try {
-                video.currentTime = 0;
-              } catch {
-                /* native / live MSE may ignore this until the first fragment */
-              }
-              resolve();
-            };
-            const onError = (_event: string, data: { fatal?: boolean }) => {
-              if (!data.fatal) return;
-              window.clearTimeout(timeout);
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              reject(new Error("Seek failed"));
-            };
-            hls.stopLoad();
-            hls.config.autoStartLoad = false;
-            hls.config.startPosition = 0.001;
-            hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
-            hls.on(HlsLib.Events.ERROR, onError);
-            hls.loadSource(nextSrc);
-          });
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
         } else {
-          video.src = nextSrc;
-          video.load();
-          // Start play during the seek gesture. Waiting for metadata first loses
-          // iOS user activation and leaves the movie paused after every scrub.
-          const resumePromise = wasPlaying
-            ? video.play().catch(() => undefined)
-            : Promise.resolve();
-          await new Promise<void>((resolve, reject) => {
-            const timeout = window.setTimeout(() => reject(new Error("Seek timed out")), 90_000);
-            video.addEventListener(
-              "loadedmetadata",
-              () => {
-                try {
-                  video.currentTime = 0;
-                } catch {
-                  /* native live HLS may ignore this; new pack still starts at 0 */
-                }
-                window.clearTimeout(timeout);
-                resolve();
-              },
-              { once: true },
-            );
-            video.addEventListener(
-              "error",
-              () => {
-                window.clearTimeout(timeout);
-                reject(new Error("Seek failed"));
-              },
-              { once: true },
-            );
-          });
-          await resumePromise;
+          attachHls(info);
         }
-
+        seekPackRef.current = false;
         setCurrentTime(target);
-        try {
-          video.currentTime = 0;
-        } catch {
-          /* keep origin mapping even if the element rejects the assignment */
-        }
-        if (wasPlaying) {
-          void video.play().catch(() => undefined);
-        } else if (video.readyState >= 2) {
+        if (!wasPlaying) {
           setFreezeFrame(null);
-          setBuffering(false);
-        } else {
-          video.addEventListener(
-            "loadeddata",
-            () => {
-              setFreezeFrame(null);
-              setBuffering(false);
-            },
-            { once: true },
-          );
         }
       } catch {
+        seekPackRef.current = false;
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
         pendingSeekRef.current = null;
@@ -1392,7 +1315,7 @@ export function StreamPlayer({
         }
       }
     },
-    [capturePlaybackFrame, duration, quality, usesPackagedHls],
+    [attachHls, attachNativeHls, capturePlaybackFrame, duration, quality, usesPackagedHls],
   );
 
   seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);

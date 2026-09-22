@@ -356,9 +356,11 @@ export function buildFfmpegHlsArgs(
     '-hls_time',
     String(segmentSeconds),
     '-hls_list_size',
-    '0',
+    '12',
     '-hls_flags',
-    'independent_segments+append_list+omit_endlist+program_date_time+temp_file',
+    'independent_segments+delete_segments+omit_endlist+temp_file',
+    '-avoid_negative_ts',
+    'make_zero',
     ...(fmp4
       ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', INIT_SEGMENT_NAME]
       : []),

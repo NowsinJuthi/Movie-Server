@@ -65,7 +65,7 @@ describe('rewriteHlsPlaylist', () => {
     expect(args).toEqual(
       expect.arrayContaining([
         '-hls_flags',
-        'independent_segments+append_list+omit_endlist+program_date_time+temp_file',
+        'independent_segments+delete_segments+omit_endlist+temp_file',
       ]),
     );
   });
