@@ -149,7 +149,7 @@ function MobileTransportCluster({
         onClick={onTogglePlay}
         onTouchStart={stopControlBubble}
         className={cn(
-          "inline-flex touch-manipulation items-center justify-center rounded-full text-white active:scale-[0.96]",
+          "relative isolate inline-flex shrink-0 touch-manipulation items-center justify-center overflow-visible rounded-full text-white active:scale-[0.96]",
           "bg-white/12 ring-1 ring-white/25 backdrop-blur-md",
           "shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_22px_-10px_rgba(0,0,0,0.55),0_0_18px_-6px_rgb(38_191_176/0.4)]",
           compact ? "h-12 w-12" : "h-14 w-14",
@@ -373,15 +373,15 @@ export function EmbyMobileChrome({
       {/* Bottom dock — transport → scrubber → tool icons */}
       <div
         className={cn(
-          "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overflow-x-hidden overscroll-contain",
+          "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overscroll-contain",
           "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
-          "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          "pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
           fullscreen && "pb-[max(1rem,env(safe-area-inset-bottom))]",
         )}
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <div className="mb-3 flex items-center justify-center">
+        <div className="mb-3 flex items-center justify-center overflow-visible py-1">
           <MobileTransportCluster
             compact={fullscreen}
             playing={playing}
