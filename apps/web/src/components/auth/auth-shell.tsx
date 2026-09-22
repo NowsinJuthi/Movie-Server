@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AuthGraphic } from "./auth-graphic";
 import { useBranding } from "@/components/branding/site-brand";
 import { brandingAssetSrc } from "@/lib/settings-api";
+import { ThemeSelector } from "@/components/theme/theme-selector";
 import styles from "./auth-shell.module.css";
 
 export function AuthShell({
@@ -21,6 +22,9 @@ export function AuthShell({
 
   return (
     <main className={styles.page}>
+      <div className={styles.themeSwitch}>
+        <ThemeSelector variant="compact" />
+      </div>
       <svg className={`${styles.scribble} ${styles.scribbleTop}`} viewBox="0 0 160 70" fill="none" aria-hidden>
         <path d="M8 42 C28 8, 58 62, 88 22 S138 8, 152 36" stroke="var(--auth-accent)" strokeWidth="1.4" />
         <circle cx="24" cy="18" r="3" fill="var(--auth-accent)" />

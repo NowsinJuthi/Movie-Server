@@ -1,7 +1,7 @@
 .page {
   min-height: 100vh;
   width: 100%;
-  background: #01131a;
+  background: var(--background);
   overflow-x: clip;
 }
 
@@ -53,7 +53,12 @@
     radial-gradient(ellipse 80% 55% at 15% 20%, rgb(38 191 176 / 0.22), transparent 60%),
     radial-gradient(ellipse 60% 45% at 85% 10%, rgb(10 98 88 / 0.35), transparent 55%),
     radial-gradient(ellipse 70% 50% at 50% 100%, rgb(38 191 176 / 0.12), transparent 60%),
-    linear-gradient(180deg, #01131a 0%, #021820 45%, #01131a 100%);
+    linear-gradient(
+      180deg,
+      var(--background) 0%,
+      color-mix(in srgb, var(--background) 70%, var(--secondary)) 45%,
+      var(--background) 100%
+    );
 }
 
 .heroGrid {
@@ -72,14 +77,19 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(90deg, rgb(1 19 26 / 0.96) 0%, rgb(1 19 26 / 0.72) 42%, transparent 78%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--background) 96%, transparent) 0%,
+    color-mix(in srgb, var(--background) 72%, transparent) 42%,
+    transparent 78%
+  );
 }
 
 .heroFadeBottom {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(0deg, #01131a 0%, transparent 42%);
+  background: linear-gradient(0deg, var(--background) 0%, transparent 42%);
 }
 
 .heroInner {
@@ -95,7 +105,7 @@
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   border: 1px solid rgb(38 191 176 / 0.28);
-  background: rgb(3 26 34 / 0.72);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
   color: #5eead4;
   font-size: 0.68rem;
   font-weight: 700;
@@ -110,7 +120,7 @@
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 .titleAccent {
@@ -126,7 +136,7 @@
   max-width: 38rem;
   font-size: clamp(0.95rem, 2vw, 1.125rem);
   line-height: 1.65;
-  color: rgb(148 163 184 / 0.92);
+  color: color-mix(in srgb, var(--muted-foreground) 92%, transparent);
 }
 
 .actions {
@@ -142,13 +152,13 @@
 
 .secondaryBtn {
   border-color: rgb(38 191 176 / 0.35) !important;
-  background: rgb(3 26 34 / 0.55) !important;
+  background: color-mix(in srgb, var(--card) 55%, transparent) !important;
   backdrop-filter: blur(8px);
 }
 
 .secondaryBtn:hover {
   border-color: rgb(38 191 176 / 0.55) !important;
-  background: rgb(6 33 42 / 0.85) !important;
+  background: color-mix(in srgb, var(--secondary) 85%, transparent) !important;
 }
 
 .stats {
@@ -164,9 +174,9 @@
   gap: 0.4rem;
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid rgb(14 40 50 / 0.85);
-  background: rgb(3 26 34 / 0.62);
-  color: rgb(226 232 240 / 0.88);
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--card) 62%, transparent);
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -209,7 +219,7 @@
 .sectionTitle {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 @media (min-width: 768px) {
@@ -220,7 +230,7 @@
 
 .sectionHint {
   font-size: 0.82rem;
-  color: rgb(148 163 184 / 0.85);
+  color: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
 }
 
 .quickGrid {
@@ -244,8 +254,12 @@
   min-height: 7.5rem;
   padding: 1rem;
   border-radius: 1rem;
-  border: 1px solid rgb(14 40 50 / 0.9);
-  background: linear-gradient(165deg, rgb(3 26 34 / 0.96) 0%, rgb(1 19 26 / 0.98) 100%);
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--card) 96%, transparent) 0%,
+    color-mix(in srgb, var(--background) 98%, transparent) 100%
+  );
   overflow: hidden;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -281,13 +295,13 @@
 .quickLabel {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 .quickDesc {
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgb(148 163 184 / 0.88);
+  color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
 }
 
 .libraryGrid {
@@ -320,8 +334,8 @@
   display: block;
   border-radius: 1rem;
   overflow: hidden;
-  border: 1px solid rgb(14 40 50 / 0.88);
-  background: rgb(3 26 34 / 0.92);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
@@ -334,7 +348,7 @@
 .libraryArt {
   position: relative;
   aspect-ratio: 16 / 10;
-  background: linear-gradient(135deg, rgb(6 33 42) 0%, rgb(10 98 88 / 0.35) 100%);
+  background: linear-gradient(135deg, var(--secondary) 0%, color-mix(in srgb, var(--brand-deep) 35%, var(--secondary)) 100%);
 }
 
 .libraryArtImage {
@@ -366,7 +380,7 @@
   margin-top: 0.25rem;
   font-size: 0.98rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 .featuredScroller {
@@ -378,7 +392,7 @@
   padding-bottom: 0.35rem;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
-  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 @media (min-width: 768px) {
@@ -392,8 +406,8 @@
   scroll-snap-align: start;
   border-radius: 0.85rem;
   overflow: hidden;
-  border: 1px solid rgb(14 40 50 / 0.88);
-  background: rgb(3 26 34 / 0.92);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   transition: transform 180ms ease, border-color 180ms ease;
 }
 
@@ -404,7 +418,7 @@
 
 .featuredPoster {
   aspect-ratio: 2 / 3;
-  background: rgb(6 33 42);
+  background: var(--secondary);
 }
 
 .featuredPosterImage {
@@ -416,7 +430,7 @@
   font-size: 0.82rem;
   font-weight: 600;
   line-height: 1.35;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 .trendingRow {
@@ -431,9 +445,9 @@
   gap: 0.35rem;
   padding: 0.55rem 0.9rem;
   border-radius: 999px;
-  border: 1px solid rgb(14 40 50 / 0.9);
-  background: rgb(3 26 34 / 0.82);
-  color: rgb(226 232 240 / 0.92);
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  color: color-mix(in srgb, var(--foreground) 92%, transparent);
   font-size: 0.82rem;
   font-weight: 500;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
@@ -441,8 +455,8 @@
 
 .trendingPill:hover {
   border-color: rgb(38 191 176 / 0.45);
-  background: rgb(6 33 42 / 0.95);
-  color: #f8fafc;
+  background: color-mix(in srgb, var(--secondary) 95%, transparent);
+  color: var(--foreground);
 }
 
 .featuresGrid {
@@ -460,8 +474,12 @@
 .featureCard {
   padding: 1.15rem 1.1rem;
   border-radius: 1rem;
-  border: 1px solid rgb(14 40 50 / 0.88);
-  background: linear-gradient(180deg, rgb(3 26 34 / 0.94) 0%, rgb(1 19 26 / 0.98) 100%);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 94%, transparent) 0%,
+    color-mix(in srgb, var(--background) 98%, transparent) 100%
+  );
 }
 
 .featureIcon {
@@ -479,14 +497,14 @@
   margin-top: 0.85rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--foreground);
 }
 
 .featureText {
   margin-top: 0.45rem;
   font-size: 0.84rem;
   line-height: 1.55;
-  color: rgb(148 163 184 / 0.9);
+  color: color-mix(in srgb, var(--muted-foreground) 90%, transparent);
 }
 
 .footerSpace {

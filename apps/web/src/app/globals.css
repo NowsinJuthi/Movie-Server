@@ -1,11 +1,79 @@
 @import "tailwindcss";
 
-/* UniQbd-matched palette: brand teal + deep teal dark surfaces */
-:root {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light palette (default + forced light). Dark tokens follow in prefers-color-scheme / html.dark. */
+:root,
+html.light {
+  --background: #f4fbfa;
+  --foreground: #0b1f24;
+  --card: #ffffff;
+  --card-foreground: #0b1f24;
+  --popover: #ffffff;
+  --popover-foreground: #0b1f24;
+  --primary: #26bfb0;
+  --primary-foreground: #ffffff;
+  --secondary: #e4f4f1;
+  --secondary-foreground: #0b1f24;
+  --muted: #eaf6f4;
+  --muted-foreground: #4d6a70;
+  --accent: #d8f3ee;
+  --accent-foreground: #0b1f24;
+  --destructive: #e11d48;
+  --border: #c5e4df;
+  --input: #c5e4df;
+  --ring: #26bfb0;
+  --brand-deep: #0a6258;
+  --brand-soft: #0f766e;
+  --scrollbar-track: #e4f4f1;
+  --scrollbar-thumb: rgb(38 191 176 / 0.7);
+  --toast-bg: rgb(255 255 255 / 0.96);
+  --toast-border: rgb(38 191 176 / 0.28);
+  --toast-text: #0b1f24;
+  --overlay: rgb(11 31 36 / 0.42);
+  --radius: 0.75rem;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #01131a;
+    --foreground: #f8fafc;
+    --card: #031a22;
+    --card-foreground: #f8fafc;
+    --popover: #031a22;
+    --popover-foreground: #f8fafc;
+    --primary: #26bfb0;
+    --primary-foreground: #ffffff;
+    --secondary: #06212a;
+    --secondary-foreground: #f8fafc;
+    --muted: #06212a;
+    --muted-foreground: #94a3b8;
+    --accent: #06212a;
+    --accent-foreground: #f8fafc;
+    --destructive: #f43f5e;
+    --border: #0e2832;
+    --input: #0e2832;
+    --ring: #26bfb0;
+    --brand-deep: #0a6258;
+    --brand-soft: #5eead4;
+    --scrollbar-track: rgb(6 33 42 / 0.95);
+    --scrollbar-thumb: rgb(38 191 176 / 0.55);
+    --toast-bg: rgb(3 26 34 / 0.96);
+    --toast-border: rgb(38 191 176 / 0.22);
+    --toast-text: #f8fafc;
+    --overlay: rgb(1 19 26 / 0.72);
+    color-scheme: dark;
+  }
+}
+
+html.dark {
   --background: #01131a;
   --foreground: #f8fafc;
   --card: #031a22;
   --card-foreground: #f8fafc;
+  --popover: #031a22;
+  --popover-foreground: #f8fafc;
   --primary: #26bfb0;
   --primary-foreground: #ffffff;
   --secondary: #06212a;
@@ -18,9 +86,18 @@
   --border: #0e2832;
   --input: #0e2832;
   --ring: #26bfb0;
-  --radius: 0.75rem;
   --brand-deep: #0a6258;
   --brand-soft: #5eead4;
+  --scrollbar-track: rgb(6 33 42 / 0.95);
+  --scrollbar-thumb: rgb(38 191 176 / 0.55);
+  --toast-bg: rgb(3 26 34 / 0.96);
+  --toast-border: rgb(38 191 176 / 0.22);
+  --toast-text: #f8fafc;
+  --overlay: rgb(1 19 26 / 0.72);
+  color-scheme: dark;
+}
+
+:root {
   /* Matches .siteHeaderInner (browse/admin fixed header) */
   --site-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
 }
@@ -56,6 +133,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -72,7 +151,7 @@ html {
   text-size-adjust: 100%;
   scroll-padding-top: calc(var(--site-header-offset) + 0.75rem);
   scrollbar-width: thin;
-  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar {
@@ -81,17 +160,17 @@ html::-webkit-scrollbar {
 }
 
 html::-webkit-scrollbar-track {
-  background: rgb(6 33 42 / 0.95);
+  background: var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid rgb(6 33 42 / 0.95);
-  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--brand-soft), var(--primary) 55%, var(--brand-deep));
 }
 
 html::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+  background: linear-gradient(180deg, var(--primary), var(--brand-deep));
 }
 
 html::-webkit-scrollbar-corner {
@@ -200,7 +279,7 @@ body {
 .poster-placeholder {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, var(--secondary), #000);
+  background: linear-gradient(to bottom right, var(--secondary), var(--background));
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -248,7 +327,7 @@ body {
 /* Brand-matched scrollbars (Edit movie popup, admin panels, etc.) */
 .brand-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .brand-scrollbar::-webkit-scrollbar {
@@ -259,17 +338,17 @@ body {
 .brand-scrollbar::-webkit-scrollbar-track {
   margin: 4px 0;
   border-radius: 999px;
-  background: rgb(6 33 42 / 0.95);
+  background: var(--scrollbar-track);
 }
 
 .brand-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid rgb(6 33 42 / 0.95);
-  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--brand-soft), var(--primary) 55%, var(--brand-deep));
 }
 
 .brand-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+  background: linear-gradient(180deg, var(--primary), var(--brand-deep));
 }
 
 .brand-scrollbar::-webkit-scrollbar-corner {
@@ -279,13 +358,13 @@ body {
 .auth-backdrop {
   background:
     radial-gradient(circle at top, rgb(38 191 176 / 0.28), transparent 45%),
-    linear-gradient(180deg, #01131a, #000f15);
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--background) 88%, black));
 }
 
-[data-sonner-toaster][data-theme="dark"] {
-  --normal-bg: rgb(3 26 34 / 0.96);
-  --normal-border: rgb(38 191 176 / 0.22);
-  --normal-text: #f8fafc;
+[data-sonner-toaster] {
+  --normal-bg: var(--toast-bg);
+  --normal-border: var(--toast-border);
+  --normal-text: var(--toast-text);
 }
 
 [data-sonner-toast][data-styled="true"] {

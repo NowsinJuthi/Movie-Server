@@ -3,9 +3,9 @@
   --lic-accent-soft: #5eead4;
   --lic-warn: #fbbf24;
   --lic-danger: #fb7185;
-  --lic-ink: #e8f6f8;
-  --lic-muted: #8aa3aa;
-  --lic-panel: rgba(3, 26, 34, 0.88);
+  --lic-ink: var(--foreground);
+  --lic-muted: var(--muted-foreground);
+  --lic-panel: color-mix(in srgb, var(--card) 88%, transparent);
   --lic-line: rgba(38, 191, 176, 0.22);
 
   position: relative;
@@ -16,7 +16,7 @@
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgb(38 191 176 / 0.22), transparent 55%),
     radial-gradient(circle at 90% 80%, rgb(251 191 36 / 0.08), transparent 40%),
-    linear-gradient(180deg, #01131a 0%, #000f15 100%);
+    linear-gradient(180deg, var(--background) 0%, color-mix(in srgb, var(--background) 88%, black) 100%);
 }
 
 .page::before {
@@ -271,7 +271,7 @@
   flex-direction: column;
   border-radius: 1.1rem;
   border: 1px solid rgb(255 255 255 / 0.07);
-  background: rgb(1 19 26 / 0.65);
+  background: color-mix(in srgb, var(--background) 65%, transparent);
   padding: 1.15rem 1.05rem;
   min-height: 100%;
   height: 100%;
@@ -305,7 +305,7 @@
 .label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .input {
@@ -388,7 +388,7 @@
   margin-top: 1.25rem;
   border-radius: 1rem;
   border: 1px solid rgb(255 255 255 / 0.06);
-  background: rgb(3 26 34 / 0.7);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
   padding: 1rem 1.05rem;
   animation: riseIn 0.75s ease 0.2s both;
 }

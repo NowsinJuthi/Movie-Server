@@ -39,7 +39,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .posterMeta {
@@ -56,7 +56,7 @@
 .posterMetaText {
   margin: 0.35rem 0 0;
   font-size: 0.875rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .posterActions {
@@ -103,7 +103,7 @@
   background: rgb(0 0 0 / 0.28);
   padding: 0 0.8rem;
   font-size: 0.875rem;
-  color: #f8fafc;
+  color: var(--foreground);
   outline: none;
   transition:
     border-color 140ms ease,
@@ -134,7 +134,7 @@
   background: rgb(0 0 0 / 0.28);
   padding: 0.65rem 0.8rem;
   font-size: 0.875rem;
-  color: #f8fafc;
+  color: var(--foreground);
   outline: none;
   resize: vertical;
   transition:
@@ -175,7 +175,7 @@
   background-repeat: no-repeat;
   padding: 0 2.6rem 0 0.8rem;
   font-size: 0.875rem;
-  color: #f8fafc;
+  color: var(--foreground);
   outline: none;
   transition:
     border-color 140ms ease,
@@ -198,8 +198,8 @@
 }
 
 .select option {
-  background: #031a22;
-  color: #f8fafc;
+  background: var(--card);
+  color: var(--foreground);
 }
 
 .label {
@@ -207,7 +207,7 @@
   margin-bottom: 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .field {
@@ -220,7 +220,7 @@
   flex-wrap: wrap;
   gap: 1rem;
   font-size: 0.875rem;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .check {

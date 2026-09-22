@@ -590,9 +590,9 @@
   border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
   background: linear-gradient(
     148deg,
-    color-mix(in oklch, var(--card) 100%, transparent) 0%,
-    color-mix(in oklch, var(--secondary) 90%, transparent) 52%,
-    color-mix(in oklch, var(--background) 85%, black) 100%
+    var(--card) 0%,
+    color-mix(in oklch, var(--secondary) 88%, var(--card)) 52%,
+    color-mix(in oklch, var(--background) 92%, var(--card)) 100%
   );
   padding: 0.75rem;
   box-shadow:

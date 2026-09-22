@@ -28,6 +28,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeSelector } from "@/components/theme/theme-selector";
 import { ProfileAvatar } from "@/components/profiles/profile-avatar";
 import { SearchBox } from "@/components/search/search-box";
 import { useBranding } from "@/components/branding/site-brand";
@@ -152,6 +153,9 @@ export function AppHeader({
       >
         <SearchBox triggerClassName={styles.headerCircleBtn} />
       </Suspense>
+      <div className="hidden lg:block">
+        <ThemeSelector variant="compact" />
+      </div>
       {planLabel && variant !== "admin" && !/^staff$/i.test(planLabel) && !/^admin$/i.test(planLabel) ? (
         <Button
           variant="ghost"
@@ -821,6 +825,7 @@ function AccountMenu({
                 </MenuItem>
               </li>
             </ul>
+            <ThemeSelector variant="menu" />
             {isAdmin ? (
               <>
                 <p className={styles.accountMenuSectionLabel}>Workspace</p>

@@ -18,7 +18,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .path {
@@ -29,7 +29,7 @@
   max-width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .dropZone {
@@ -79,7 +79,7 @@
 
 .fileMeta {
   font-size: 0.78rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .progressTrack {
