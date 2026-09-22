@@ -294,6 +294,37 @@ export function hlsStreamCopyVideoArgs(videoCodec: string | null | undefined): s
   return ['-c:v', 'copy', '-bsf:v', 'h264_mp4toannexb'];
 }
 
+/** Stream-copy video for progressive fMP4 (no annexb — that breaks <video> playback). */
+export function progressiveStreamCopyVideoArgs(videoCodec: string | null | undefined): string[] {
+  if (isHevcVideoCodec(videoCodec)) {
+    return ['-c:v', 'copy', '-tag:v', 'hvc1'];
+  }
+  return ['-c:v', 'copy'];
+}
+
+export function buildProgressiveOutputArgs(
+  config: ConfigService,
+  plan: TranscodePlan,
+  segmentSeconds: number,
+): string[] {
+  const args: string[] = [];
+  if (plan.encodeVideo) {
+    args.push(...videoEncodeArgs(config, segmentSeconds, plan.probe));
+  } else {
+    args.push(...progressiveStreamCopyVideoArgs(plan.probe.videoCodec));
+  }
+  if (plan.encodeAudio) {
+    args.push(...audioEncodeArgs(!plan.encodeVideo));
+  } else {
+    args.push('-c:a', 'copy');
+  }
+  if (plan.encodeAudio && !plan.encodeVideo) {
+    args.push('-max_interleave_delta', '0');
+  }
+  args.push('-max_muxing_queue_size', '9999');
+  return args;
+}
+
 export function buildHlsTranscodeOutputArgs(
   config: ConfigService,
   plan: TranscodePlan,

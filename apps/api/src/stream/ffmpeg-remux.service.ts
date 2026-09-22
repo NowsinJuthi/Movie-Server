@@ -4,8 +4,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { resolveFfmpegPath } from '../library/probe/media-binaries';
 import {
-  buildHlsTranscodeOutputArgs,
+  buildProgressiveOutputArgs,
   ffmpegInputArgs,
+  progressiveStreamCopyVideoArgs,
   transcodeSegmentSeconds,
   type TranscodePlan,
 } from './stream-transcode.util';
@@ -110,7 +111,7 @@ export class FfmpegRemuxService {
       '0:v:0',
       '-map',
       `0:a:${Math.max(0, plan.audioOrdinal)}?`,
-      ...buildHlsTranscodeOutputArgs(this.config, plan, segmentSeconds),
+      ...buildProgressiveOutputArgs(this.config, plan, segmentSeconds),
       '-f',
       'mp4',
       '-movflags',
@@ -134,20 +135,24 @@ export class FfmpegRemuxService {
     return stdout;
   }
 
-  openVideoRemux(absPath: string, startSeconds = 0, audioOrdinal = 0): Readable {
+  openVideoRemux(
+    absPath: string,
+    startSeconds = 0,
+    audioOrdinal = 0,
+    videoCodec?: string | null,
+  ): Readable {
     const bin = resolveFfmpegPath(this.config);
     const args = [
-      '-hide_banner',
-      '-loglevel',
-      'error',
-      ...(startSeconds > 0.5 ? ['-ss', startSeconds.toFixed(3)] : []),
-      '-i',
-      absPath,
+      ...ffmpegInputArgs(absPath, startSeconds, this.config, {
+        skipHwaccel: true,
+        fastOpen: true,
+      }),
       '-map',
       '0:v:0',
       '-map',
       `0:a:${Math.max(0, audioOrdinal)}?`,
-      '-c',
+      ...progressiveStreamCopyVideoArgs(videoCodec),
+      '-c:a',
       'copy',
       '-f',
       'mp4',

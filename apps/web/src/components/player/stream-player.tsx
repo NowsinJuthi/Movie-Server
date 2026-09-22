@@ -53,6 +53,7 @@ import {
   peekPlayerReturn,
 } from "@/lib/player-return";
 import {
+  browserSupportsHevcDirectStream,
   displayTimelineSeconds,
   effectiveVideoDuration,
   isAppleMobileDevice,
@@ -811,7 +812,14 @@ export function StreamPlayer({
         attachProgressive(info);
         return;
       }
-      // Emby Direct Stream: copy remux only. Never fall back to video encode.
+      if (info.hevcStream && !isAppleMobileDevice() && !browserSupportsHevcDirectStream()) {
+        setLoading(false);
+        setError(
+          "This browser cannot play HEVC (H.265) without converting the file. Use Safari, Edge with HEVC support, or an MP4 (H.264) copy.",
+        );
+        return;
+      }
+      // Emby Direct Stream: copy remux pipe on desktop/Android (H.264 MKV, or HEVC when supported).
       if ((info.remuxStream || info.hevcStream || info.audioTranscode) && !isAppleMobileDevice()) {
         attachProgressive(info);
         return;
@@ -1088,11 +1096,13 @@ export function StreamPlayer({
       }
       setLoading(false);
       setError(
-        usesPackagedHls(info)
+        usingHlsRef.current
           ? "Playback failed. Tap Retry — if it keeps failing, check ffmpeg and SMB access on the server."
-          : isAppleMobileDevice()
-            ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
-            : "This file could not be played in the browser. The video was not converted — the original stream is used.",
+          : usesPackagedHls(info)
+            ? "Direct stream failed. Tap Retry — check that ffmpeg can read this file on the server (SMB mount)."
+            : isAppleMobileDevice()
+              ? "This video could not play on iPhone. Use MP4 (H.264 + AAC). MKV/WebM are not supported on iOS."
+              : "This file could not be played in the browser.",
       );
     };
 

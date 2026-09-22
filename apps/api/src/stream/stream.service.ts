@@ -709,11 +709,12 @@ export class StreamService {
     const ext = path.extname(located.relativePath).toLowerCase();
     const containerRemux =
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
-    const needsTranscode = session.videoTranscode;
-    const remux = containerRemux || needsTranscode;
+    const remux = containerRemux || session.videoTranscode;
+    const encodeAudio = session.transcodeEncodeAudio ?? false;
+    const encodeVideo = session.transcodeEncodeVideo ?? false;
     const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     // iOS Safari cannot play MKV/WebM remux streams; HLS transcode path handles mobile playback.
-    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !needsTranscode) {
+    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !encodeAudio) {
       throw new BadRequestException({
         error: ErrorCode.PlaybackUnavailable,
         message:
@@ -721,21 +722,19 @@ export class StreamService {
       });
     }
     if (remux) {
+      const plan = this.sessionTranscodePlan(session);
       return {
         size: 0,
         mime: 'video/mp4',
         remux: true,
         open: async () =>
-          needsTranscode
-            ? this.remux.openVideoStream(
-                located.absPath,
-                this.sessionTranscodePlan(session),
-                startSeconds,
-              )
+          encodeAudio || encodeVideo
+            ? this.remux.openVideoStream(located.absPath, plan, startSeconds)
             : this.remux.openVideoRemux(
                 located.absPath,
                 startSeconds,
-                session.transcodeAudioOrdinal ?? 0,
+                plan.audioOrdinal,
+                plan.probe.videoCodec,
               ),
       };
     }
