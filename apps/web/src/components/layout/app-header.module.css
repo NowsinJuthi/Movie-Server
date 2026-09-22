@@ -125,13 +125,63 @@
       0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
   }
 
+  .iconBtn,
+  .headerCircleBtn {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+    border-color: color-mix(in oklch, var(--primary) 32%, var(--border));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 6px 16px -10px rgb(0 0 0 / 0.5),
+      0 0 14px -6px color-mix(in oklch, var(--primary) 40%, transparent);
+    animation: headerIconGlow 3.2s ease-in-out infinite;
+  }
+
+  .iconBtn::before,
+  .headerCircleBtn::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0 62%,
+      color-mix(in oklch, var(--primary) 88%, white) 78%,
+      transparent 92%
+    );
+    animation: headerIconOrbit 5.5s linear infinite;
+    pointer-events: none;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    padding: 1.5px;
+  }
+
+  .headerCircleBtn::before {
+    animation-delay: -1.8s;
+  }
+
+  .iconBtn > *,
+  .headerCircleBtn > * {
+    position: relative;
+    z-index: 1;
+  }
+
   .iconBtn:hover,
   .headerCircleBtn:hover {
-    transform: translateY(-1px);
+    transform: scale(0.96);
+    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+    background: color-mix(in oklch, var(--primary) 16%, var(--card));
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.08),
-      0 8px 22px -10px rgb(0 0 0 / 0.5),
-      0 0 20px -8px color-mix(in oklch, var(--primary) 42%, transparent);
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 0 18px -4px color-mix(in oklch, var(--primary) 55%, transparent);
   }
 }
 
@@ -489,24 +539,56 @@
 
 @media (min-width: 1024px) {
   .accountBtn {
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
     min-height: 2.625rem;
     min-width: 2.625rem;
     border-radius: 9999px;
-    background: color-mix(in oklch, var(--card) 48%, transparent);
-    backdrop-filter: blur(14px) saturate(130%);
-    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    background: color-mix(in oklch, var(--card) 78%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.07),
-      0 6px 18px -10px rgb(0 0 0 / 0.45),
-      0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 6px 16px -10px rgb(0 0 0 / 0.5),
+      0 0 14px -6px color-mix(in oklch, var(--primary) 40%, transparent);
+    animation: headerIconGlow 3.2s ease-in-out infinite;
+    animation-delay: -2.4s;
+  }
+
+  .accountBtn::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 180deg,
+      transparent 0 62%,
+      color-mix(in oklch, var(--primary) 88%, white) 78%,
+      transparent 92%
+    );
+    animation: headerIconOrbit 5.5s linear infinite;
+    animation-delay: -2.6s;
+    pointer-events: none;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    padding: 1.5px;
   }
 
   .accountBtn:hover,
   .accountBtnOpen {
+    transform: scale(0.96);
+    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.08),
-      0 0 22px -8px color-mix(in oklch, var(--nav-accent) 38%, transparent);
-    transform: translateY(-1px);
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 0 18px -4px color-mix(in oklch, var(--primary) 55%, transparent);
   }
 }
 
@@ -1218,8 +1300,8 @@
   background: color-mix(in srgb, #ffffff 68%, transparent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.92),
-    0 8px 18px -12px rgb(10 98 88 / 0.28);
-  animation: none;
+    0 8px 18px -12px rgb(10 98 88 / 0.28),
+    0 0 14px -6px color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 :global(html:not(.dark)) .iconBtn:hover,
@@ -1299,8 +1381,12 @@
   :global(html:not(.dark)) .iconBtn,
   :global(html:not(.dark)) .headerCircleBtn,
   :global(html:not(.dark)) .accountBtn {
-    background: color-mix(in srgb, #ffffff 62%, transparent);
+    background: color-mix(in srgb, #ffffff 72%, transparent);
     backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 6px 16px -10px rgb(10 98 88 / 0.24),
+      0 0 14px -6px color-mix(in srgb, var(--primary) 28%, transparent);
   }
 }
