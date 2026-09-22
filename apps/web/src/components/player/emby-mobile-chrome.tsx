@@ -1,8 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
-import { Minus, Plus, X } from "lucide-react";
 import {
   ChevronLeft,
   Maximize,
@@ -17,6 +15,7 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SeekBar } from "./seek-bar";
@@ -259,19 +258,7 @@ export function EmbyMobileChrome({
   onPreviousEpisode,
   onNextEpisode,
 }: EmbyMobileChromeProps) {
-  const [volumeOpen, setVolumeOpen] = useState(false);
   const displayVolume = muted ? 0 : volume;
-  const volumePercent = Math.round(displayVolume * 100);
-
-  const setVolumePanelOpen = (open: boolean) => {
-    setVolumeOpen(open);
-    onVolumePanelChange?.(open);
-  };
-
-  const stepVolume = (delta: number) => {
-    const base = muted ? 0 : volume;
-    onVolumeChange(Math.min(1, Math.max(0, base + delta)));
-  };
 
   return (
     <div
@@ -303,18 +290,27 @@ export function EmbyMobileChrome({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            aria-label={volumeOpen ? "Hide volume" : "Volume"}
-            onClick={() => setVolumePanelOpen(!volumeOpen)}
+          <div
+            className="mr-0.5 flex items-center gap-2 pr-1"
+            onPointerDown={() => onVolumePanelChange?.(true)}
+            onPointerUp={() => onVolumePanelChange?.(false)}
+            onPointerCancel={() => onVolumePanelChange?.(false)}
             onTouchStart={stopControlBubble}
-            className={cn(
-              "inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70",
-              volumeOpen && "text-primary",
-            )}
           >
-            {muted || volume === 0 ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-          </button>
+            <VolumeBar
+              className="w-[5.75rem] sm:w-28"
+              value={displayVolume}
+              onChange={onVolumeChange}
+            />
+            <button
+              type="button"
+              aria-label={muted ? "Unmute" : "Mute"}
+              onClick={onToggleMute}
+              className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center text-white/85 active:opacity-70"
+            >
+              {muted || volume === 0 ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+            </button>
+          </div>
           <button
             type="button"
             aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -377,51 +373,6 @@ export function EmbyMobileChrome({
             onNextEpisode={hasNextEpisode ? onNextEpisode : undefined}
           />
         </div>
-
-        {volumeOpen ? (
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-black/45 px-2 py-2 ring-1 ring-white/10">
-            <button
-              type="button"
-              aria-label={muted ? "Unmute" : "Mute"}
-              onClick={onToggleMute}
-              onTouchStart={stopControlBubble}
-              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
-            >
-              {muted || volume === 0 ? (
-                <VolumeX className="h-5 w-5" />
-              ) : (
-                <Volume2 className="h-5 w-5" />
-              )}
-            </button>
-            <button
-              type="button"
-              aria-label="Decrease volume"
-              onClick={() => stepVolume(-0.1)}
-              onTouchStart={stopControlBubble}
-              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
-            >
-              <Minus className="h-5 w-5" strokeWidth={2.5} />
-            </button>
-            <VolumeBar
-              variant="mobile"
-              className="min-w-0 flex-1"
-              value={displayVolume}
-              onChange={onVolumeChange}
-            />
-            <button
-              type="button"
-              aria-label="Increase volume"
-              onClick={() => stepVolume(0.1)}
-              onTouchStart={stopControlBubble}
-              className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-white active:bg-white/10"
-            >
-              <Plus className="h-5 w-5" strokeWidth={2.5} />
-            </button>
-            <span className="w-9 shrink-0 text-center text-xs font-medium tabular-nums text-white/80">
-              {volumePercent}%
-            </span>
-          </div>
-        ) : null}
 
         <MobileSeekEmbyRow
           currentTime={currentTime}
