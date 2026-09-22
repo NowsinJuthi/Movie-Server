@@ -60,6 +60,7 @@ import {
   isCoarsePointerMobile,
   isHtmlMediaVolumeReadOnly,
   isLocalTimeInPack,
+  isTimeBuffered,
   isVideoInNativeFullscreen,
   isVideoInPictureInPicture,
   beginMobileImmersivePlayback,
@@ -75,7 +76,7 @@ import {
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
 import { applyPlaybackClientHeader, playbackClientHeaders } from "@/lib/playback-client";
-import { appendStreamQuery, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
+import { appendStreamQuery, remuxProgressiveUrl, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
 import { PlayerBusyMark } from "./player-busy";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
@@ -337,13 +338,11 @@ export function StreamPlayer({
       );
       if (totalSeconds <= 0) return;
       const seconds = Math.floor(
-        usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime,
+        displayTimelineSeconds(
+          video.currentTime,
+          mediaOriginRef.current,
+          durationHintRef.current,
+        ),
       );
       if (!force && Math.abs(seconds - lastSaved.current) < 3) {
         return;
@@ -393,7 +392,7 @@ export function StreamPlayer({
   const applyResume = useCallback(() => {
     const video = videoRef.current;
     if (!video || resumeApplied.current) return;
-    if (usingHlsRef.current) {
+    if (usingHlsRef.current || mediaOriginRef.current > 0.5) {
       resumeApplied.current = true;
       return;
     }
@@ -573,17 +572,19 @@ export function StreamPlayer({
       const video = videoRef.current;
       if (!video) return;
       detachEngine();
+      const origin = Math.max(0, resumeRef.current);
+      mediaOriginRef.current = origin;
+      usingHlsRef.current = false;
       setUsingHls(false);
       const chosen =
         resolution && resolution !== "auto"
           ? resolution
           : info.selectedResolution;
-      const src = toAbsoluteStreamUrl(
-        appendStreamQuery(info.progressiveUrl, {
-          quality: chosen ?? undefined,
-          audio: info.selectedAudioId ?? undefined,
-        }),
-      );
+      const src = appendStreamQuery(remuxProgressiveUrl(info), {
+        quality: chosen ?? undefined,
+        audio: info.selectedAudioId ?? undefined,
+        t: origin > 0.5 ? String(Math.floor(origin)) : undefined,
+      });
       setIosMutedPlay(false);
       video.src = src;
       video.load();
@@ -695,9 +696,11 @@ export function StreamPlayer({
             liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
             liveMaxLatencyDurationCount: Infinity,
             maxLiveSyncPlaybackRate: 1,
-            backBufferLength: videoTranscode ? 120 : encoding ? 60 : 30,
-            maxBufferLength: videoTranscode ? 120 : encoding ? 60 : 24,
-            maxMaxBufferLength: videoTranscode ? 240 : encoding ? 120 : 48,
+            // Default maxBufferSize is 60MB — a 40Mbps MKV only holds ~12s, then it starves.
+            maxBufferSize: 400_000_000,
+            backBufferLength: videoTranscode ? 120 : 180,
+            maxBufferLength: videoTranscode ? 120 : encoding ? 90 : 60,
+            maxMaxBufferLength: videoTranscode ? 240 : 180,
             maxBufferHole: videoTranscode ? 2 : encoding ? 1 : 0.5,
             highBufferWatchdogPeriod: videoTranscode ? 3 : encoding ? 2 : 1,
             nudgeOffset: 0.2,
@@ -757,10 +760,10 @@ export function StreamPlayer({
             }
             if (videoTranscode) {
               setBuffering(true);
-              startWhenBuffered(8);
+              startWhenBuffered(4);
             } else if (info.audioTranscode) {
               setBuffering(true);
-              startWhenBuffered(7);
+              startWhenBuffered(2);
             } else {
               // MKV/H.264 remux already waited for the first segments — start like Emby.
               void tryStartPlayback();
@@ -816,7 +819,13 @@ export function StreamPlayer({
         transcodeRetryRef.current?.();
         return;
       }
-      // Emby-style: MKV/WebM direct stream + transcode/hevc paths all use packaged HLS.
+      // Desktop/Android: Emby Direct Stream — copy remux to fMP4, no library convert.
+      // iOS still needs packaged HLS because Safari will not play MKV remux pipes.
+      if (info.remuxStream && !info.transcode && !isAppleMobileDevice()) {
+        attachProgressive(info);
+        return;
+      }
+      // Encoded HLS (HEVC→H.264) + iOS remux/hevc.
       if (usesPackagedHls(info)) {
         if (isAppleMobileDevice()) {
           attachNativeHls(info);
@@ -954,11 +963,8 @@ export function StreamPlayer({
         setBufferedEnd(0);
         return;
       }
-      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
+      const origin = mediaOriginRef.current;
       const max = durationHintRef.current;
-      const displayNow = usingHlsRef.current
-        ? displayTimelineSeconds(video.currentTime, origin, max)
-        : video.currentTime;
       let localEnd = 0;
       const localT = video.currentTime;
       for (let i = 0; i < video.buffered.length; i += 1) {
@@ -979,10 +985,8 @@ export function StreamPlayer({
 
     const onTime = () => {
       if (seekingRef.current) return;
-      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
-      const displayTime = usingHlsRef.current
-        ? displayTimelineSeconds(video.currentTime, origin, durationHintRef.current)
-        : video.currentTime;
+      const origin = mediaOriginRef.current;
+      const displayTime = displayTimelineSeconds(video.currentTime, origin, durationHintRef.current);
       setCurrentTime(displayTime);
       if (durationHintRef.current > 0) {
         setDuration(durationHintRef.current);
@@ -1273,17 +1277,57 @@ export function StreamPlayer({
       setCurrentTime(target);
       capturePlaybackFrame();
 
-      if (!usingHlsRef.current || !usesPackagedHls(info)) {
+      const origin = mediaOriginRef.current;
+      const localTarget = localTimelineSeconds(target, origin);
+      const targetIsInCurrentPack = target >= origin - 0.35;
+
+      if (!usingHlsRef.current) {
+        if (targetIsInCurrentPack && isTimeBuffered(video, localTarget)) {
+          video.currentTime = localTarget;
+          setCurrentTime(target);
+          return;
+        }
+        if (info.remuxStream || info.transcode || info.hevcStream) {
+          seekingRef.current = true;
+          pendingSeekRef.current = null;
+          setBuffering(true);
+          mediaOriginRef.current = target;
+          resumeRef.current = target;
+          try {
+            attachProgressive(info);
+            setCurrentTime(target);
+            if (!wasPlaying) {
+              setFreezeFrame(null);
+            }
+          } catch {
+            mediaOriginRef.current = previousOrigin;
+            setCurrentTime(beforeSeek);
+            setFreezeFrame(null);
+            setBuffering(false);
+            setError("Seek failed. Try again in a moment.");
+          } finally {
+            seekingRef.current = false;
+            const queued = pendingSeekRef.current;
+            pendingSeekRef.current = null;
+            if (queued != null) {
+              void seekPlaybackTo(queued);
+            }
+          }
+          return;
+        }
         seekVideoTo(video, target, total);
         setCurrentTime(target);
         return;
       }
 
-      const origin = mediaOriginRef.current;
-      const localTarget = localTimelineSeconds(target, origin);
+      if (!usesPackagedHls(info)) {
+        seekVideoTo(video, target, total);
+        setCurrentTime(target);
+        return;
+      }
+
       // A target before the current package origin cannot be represented as local time 0.
       // Restart packaging from that movie position instead of snapping back to the origin.
-      const targetIsInCurrentPack = target >= origin - 0.35;
       if (targetIsInCurrentPack && isLocalTimeInPack(video, localTarget)) {
         video.currentTime = localTarget;
         setCurrentTime(target);
@@ -1327,7 +1371,7 @@ export function StreamPlayer({
         }
       }
     },
-    [attachHls, attachNativeHls, capturePlaybackFrame, duration, quality, usesPackagedHls],
+    [attachHls, attachNativeHls, attachProgressive, capturePlaybackFrame, duration, quality, usesPackagedHls],
   );
 
   seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);
@@ -1336,13 +1380,11 @@ export function StreamPlayer({
     (delta: number, options?: { reveal?: boolean }) => {
       const video = videoRef.current;
       if (!video) return;
-      const display = usingHlsRef.current
-        ? displayTimelineSeconds(
-            video.currentTime,
-            mediaOriginRef.current,
-            durationHintRef.current,
-          )
-        : video.currentTime;
+      const display = displayTimelineSeconds(
+        video.currentTime,
+        mediaOriginRef.current,
+        durationHintRef.current,
+      );
       void seekPlaybackTo(display + delta);
       if (options?.reveal !== false) revealControls();
     },
@@ -1489,13 +1531,11 @@ export function StreamPlayer({
       if (info) {
         const video = videoRef.current;
         if (video) {
-          resumeRef.current = usingHlsRef.current
-            ? displayTimelineSeconds(
-                video.currentTime,
-                mediaOriginRef.current,
-                durationHintRef.current,
-              )
-            : video.currentTime;
+          resumeRef.current = displayTimelineSeconds(
+            video.currentTime,
+            mediaOriginRef.current,
+            durationHintRef.current,
+          );
           resumeApplied.current = false;
         }
         if (usingHls) {
@@ -1514,13 +1554,11 @@ export function StreamPlayer({
       if (!id) return;
       const video = videoRef.current;
       const movieTime = video
-        ? usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime
+        ? displayTimelineSeconds(
+            video.currentTime,
+            mediaOriginRef.current,
+            durationHintRef.current,
+          )
         : currentTime;
       try {
         const body = await streamApi.selectTracks(id, input);
@@ -1545,7 +1583,9 @@ export function StreamPlayer({
           audioRef.current?.pause();
           audioRef.current?.removeAttribute("src");
           if (videoRef.current) videoRef.current.muted = muted;
-          if (isAppleMobileDevice()) {
+          if (body.session.remuxStream && !body.session.transcode && !isAppleMobileDevice()) {
+            attachProgressive(body.session);
+          } else if (isAppleMobileDevice()) {
             attachNativeHls(body.session);
           } else {
             attachHls(body.session);
@@ -1556,7 +1596,7 @@ export function StreamPlayer({
         setTrackNotice(err instanceof ApiError ? err.message : "Could not switch tracks.");
       }
     },
-    [attachHls, attachNativeHls, currentTime, muted, queryClient, usesPackagedHls],
+    [attachHls, attachNativeHls, attachProgressive, currentTime, muted, queryClient, usesPackagedHls],
   );
 
   useEffect(() => {
@@ -1661,13 +1701,11 @@ export function StreamPlayer({
       const baseUrl = selectedAudio.url;
       const liveExtract = Boolean(selectedAudio.embedded);
       const movieTime = () =>
-        usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime;
+        displayTimelineSeconds(
+          video.currentTime,
+          mediaOriginRef.current,
+          durationHintRef.current,
+        );
       loadExtracted(baseUrl, liveExtract ? movieTime() : 0);
       if (!liveExtract) {
         enableEmbedded(0);

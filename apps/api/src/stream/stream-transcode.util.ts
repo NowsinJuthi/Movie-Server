@@ -320,20 +320,30 @@ export function buildHlsTranscodeOutputArgs(
   return args;
 }
 
-export function ffmpegInputArgs(absPath: string, startSeconds: number, config?: ConfigService): string[] {
+export function ffmpegInputArgs(
+  absPath: string,
+  startSeconds: number,
+  config?: ConfigService,
+  options?: { skipHwaccel?: boolean; fastOpen?: boolean },
+): string[] {
   const args: string[] = ['-hide_banner', '-loglevel', 'error'];
   if (startSeconds > 0.5) {
     args.push('-ss', startSeconds.toFixed(3));
   }
-  const hwaccel = config ? transcodeHwaccel(config) : 'none';
-  if (hwaccel !== 'none') {
-    args.push('-hwaccel', hwaccel === 'auto' ? 'auto' : hwaccel);
+  // Copy remux (Emby Direct Stream) must not open a decoder via -hwaccel.
+  if (!options?.skipHwaccel) {
+    const hwaccel = config ? transcodeHwaccel(config) : 'none';
+    if (hwaccel !== 'none') {
+      args.push('-hwaccel', hwaccel === 'auto' ? 'auto' : hwaccel);
+    }
   }
+  // 32M/10s probe on SMB delays the first frame several seconds vs Emby.
+  const fastOpen = Boolean(options?.fastOpen) || startSeconds > 0.5;
   args.push(
     '-probesize',
-    startSeconds > 0.5 ? '5M' : '32M',
+    fastOpen ? '5M' : '32M',
     '-analyzeduration',
-    startSeconds > 0.5 ? '2M' : '10M',
+    fastOpen ? '2M' : '10M',
     '-fflags',
     '+genpts+discardcorrupt',
     '-threads',

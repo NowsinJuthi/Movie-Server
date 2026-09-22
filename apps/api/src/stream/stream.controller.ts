@@ -189,6 +189,7 @@ export class StreamController {
     @Param('sessionId') sessionId: string,
     @Query('mt') mediaToken: string | undefined,
     @Query('quality') quality: string | undefined,
+    @Query('t') startParam: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -196,8 +197,11 @@ export class StreamController {
     this.assertStreamDelivery(req);
     const ua = String(req.headers['user-agent'] ?? '');
     const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
+    const requestedStart = startParam != null && startParam !== '' ? Number(startParam) : 0;
+    const startSeconds = Number.isFinite(requestedStart) ? Math.max(0, requestedStart) : 0;
     const file = await this.streams.openMedia(this.id(sessionId), userId, quality, {
       disallowRemux,
+      startSeconds,
     });
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Type', file.mime);

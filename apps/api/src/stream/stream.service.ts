@@ -682,7 +682,7 @@ export class StreamService {
     sessionId: string,
     userId: string,
     preferredResolution?: string,
-    options?: { disallowRemux?: boolean },
+    options?: { disallowRemux?: boolean; startSeconds?: number },
   ): Promise<{
     size: number;
     mime: string;
@@ -717,6 +717,7 @@ export class StreamService {
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
     const needsTranscode = session.videoTranscode;
     const remux = containerRemux || needsTranscode;
+    const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     // iOS Safari cannot play MKV/WebM remux streams; HLS transcode path handles mobile playback.
     if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !needsTranscode) {
       throw new BadRequestException({
@@ -732,10 +733,14 @@ export class StreamService {
         remux: true,
         open: async () =>
           needsTranscode
-            ? this.remux.openVideoStream(located.absPath, this.sessionTranscodePlan(session), 0)
+            ? this.remux.openVideoStream(
+                located.absPath,
+                this.sessionTranscodePlan(session),
+                startSeconds,
+              )
             : this.remux.openVideoRemux(
                 located.absPath,
-                0,
+                startSeconds,
                 session.transcodeAudioOrdinal ?? 0,
               ),
       };

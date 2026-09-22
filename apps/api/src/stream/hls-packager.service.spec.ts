@@ -70,6 +70,10 @@ describe('rewriteHlsPlaylist', () => {
     const args = buildFfmpegHlsArgs('/media/movie.mkv', '/tmp/hls', plan, 4, 0, config);
     expect(args).toEqual(
       expect.arrayContaining([
+        '-muxdelay',
+        '0',
+        '-hls_init_time',
+        '2',
         '-hls_playlist_type',
         'event',
         '-hls_list_size',
@@ -79,6 +83,7 @@ describe('rewriteHlsPlaylist', () => {
       ]),
     );
     expect(args).not.toContain('-re');
+    expect(args).not.toContain('-hwaccel');
   });
 
   it('uses short segments after a seek so playback resumes quickly', () => {

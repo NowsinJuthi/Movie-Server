@@ -347,17 +347,28 @@ export function buildFfmpegHlsArgs(
   const fmp4 = usesFmp4Segments(plan);
   const segmentPath = path.join(outDir, fmp4 ? 'seg%03d.m4s' : 'seg%03d.ts');
   const base = [
-    ...ffmpegInputArgs(absPath, startSeconds, config),
+    ...ffmpegInputArgs(absPath, startSeconds, config, {
+      skipHwaccel: !plan.encodeVideo,
+      fastOpen: true,
+    }),
     '-map',
     '0:v:0',
     '-map',
     `0:a:${Math.max(0, plan.audioOrdinal)}?`,
+    '-muxdelay',
+    '0',
+    '-muxpreload',
+    '0',
+    '-max_delay',
+    '5000000',
   ];
   const hlsTail = [
     '-f',
     'hls',
     '-hls_time',
     String(segmentSeconds),
+    '-hls_init_time',
+    String(Math.min(2, segmentSeconds)),
     // Emby/Jellyfin Direct Stream: EVENT playlist from this pack start, remux as
     // fast as the disk allows (no -re). Players start at segment 0, not live-edge.
     '-hls_list_size',

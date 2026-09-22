@@ -26,6 +26,11 @@ export function appendStreamQuery(
   return encoded ? `${path}?${encoded}` : path;
 }
 
+/** Copy-remux pipe (`/media`) — Emby Direct Stream. JSON still advertises `/master` so IDM does not see a file URL. */
+export function remuxProgressiveUrl(info: PlaybackSessionInfo): string {
+  return toAbsoluteStreamUrl(info.hlsUrl.replace(/\/master(?=\?|$)/, "/media"));
+}
+
 /** Direct variant playlist — used for transcode titles (faster start + seek restart). */
 export function variantHlsUrl(
   info: PlaybackSessionInfo,
