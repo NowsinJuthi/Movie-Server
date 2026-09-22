@@ -24,12 +24,11 @@ export async function loadPublicBranding(): Promise<PublicBranding> {
 }
 
 export function brandingIcons(branding: PublicBranding): NonNullable<Metadata["icons"]> {
-  const customHref = brandingAssetSrc(branding.faviconUrl);
-  if (customHref) {
+  if (branding.faviconUrl) {
     return {
-      icon: [{ url: customHref }],
-      apple: [{ url: customHref, sizes: "180x180" }],
-      shortcut: customHref,
+      icon: [{ url: "/favicon.ico" }],
+      apple: [{ url: "/favicon.ico", sizes: "180x180" }],
+      shortcut: "/favicon.ico",
     };
   }
 
@@ -56,14 +55,14 @@ export function brandingHeadLinks(branding: PublicBranding): {
   title: string;
   icons: BrandingHeadLink[];
 } {
-  const customHref = brandingAssetSrc(branding.faviconUrl);
-  if (customHref) {
+  if (branding.faviconUrl) {
+    const href = "/favicon.ico";
     return {
       title: branding.siteName,
       icons: [
-        { rel: "icon", href: customHref, key: `icon-${customHref}` },
-        { rel: "apple-touch-icon", href: customHref, key: `apple-${customHref}` },
-        { rel: "shortcut icon", href: customHref, key: `shortcut-${customHref}` },
+        { rel: "icon", href, key: "icon-custom" },
+        { rel: "apple-touch-icon", href, key: "apple-custom" },
+        { rel: "shortcut icon", href, key: "shortcut-custom" },
       ],
     };
   }

@@ -56,12 +56,21 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     const api = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${api}/api/v1/:path*`,
-      },
-    ];
+    return {
+      // Must run before Next’s auto /favicon.ico (from app/icon) or the default icon wins.
+      beforeFiles: [
+        {
+          source: "/favicon.ico",
+          destination: "/api/branding-favicon",
+        },
+      ],
+      afterFiles: [
+        {
+          source: "/api/v1/:path*",
+          destination: `${api}/api/v1/:path*`,
+        },
+      ],
+    };
   },
 };
 

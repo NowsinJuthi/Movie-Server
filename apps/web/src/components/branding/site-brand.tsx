@@ -25,13 +25,24 @@ export function useThemeLogo(bust?: number | string) {
 }
 
 /** React-owned head nodes only — never mutate document.head imperatively (breaks React 19 hoistables). */
-function FaviconAndTitle({ branding }: { branding: PublicBranding }) {
+function faviconHref(base: string, bust?: number) {
+  if (base !== "/favicon.ico" || bust == null) return base;
+  return `/favicon.ico?v=${bust}`;
+}
+
+function FaviconAndTitle({ branding, faviconBust }: { branding: PublicBranding; faviconBust?: number }) {
   const head = brandingHeadLinks(branding);
   return (
     <>
       <title>{head.title}</title>
       {head.icons.map((icon) => (
-        <link key={icon.key} rel={icon.rel} href={icon.href} sizes={icon.sizes} type={icon.type} />
+        <link
+          key={icon.key}
+          rel={icon.rel}
+          href={faviconHref(icon.href, branding.faviconUrl ? faviconBust : undefined)}
+          sizes={icon.sizes}
+          type={icon.type}
+        />
       ))}
     </>
   );
@@ -47,7 +58,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   return (
     <BrandingContext.Provider value={branding}>
-      <FaviconAndTitle branding={branding} />
+      <FaviconAndTitle branding={branding} faviconBust={query.dataUpdatedAt} />
       {children}
     </BrandingContext.Provider>
   );
