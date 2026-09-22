@@ -77,6 +77,7 @@ import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
 import { applyPlaybackClientHeader, playbackClientHeaders } from "@/lib/playback-client";
 import { appendStreamQuery, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
+import { PlayerBusyMark } from "./player-busy";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
@@ -2211,27 +2212,8 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || (buffering && !mobileLayout)) && !error ? (
-        <div
-          className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="relative flex h-20 w-20 items-center justify-center">
-            <span className="absolute inset-0 animate-ping rounded-full bg-primary/15 [animation-duration:1.8s]" />
-            <span className="absolute inset-1 animate-spin rounded-full border-2 border-transparent border-r-primary/40 border-t-primary shadow-[0_0_28px_rgb(38_191_176/0.28)] [animation-duration:1.1s]" />
-            <span className="absolute inset-3 animate-spin rounded-full border border-white/10 border-b-white/70 [animation-direction:reverse] [animation-duration:1.7s]" />
-            <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[var(--brand-deep)] shadow-[0_0_24px_rgb(38_191_176/0.42)]">
-              <Play className="ml-0.5 h-5 w-5 fill-white text-white" />
-            </span>
-          </div>
-          {loading ? (
-            <span className="rounded-full bg-black/35 px-4 py-1.5 text-xs font-medium tracking-wide text-white/80 ring-1 ring-white/10">
-              Preparing your movie…
-            </span>
-          ) : null}
-          <span className="sr-only">{loading ? "Loading" : "Buffering"}</span>
-        </div>
+      {(loading || buffering) && !error ? (
+        <PlayerBusyMark mode={loading ? "preparing" : "buffering"} />
       ) : null}
 
       {error ? (
