@@ -148,14 +148,16 @@ function MobileTransportCluster({
         onClick={onTogglePlay}
         onTouchStart={stopControlBubble}
         className={cn(
-          "inline-flex touch-manipulation items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_24px_rgb(38_191_176/0.45)] active:scale-[0.96]",
+          "inline-flex touch-manipulation items-center justify-center rounded-full text-white active:scale-[0.96]",
+          "bg-white/12 ring-1 ring-white/25 backdrop-blur-md",
+          "shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_22px_-10px_rgba(0,0,0,0.55),0_0_18px_-6px_rgb(38_191_176/0.4)]",
           compact ? "h-12 w-12" : "h-14 w-14",
         )}
       >
         {playing ? (
-          <Pause className={cn("fill-white", compact ? "h-6 w-6" : "h-7 w-7")} />
+          <Pause className={cn("fill-current", compact ? "h-6 w-6" : "h-7 w-7")} />
         ) : (
-          <Play className={cn("fill-white", compact ? "ml-0.5 h-6 w-6" : "ml-1 h-7 w-7")} />
+          <Play className={cn("fill-current", compact ? "ml-0.5 h-6 w-6" : "ml-1 h-7 w-7")} />
         )}
       </button>
       <button
