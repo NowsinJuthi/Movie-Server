@@ -6,12 +6,9 @@ import styles from "./player-busy.module.css";
 
 export function PlayerBusyMark({
   mode,
-  freezeFrame,
 }: {
   /** First load vs mid-playback stall — same language, different energy. */
   mode: "preparing" | "buffering";
-  /** Last video frame so buffering does not flash a black screen. */
-  freezeFrame?: string | null;
 }) {
   const buffering = mode === "buffering";
   return (
@@ -21,10 +18,6 @@ export function PlayerBusyMark({
       aria-live="polite"
       aria-label={buffering ? "Buffering" : "Loading"}
     >
-      {buffering && freezeFrame ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={freezeFrame} alt="" className={styles.freeze} />
-      ) : null}
       <div className={cn(styles.mark, buffering && styles.markBuffering)}>
         <span className={styles.glow} aria-hidden />
         <svg className={styles.rings} viewBox="0 0 80 80" aria-hidden>

@@ -225,7 +225,8 @@ export function StreamPlayer({
   const [markers, setMarkers] = useState<PlaybackMarkers>(emptyPlaybackMarkers());
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
-  const [freezeFrame, setFreezeFrame] = useState<string | null>(null);
+  /** Keeps last-frame canvas visible while remux/HLS restarts (video element goes black). */
+  const [holdFrame, setHoldFrame] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -1033,20 +1034,18 @@ export function StreamPlayer({
       void persistProgress(true);
     };
     const onWaiting = () => {
-      if (!seekingRef.current) {
-        capturePlaybackFrameRef.current();
-      }
+      capturePlaybackFrameRef.current();
       setBuffering(true);
     };
     const onPlaying = () => {
       seekingRef.current = false;
-      setFreezeFrame(null);
+      setHoldFrame(false);
       setBuffering(false);
       setLoading(false);
     };
     const onSeeked = () => {
       if (!seekingRef.current) {
-        setFreezeFrame(null);
+        setHoldFrame(false);
         setBuffering(false);
       }
       void persistProgress(true);
@@ -1061,10 +1060,10 @@ export function StreamPlayer({
     const onCanPlay = () => {
       if (seekingRef.current && video.paused) {
         seekingRef.current = false;
-        setFreezeFrame(null);
+        setHoldFrame(false);
         setBuffering(false);
       } else if (!seekingRef.current) {
-        setFreezeFrame(null);
+        setHoldFrame(false);
         setBuffering(false);
       }
       applyResume();
@@ -1201,6 +1200,7 @@ export function StreamPlayer({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
         ctx.drawImage(video, 0, 0, width, height);
+        setHoldFrame(true);
         return;
       }
       const shot = document.createElement("canvas");
@@ -1209,7 +1209,7 @@ export function StreamPlayer({
       const ctx = shot.getContext("2d");
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, width, height);
-      setFreezeFrame(shot.toDataURL("image/jpeg", 0.72));
+      setHoldFrame(true);
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
     }
@@ -1285,15 +1285,13 @@ export function StreamPlayer({
           mediaOriginRef.current = target;
           resumeRef.current = target;
           try {
+            capturePlaybackFrame();
             attachProgressive(info);
             setCurrentTime(target);
-            if (!wasPlaying) {
-              setFreezeFrame(null);
-            }
           } catch {
             mediaOriginRef.current = previousOrigin;
             setCurrentTime(beforeSeek);
-            setFreezeFrame(null);
+            setHoldFrame(false);
             setBuffering(false);
             setError("Seek failed. Try again in a moment.");
           } finally {
@@ -1342,15 +1340,12 @@ export function StreamPlayer({
         }
         seekPackRef.current = false;
         setCurrentTime(target);
-        if (!wasPlaying) {
-          setFreezeFrame(null);
-        }
       } catch {
         seekPackRef.current = false;
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
         pendingSeekRef.current = null;
-        setFreezeFrame(null);
+        setHoldFrame(false);
         setBuffering(false);
         setError("Seek failed. Try again in a moment.");
       } finally {
@@ -2187,9 +2182,9 @@ export function StreamPlayer({
         ref={freezeCanvasRef}
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-0 z-[2] h-full w-full bg-transparent",
+          "pointer-events-none absolute inset-0 z-[20] h-full w-full bg-transparent transition-opacity duration-150",
           videoObjectClass,
-          buffering && !loading ? "opacity-100" : "opacity-0",
+          (holdFrame || buffering) && !loading ? "opacity-100" : "opacity-0",
         )}
       />
 
@@ -2255,10 +2250,7 @@ export function StreamPlayer({
       ) : null}
 
       {(loading || buffering) && !error ? (
-        <PlayerBusyMark
-          mode={loading ? "preparing" : "buffering"}
-          freezeFrame={loading ? null : freezeFrame}
-        />
+        <PlayerBusyMark mode={loading ? "preparing" : "buffering"} />
       ) : null}
 
       {error ? (
