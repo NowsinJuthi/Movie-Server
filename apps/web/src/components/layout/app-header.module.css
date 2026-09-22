@@ -539,56 +539,25 @@
 
 @media (min-width: 1024px) {
   .accountBtn {
-    position: relative;
-    isolation: isolate;
-    overflow: visible;
     min-height: 2.625rem;
     min-width: 2.625rem;
     border-radius: 9999px;
-    background: color-mix(in oklch, var(--card) 78%, transparent);
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    background: color-mix(in oklch, var(--card) 48%, transparent);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.1),
-      0 6px 16px -10px rgb(0 0 0 / 0.5),
-      0 0 14px -6px color-mix(in oklch, var(--primary) 40%, transparent);
-    animation: headerIconGlow 3.2s ease-in-out infinite;
-    animation-delay: -2.4s;
-  }
-
-  .accountBtn::before {
-    content: "";
-    position: absolute;
-    inset: -2px;
-    z-index: -1;
-    border-radius: inherit;
-    background: conic-gradient(
-      from 180deg,
-      transparent 0 62%,
-      color-mix(in oklch, var(--primary) 88%, white) 78%,
-      transparent 92%
-    );
-    animation: headerIconOrbit 5.5s linear infinite;
-    animation-delay: -2.6s;
-    pointer-events: none;
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    padding: 1.5px;
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 6px 18px -10px rgb(0 0 0 / 0.45),
+      0 0 0 1px color-mix(in oklch, var(--primary) 5%, transparent);
   }
 
   .accountBtn:hover,
   .accountBtnOpen {
-    transform: scale(0.96);
-    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+    transform: translateY(-1px);
+    border-color: color-mix(in oklch, var(--nav-accent) 45%, transparent);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.12),
-      0 0 18px -4px color-mix(in oklch, var(--primary) 55%, transparent);
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 0 22px -8px color-mix(in oklch, var(--nav-accent) 38%, transparent);
   }
 }
 
@@ -599,19 +568,49 @@
 }
 
 .accountAvatarWrap {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
   display: grid;
   flex-shrink: 0;
   place-items: center;
   height: 2rem;
   width: 2rem;
-  padding: 2px;
+  padding: 0;
   border-radius: 9999px;
-  background: linear-gradient(
-    145deg,
-    color-mix(in oklch, var(--primary) 85%, white) 0%,
-    color-mix(in oklch, var(--brand-deep) 90%, black) 100%
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Search-style rotating border — avatar circle only, not the name pill */
+.accountAvatarWrap::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 62%,
+    color-mix(in oklch, var(--primary) 88%, white) 78%,
+    transparent 92%
   );
-  box-shadow: 0 0 16px -6px color-mix(in oklch, var(--primary) 55%, transparent);
+  animation: headerIconOrbit 5.5s linear infinite;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1.5px;
+}
+
+.accountAvatarWrap > * {
+  position: relative;
+  z-index: 1;
 }
 
 @media (min-width: 640px) {
@@ -1146,66 +1145,31 @@
   }
 
   .accountBtn {
-    position: relative;
-    isolation: isolate;
-    overflow: visible;
     height: var(--mobile-header-control);
     width: var(--mobile-header-control);
     min-height: var(--mobile-header-control);
     min-width: var(--mobile-header-control);
     gap: 0;
-    padding: 0.1875rem;
-    border-radius: 9999px;
-    background: color-mix(in oklch, var(--card) 78%, transparent);
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.1),
-      0 6px 16px -10px rgb(0 0 0 / 0.5),
-      0 0 14px -6px color-mix(in oklch, var(--primary) 40%, transparent);
-    animation: headerIconGlow 3.2s ease-in-out infinite;
-    animation-delay: -2.4s;
-  }
-
-  .accountBtn::before {
-    content: "";
-    position: absolute;
-    inset: -2px;
-    z-index: -1;
-    border-radius: inherit;
-    background: conic-gradient(
-      from 180deg,
-      transparent 0 62%,
-      color-mix(in oklch, var(--primary) 88%, white) 78%,
-      transparent 92%
-    );
-    animation: headerIconOrbit 5.5s linear infinite;
-    animation-delay: -2.6s;
-    pointer-events: none;
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    padding: 1.5px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
   }
 
   .accountBtn:hover,
   .accountBtnOpen,
   .accountBtn:active {
     transform: scale(0.94);
-    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.12),
-      0 0 18px -4px color-mix(in oklch, var(--primary) 55%, transparent);
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
 
   .accountAvatarWrap {
-    height: 100%;
-    width: 100%;
+    height: calc(var(--mobile-header-control) - 4px);
+    width: calc(var(--mobile-header-control) - 4px);
     padding: 0;
     box-shadow: none;
   }
@@ -1262,10 +1226,9 @@
 @media (prefers-reduced-motion: reduce) {
   .iconBtn,
   .headerCircleBtn,
-  .accountBtn,
   .iconBtn::before,
   .headerCircleBtn::before,
-  .accountBtn::before {
+  .accountAvatarWrap::before {
     animation: none;
   }
 }
