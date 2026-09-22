@@ -18,7 +18,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .path {
@@ -29,15 +29,15 @@
   max-width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .dropZone {
   margin-top: 0.85rem;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
   border-radius: 0.85rem;
   border: 1px dashed rgb(38 191 176 / 0.35);
   background: rgb(0 0 0 / 0.22);
@@ -45,14 +45,25 @@
 }
 
 .fileInput {
-  flex: 1;
-  min-width: 12rem;
-  font-size: 0.82rem;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  pointer-events: none;
 }
 
-.fileInput::file-selector-button {
-  margin-right: 0.75rem;
-  border: 0;
+.pickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pickButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   border-radius: 0.55rem;
   background: rgb(38 191 176 / 0.18);
   padding: 0.45rem 0.85rem;
@@ -62,13 +73,13 @@
   cursor: pointer;
 }
 
-.fileInput::file-selector-button:hover {
+.pickButton:hover {
   background: rgb(38 191 176 / 0.28);
 }
 
 .fileMeta {
   font-size: 0.78rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .progressTrack {

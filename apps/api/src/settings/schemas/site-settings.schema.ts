@@ -1,6 +1,19 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
+@Schema({ _id: false })
+export class EmailDomainPolicyEmb {
+  @Prop({ type: [String], default: [] })
+  allowlist!: string[];
+
+  @Prop({ type: [String], default: [] })
+  blocklist!: string[];
+
+  /** Admin saved policy; skips auto default allowlist seed. */
+  @Prop({ default: false })
+  customized!: boolean;
+}
+
 @Schema({
   timestamps: true,
   collection: 'site_settings',
@@ -42,6 +55,12 @@ export class SiteSettings {
 
   @Prop({ type: String, default: '' })
   mailFromEmail!: string;
+
+  @Prop({ default: false })
+  movieUploadRequestsEnabled!: boolean;
+
+  @Prop({ type: EmailDomainPolicyEmb, default: () => ({}) })
+  emailDomains!: EmailDomainPolicyEmb;
 
   createdAt!: Date;
   updatedAt!: Date;

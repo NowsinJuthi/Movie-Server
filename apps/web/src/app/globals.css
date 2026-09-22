@@ -1,11 +1,79 @@
 @import "tailwindcss";
 
-/* UniQbd-matched palette: brand teal + deep teal dark surfaces */
-:root {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light palette (default + forced light). Dark tokens follow in prefers-color-scheme / html.dark. */
+:root,
+html.light {
+  --background: #f4fbfa;
+  --foreground: #0b1f24;
+  --card: #ffffff;
+  --card-foreground: #0b1f24;
+  --popover: #ffffff;
+  --popover-foreground: #0b1f24;
+  --primary: #26bfb0;
+  --primary-foreground: #ffffff;
+  --secondary: #e4f4f1;
+  --secondary-foreground: #0b1f24;
+  --muted: #eaf6f4;
+  --muted-foreground: #4d6a70;
+  --accent: #d8f3ee;
+  --accent-foreground: #0b1f24;
+  --destructive: #e11d48;
+  --border: #c5e4df;
+  --input: #c5e4df;
+  --ring: #26bfb0;
+  --brand-deep: #0a6258;
+  --brand-soft: #0f766e;
+  --scrollbar-track: #e4f4f1;
+  --scrollbar-thumb: rgb(38 191 176 / 0.7);
+  --toast-bg: rgb(255 255 255 / 0.96);
+  --toast-border: rgb(38 191 176 / 0.28);
+  --toast-text: #0b1f24;
+  --overlay: rgb(11 31 36 / 0.42);
+  --radius: 0.75rem;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #01131a;
+    --foreground: #f8fafc;
+    --card: #031a22;
+    --card-foreground: #f8fafc;
+    --popover: #031a22;
+    --popover-foreground: #f8fafc;
+    --primary: #26bfb0;
+    --primary-foreground: #ffffff;
+    --secondary: #06212a;
+    --secondary-foreground: #f8fafc;
+    --muted: #06212a;
+    --muted-foreground: #94a3b8;
+    --accent: #06212a;
+    --accent-foreground: #f8fafc;
+    --destructive: #f43f5e;
+    --border: #0e2832;
+    --input: #0e2832;
+    --ring: #26bfb0;
+    --brand-deep: #0a6258;
+    --brand-soft: #5eead4;
+    --scrollbar-track: rgb(6 33 42 / 0.95);
+    --scrollbar-thumb: rgb(38 191 176 / 0.55);
+    --toast-bg: rgb(3 26 34 / 0.96);
+    --toast-border: rgb(38 191 176 / 0.22);
+    --toast-text: #f8fafc;
+    --overlay: rgb(1 19 26 / 0.72);
+    color-scheme: dark;
+  }
+}
+
+html.dark {
   --background: #01131a;
   --foreground: #f8fafc;
   --card: #031a22;
   --card-foreground: #f8fafc;
+  --popover: #031a22;
+  --popover-foreground: #f8fafc;
   --primary: #26bfb0;
   --primary-foreground: #ffffff;
   --secondary: #06212a;
@@ -18,9 +86,34 @@
   --border: #0e2832;
   --input: #0e2832;
   --ring: #26bfb0;
-  --radius: 0.75rem;
   --brand-deep: #0a6258;
   --brand-soft: #5eead4;
+  --scrollbar-track: rgb(6 33 42 / 0.95);
+  --scrollbar-thumb: rgb(38 191 176 / 0.55);
+  --toast-bg: rgb(3 26 34 / 0.96);
+  --toast-border: rgb(38 191 176 / 0.22);
+  --toast-text: #f8fafc;
+  --overlay: rgb(1 19 26 / 0.72);
+  color-scheme: dark;
+}
+
+:root {
+  /* Matches .siteHeaderInner (browse/admin fixed header) */
+  --site-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --site-header-offset: calc(
+      4rem + max(0.75rem, env(safe-area-inset-top, 0px)) + 0.75rem
+    );
+  }
 }
 
 @theme inline {
@@ -40,6 +133,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -54,8 +149,9 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--site-header-offset) + 0.75rem);
   scrollbar-width: thin;
-  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar {
@@ -64,17 +160,17 @@ html::-webkit-scrollbar {
 }
 
 html::-webkit-scrollbar-track {
-  background: rgb(6 33 42 / 0.95);
+  background: var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid rgb(6 33 42 / 0.95);
-  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--brand-soft), var(--primary) 55%, var(--brand-deep));
 }
 
 html::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+  background: linear-gradient(180deg, var(--primary), var(--brand-deep));
 }
 
 html::-webkit-scrollbar-corner {
@@ -86,11 +182,109 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   overscroll-behavior-y: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Mobile browse: match UniQbd — document must scroll (posters, home rows, library). */
+@media (max-width: 1023px) {
+  html {
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: static;
+    width: auto;
+    max-width: 100%;
+    min-height: 100dvh;
+    height: auto;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .browse-shell-offset {
+    overflow-x: hidden;
+    overflow-y: visible;
+    min-height: 100dvh;
+    height: auto;
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
+@media (display-mode: standalone) {
+  html {
+    scrollbar-width: none;
+    background: var(--background);
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .site-browse-header {
+    position: sticky !important;
+    top: 0;
+    background: var(--background) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+
+  html:not(.dark) .site-browse-header {
+    background: color-mix(in srgb, #ffffff 78%, transparent) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.8),
+      0 8px 24px -18px rgb(10 98 88 / 0.18) !important;
+  }
+
+  html[data-standalone-pwa="true"].dark .site-browse-header button,
+  html[data-standalone-pwa="true"].dark .site-browse-header a {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* Mobile portrait: orientation lock is unavailable or breaks scroll — rotate player shell. */
+@media (orientation: portrait) {
+  .mobile-player-shell-landscape-emulate {
+    position: fixed !important;
+    inset: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    z-index: 2147483646 !important;
+    width: 100dvh !important;
+    height: 100dvw !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center;
+  }
+}
+
+.home-row-scroller {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.poster-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom right, var(--secondary), var(--background));
 }
 
 @media (hover: none) and (pointer: coarse) {
   button,
-  a,
   [role="button"],
   [role="menuitem"] {
     touch-action: manipulation;
@@ -105,6 +299,23 @@ body {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+/** Clear fixed AppHeader on account / browse pages using PageShell */
+.site-header-offset {
+  padding-top: calc(var(--site-header-offset) + 0.5rem);
+}
+
+/* Fixed browse header — content starts below bar (mobile / tablet) */
+.browse-shell-offset {
+  min-width: 0;
+}
+
+/* Mobile/tablet: header is sticky in document flow — no extra top padding */
+@media (min-width: 1024px) {
+  .browse-shell-offset {
+    padding-top: var(--site-header-offset);
+  }
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -117,7 +328,7 @@ body {
 /* Brand-matched scrollbars (Edit movie popup, admin panels, etc.) */
 .brand-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgb(38 191 176 / 0.55) rgb(6 33 42 / 0.9);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .brand-scrollbar::-webkit-scrollbar {
@@ -128,17 +339,17 @@ body {
 .brand-scrollbar::-webkit-scrollbar-track {
   margin: 4px 0;
   border-radius: 999px;
-  background: rgb(6 33 42 / 0.95);
+  background: var(--scrollbar-track);
 }
 
 .brand-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid rgb(6 33 42 / 0.95);
-  background: linear-gradient(180deg, #5eead4, #26bfb0 55%, #0a6258);
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--brand-soft), var(--primary) 55%, var(--brand-deep));
 }
 
 .brand-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #99f6e4, #26bfb0 45%, #0f766e);
+  background: linear-gradient(180deg, var(--primary), var(--brand-deep));
 }
 
 .brand-scrollbar::-webkit-scrollbar-corner {
@@ -148,13 +359,13 @@ body {
 .auth-backdrop {
   background:
     radial-gradient(circle at top, rgb(38 191 176 / 0.28), transparent 45%),
-    linear-gradient(180deg, #01131a, #000f15);
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--background) 88%, black));
 }
 
-[data-sonner-toaster][data-theme="dark"] {
-  --normal-bg: rgb(3 26 34 / 0.96);
-  --normal-border: rgb(38 191 176 / 0.22);
-  --normal-text: #f8fafc;
+[data-sonner-toaster] {
+  --normal-bg: var(--toast-bg);
+  --normal-border: var(--toast-border);
+  --normal-text: var(--toast-text);
 }
 
 [data-sonner-toast][data-styled="true"] {

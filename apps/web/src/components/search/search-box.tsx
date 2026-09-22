@@ -39,6 +39,17 @@ export function SearchBox({
     return () => window.clearTimeout(timer);
   }, [value]);
 
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    if (pathRef.current === pathname) return;
+    pathRef.current = pathname;
+    if (pathname.startsWith("/home/search") || urlQuery) {
+      setExpanded(true);
+      return;
+    }
+    setExpanded(false);
+  }, [pathname, urlQuery]);
+
   // Keep the search page URL in sync while already on /home/search.
   useEffect(() => {
     if (!pathname.startsWith("/home/search")) return;
@@ -94,21 +105,24 @@ export function SearchBox({
   };
 
   return (
-    <div ref={box} className={cn("relative", className)}>
+    <div
+      ref={box}
+      className={cn("relative", className, expanded && "max-lg:h-10 max-lg:w-10")}
+    >
       {!expanded ? (
         <button
           type="button"
           aria-label="Search"
           className={cn(
-            "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70 text-foreground transition hover:border-primary/40 hover:bg-primary/15 hover:text-primary",
-            triggerClassName,
+            triggerClassName ??
+              "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/70 text-foreground transition hover:border-primary/40 hover:bg-primary/15 hover:text-primary",
           )}
           onClick={() => setExpanded(true)}
         >
           <Search className="h-4 w-4" />
         </button>
       ) : (
-        <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 shadow-[0_8px_30px_-18px_rgb(38_191_176/0.55)] ring-1 ring-primary/20 backdrop-blur-md">
+        <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 shadow-[0_8px_30px_-18px_rgb(38_191_176/0.55)] ring-1 ring-primary/20 backdrop-blur-md max-lg:absolute max-lg:right-0 max-lg:top-1/2 max-lg:z-[60] max-lg:-translate-y-1/2">
           <Search className="h-4 w-4 shrink-0 text-primary" />
           <input
             ref={inputRef}
@@ -118,7 +132,7 @@ export function SearchBox({
               setActive(0);
             }}
             placeholder="Search movies & shows"
-            className="h-10 w-[min(52vw,16rem)] bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground md:w-72"
+            className="h-10 w-[min(70vw,16rem)] bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground md:w-72"
             role="combobox"
             aria-expanded={showPanel && suggestions.length > 0}
             aria-autocomplete="list"

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { ErrorCode, PLAN_TIER_RANK, PlanTier } from '@movie-server/shared';
+import { ErrorCode, PLAN_TIER_RANK, PlanTier, normalizeFeatureBullets } from '@movie-server/shared';
 import { Plan, PlanDocument } from './schemas/plan.schema';
 import { AdminUpdatePlanDto, AdminUpsertPlanDto } from './dto/admin-plan.dto';
 import { toPublicPlan } from './subscription.mapper';
@@ -59,6 +59,7 @@ export class PlansService {
       currency: (dto.currency ?? this.config.getOrThrow<string>('SUBSCRIPTION_DEFAULT_CURRENCY')).toUpperCase(),
       rank: dto.rank ?? PLAN_TIER_RANK[dto.tier],
       features: dto.features ?? [],
+      featureBullets: normalizeFeatureBullets(dto.featureBullets),
       trialDays: dto.trialDays ?? 0,
       isActive: dto.isActive ?? true,
       sortOrder: dto.sortOrder ?? PLAN_TIER_RANK[dto.tier],
@@ -82,6 +83,7 @@ export class PlansService {
     if (dto.maxDevices !== undefined) plan.maxDevices = dto.maxDevices;
     if (dto.maxStreams !== undefined) plan.maxStreams = dto.maxStreams;
     if (dto.features !== undefined) plan.features = dto.features;
+    if (dto.featureBullets !== undefined) plan.featureBullets = normalizeFeatureBullets(dto.featureBullets);
     if (dto.trialDays !== undefined) plan.trialDays = dto.trialDays;
     if (dto.isActive !== undefined) plan.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) plan.sortOrder = dto.sortOrder;

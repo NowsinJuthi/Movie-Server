@@ -165,7 +165,7 @@ export function MovieEditDialog({
       >
         <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-primary/15 via-transparent to-transparent px-5 py-4">
           <div className="min-w-0">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[#8aa3aa]">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
               Edit movie
             </p>
             <h2 id="movie-edit-title" className="mt-1 truncate text-xl font-semibold">

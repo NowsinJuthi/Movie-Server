@@ -10,6 +10,10 @@ import { ApiError, refreshSession } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { BrandingProvider } from "@/components/branding/site-brand";
+import { BrowseScrollGuard } from "@/components/layout/browse-scroll-guard";
+import { ThemeColorSync } from "@/components/theme/theme-color-sync";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { useTheme } from "next-themes";
 
 const SESSION_REFRESH_MS = 10 * 60 * 1000;
 const AUTH_BOOT_TIMEOUT_MS = 20_000;
@@ -136,6 +140,30 @@ function AuthHydrator({ children }: { children: React.ReactNode }) {
   return children;
 }
 
+function ThemedToaster() {
+  const { resolvedTheme } = useTheme();
+  const toastTheme = resolvedTheme === "light" ? "light" : "dark";
+
+  return (
+    <Toaster
+      theme={toastTheme}
+      position="top-center"
+      expand
+      visibleToasts={4}
+      toastOptions={{
+        classNames: {
+          toast:
+            "group !rounded-2xl !border !border-primary/20 !bg-card/95 !shadow-2xl !backdrop-blur-md",
+          title: "!text-sm !font-semibold !text-foreground",
+          description: "!text-xs !text-muted-foreground",
+          actionButton: "!bg-primary !text-primary-foreground",
+          cancelButton: "!bg-secondary !text-secondary-foreground",
+        },
+      }}
+    />
+  );
+}
+
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -151,28 +179,17 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={client}>
-      <AuthHydrator>
-        <BrandingProvider>
-          {children}
-          <Toaster
-            theme="dark"
-            position="top-center"
-            expand
-            visibleToasts={4}
-            toastOptions={{
-              classNames: {
-                toast:
-                  "group !rounded-2xl !border !border-primary/20 !bg-card/95 !shadow-2xl !backdrop-blur-md",
-                title: "!text-sm !font-semibold !text-foreground",
-                description: "!text-xs !text-muted-foreground",
-                actionButton: "!bg-primary !text-primary-foreground",
-                cancelButton: "!bg-secondary !text-secondary-foreground",
-              },
-            }}
-          />
-        </BrandingProvider>
-      </AuthHydrator>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={client}>
+        <AuthHydrator>
+          <BrandingProvider>
+            <ThemeColorSync />
+            <BrowseScrollGuard />
+            {children}
+            <ThemedToaster />
+          </BrandingProvider>
+        </AuthHydrator>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

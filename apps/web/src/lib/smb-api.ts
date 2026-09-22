@@ -47,11 +47,16 @@ export const smbApi = {
     id: string,
     file: File,
     path = "",
-    options: { scan?: boolean; onProgress?: (percent: number) => void } = {},
+    options: {
+      scan?: boolean;
+      relativePath?: string;
+      onProgress?: (percent: number) => void;
+    } = {},
   ) =>
     new Promise<AdminSmbUploadResponse>((resolve, reject) => {
       const params = new URLSearchParams();
       if (path) params.set("path", path);
+      if (options.relativePath) params.set("relativePath", options.relativePath);
       if (options.scan === false) params.set("scan", "false");
 
       const xhr = new XMLHttpRequest();

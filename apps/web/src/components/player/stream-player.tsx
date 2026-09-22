@@ -21,8 +21,17 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type {
   PlaybackMarkers,
   PlaybackSessionInfo,
@@ -36,9 +45,11 @@ import { ApiError } from "@/lib/api";
 import { streamApi } from "@/lib/stream-api";
 import { cn } from "@/lib/utils";
 import {
+  autoplayPlayerHref,
   clearPlayerReturn,
   consumeMobileAutoplayTap,
   isSafeAppPath,
+  markMobileAutoplayTap,
   peekPlayerReturn,
 } from "@/lib/player-return";
 import {
@@ -47,24 +58,34 @@ import {
   effectiveVideoDuration,
   isAppleMobileDevice,
   isCoarsePointerMobile,
-  isLocalTimeBuffered,
+  isHtmlMediaVolumeReadOnly,
+  isLocalTimeInPack,
+  isTimeBuffered,
   isVideoInNativeFullscreen,
+  isVideoInPictureInPicture,
+  beginMobileImmersivePlayback,
+  enterIosNativeVideoFullscreen,
   localTimelineSeconds,
   lockPlaybackLandscape,
   seekVideoTo,
   toggleVideoFullscreen,
+  toggleVideoPictureInPicture,
+  videoSupportsPictureInPicture,
+  releaseBrowseScrollLock,
   unlockPlaybackOrientation,
 } from "@/lib/device-playback";
 import { useMobilePlayerLayout } from "@/hooks/use-mobile-player-layout";
-import { appendStreamQuery, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
+import { applyPlaybackClientHeader, playbackClientHeaders } from "@/lib/playback-client";
+import { appendStreamQuery, remuxProgressiveUrl, toAbsoluteStreamUrl, variantHlsUrl } from "@/lib/stream-url";
 import { EmbyMobileChrome, MobileBottomSheet } from "./emby-mobile-chrome";
+import { PlayerBusyMark } from "./player-busy";
 import { PlayerDetailsDock, type PlayerDetailsTab } from "./player-sheets";
 import { SeekBar } from "./seek-bar";
 import { VolumeBar } from "./volume-bar";
 import type { PlayerMediaInfo } from "./player-types";
 
 type PlayerSheet = "info" | "chapters" | "cast" | "settings" | "audio" | "speed" | "subtitles" | null;
-type SettingsView = "root" | "aspect" | "quality" | "repeat" | "correction" | "more";
+type SettingsView = "root" | "aspect" | "quality" | "repeat" | "correction" | "more" | "speed" | "audio" | "subtitles";
 type AspectRatio = "auto" | "cover" | "fill" | "16:9" | "4:3";
 type RepeatMode = "none" | "one";
 
@@ -99,6 +120,8 @@ export type StreamStartResult = {
 type QualityChoice = "auto" | VideoResolution;
 
 type StreamPlayerProps = {
+  /** Changes when switching episodes/titles — reloads playback and re-reads ?autoplay=1 */
+  playbackKey?: string;
   title: string;
   subtitle?: string;
   year?: number | null;
@@ -116,6 +139,7 @@ type StreamPlayerProps = {
 };
 
 export function StreamPlayer({
+  playbackKey: playbackKeyProp,
   title,
   subtitle,
   year,
@@ -128,6 +152,7 @@ export function StreamPlayer({
   previous,
   autoPlayNext = false,
 }: StreamPlayerProps) {
+  const playbackKey = playbackKeyProp ?? title;
   const router = useRouter();
   const queryClient = useQueryClient();
   const returnToRef = useRef<string | null>(null);
@@ -140,8 +165,6 @@ export function StreamPlayer({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    autoplayRequestedRef.current = params.get("autoplay") === "1";
-    posterTapPlayRef.current = consumeMobileAutoplayTap();
     const from = params.get("from");
     if (isSafeAppPath(from) && !from.includes("/watch")) {
       returnToRef.current = from;
@@ -150,7 +173,17 @@ export function StreamPlayer({
     returnToRef.current = peekPlayerReturn();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    autoplayRequestedRef.current = params.get("autoplay") === "1";
+    posterTapPlayRef.current = consumeMobileAutoplayTap(8000);
+    setPseudoFullscreen(false);
+  }, [playbackKey]);
+
   const goBack = useCallback(() => {
+    setPseudoFullscreen(false);
+    releaseBrowseScrollLock();
     const target = returnToRef.current;
     clearPlayerReturn();
     if (target) {
@@ -165,6 +198,8 @@ export function StreamPlayer({
   }, [backHref, router]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const freezeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const capturePlaybackFrameRef = useRef<() => void>(() => undefined);
   const shellRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -181,7 +216,9 @@ export function StreamPlayer({
   const hideTimer = useRef<number | null>(null);
   const recoverCount = useRef(0);
   const seekingRef = useRef(false);
-  const seekPlaybackRef = useRef<(seconds: number) => void>(() => undefined);
+  const pendingSeekRef = useRef<number | null>(null);
+  const seekPackRef = useRef(false);
+  const seekPlaybackRef = useRef<(seconds: number) => void | Promise<void>>(() => undefined);
   const transcodeFallbackRef = useRef(false);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
   const repeatModeRef = useRef<RepeatMode>("none");
@@ -190,6 +227,7 @@ export function StreamPlayer({
   const [markers, setMarkers] = useState<PlaybackMarkers>(emptyPlaybackMarkers());
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
+  const [freezeFrame, setFreezeFrame] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -210,6 +248,10 @@ export function StreamPlayer({
   const [error, setError] = useState<string | null>(null);
   const [controls, setControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  /** In-page immersive mode when the Fullscreen API is unavailable (common on iOS). */
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
+  const pseudoFullscreenRef = useRef(false);
+  pseudoFullscreenRef.current = pseudoFullscreen;
   const [pip, setPip] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
   const [quality, setQuality] = useState<QualityChoice>("auto");
@@ -226,6 +268,26 @@ export function StreamPlayer({
   const mobileLayout = useMobilePlayerLayout();
   const mobileLayoutRef = useRef(mobileLayout);
   mobileLayoutRef.current = mobileLayout;
+  const [devicePortrait, setDevicePortrait] = useState(false);
+
+  const applyMobileImmersive = useCallback((video: HTMLVideoElement) => {
+    if (!(mobileLayoutRef.current || isCoarsePointerMobile())) return;
+    if (isVideoInNativeFullscreen(video)) return;
+    beginMobileImmersivePlayback(video);
+    setPseudoFullscreen(true);
+    setControls(true);
+  }, []);
+
+  const goToPlayerHref = useCallback(
+    (href: string, options?: { autoplay?: boolean }) => {
+      const autoplay = options?.autoplay !== false;
+      if (autoplay && (mobileLayoutRef.current || isCoarsePointerMobile())) {
+        markMobileAutoplayTap();
+      }
+      router.push(autoplay ? autoplayPlayerHref(href) : href);
+    },
+    [router],
+  );
 
   const displayYear = year ?? mediaInfo?.year ?? null;
   const timelineDuration = durationHint > 0 ? durationHint : duration;
@@ -276,13 +338,11 @@ export function StreamPlayer({
       );
       if (totalSeconds <= 0) return;
       const seconds = Math.floor(
-        usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime,
+        displayTimelineSeconds(
+          video.currentTime,
+          mediaOriginRef.current,
+          durationHintRef.current,
+        ),
       );
       if (!force && Math.abs(seconds - lastSaved.current) < 3) {
         return;
@@ -332,7 +392,7 @@ export function StreamPlayer({
   const applyResume = useCallback(() => {
     const video = videoRef.current;
     if (!video || resumeApplied.current) return;
-    if (usingHlsRef.current) {
+    if (usingHlsRef.current || mediaOriginRef.current > 0.5) {
       resumeApplied.current = true;
       return;
     }
@@ -344,7 +404,10 @@ export function StreamPlayer({
   }, []);
 
   const wantsAudibleAutoplay = useCallback((): boolean => {
-    if (!autoplayRequestedRef.current && !posterTapPlayRef.current) {
+    if (autoplayRequestedRef.current) {
+      return true;
+    }
+    if (!posterTapPlayRef.current) {
       return false;
     }
     if (typeof navigator !== "undefined" && navigator.userActivation?.isActive) {
@@ -356,6 +419,9 @@ export function StreamPlayer({
   const tryStartPlayback = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current;
     if (!video) return false;
+    if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+      applyMobileImmersive(video);
+    }
     setLoading(true);
     const preferAudible = wantsAudibleAutoplay();
     try {
@@ -413,14 +479,14 @@ export function StreamPlayer({
       setLoading(false);
       return false;
     }
-  }, [wantsAudibleAutoplay]);
+  }, [applyMobileImmersive, wantsAudibleAutoplay]);
 
   const warmMediaUrl = useCallback(async (url: string) => {
     try {
       const warmBytes = isAppleMobileDevice() ? 8_388_607 : 2_097_151;
       await fetch(url, {
         credentials: "include",
-        headers: { Range: `bytes=0-${warmBytes}` },
+        headers: { ...playbackClientHeaders(), Range: `bytes=0-${warmBytes}` },
       });
     } catch {
       /* warm SMB/page cache; playback still works if this fails */
@@ -439,6 +505,7 @@ export function StreamPlayer({
         ? variantHlsUrl(info, {
             startSeconds,
             resolution: quality === "auto" ? "auto" : quality,
+            seekRestart: seekPackRef.current,
           })
         : toAbsoluteStreamUrl(info.hlsUrl),
     [quality, usesPackagedHls],
@@ -485,6 +552,7 @@ export function StreamPlayer({
     }
     const video = videoRef.current;
     if (!video) return false;
+    applyMobileImmersive(video);
     mobileStartMutedRef.current = false;
     video.muted = false;
     setMuted(false);
@@ -497,24 +565,26 @@ export function StreamPlayer({
     } catch {
       return tryStartPlayback();
     }
-  }, [awaitingTap, iosMutedPlay, tryStartPlayback]);
+  }, [applyMobileImmersive, awaitingTap, iosMutedPlay, tryStartPlayback]);
 
   const attachProgressive = useCallback(
     (info: PlaybackSessionInfo, resolution?: VideoResolution | "auto") => {
       const video = videoRef.current;
       if (!video) return;
       detachEngine();
+      const origin = Math.max(0, resumeRef.current);
+      mediaOriginRef.current = origin;
+      usingHlsRef.current = false;
       setUsingHls(false);
       const chosen =
         resolution && resolution !== "auto"
           ? resolution
           : info.selectedResolution;
-      const src = toAbsoluteStreamUrl(
-        appendStreamQuery(info.progressiveUrl, {
-          quality: chosen ?? undefined,
-          audio: info.selectedAudioId ?? undefined,
-        }),
-      );
+      const src = appendStreamQuery(remuxProgressiveUrl(info), {
+        quality: chosen ?? undefined,
+        audio: info.selectedAudioId ?? undefined,
+        t: origin > 0.5 ? String(Math.floor(origin)) : undefined,
+      });
       setIosMutedPlay(false);
       video.src = src;
       video.load();
@@ -554,7 +624,15 @@ export function StreamPlayer({
       setIosMutedPlay(false);
       video.src = hlsSourceFor(info, origin);
       video.load();
-      const onReady = () => startMobileAttachedPlayback(video);
+      const pinToPackStart = () => {
+        if (video.currentTime > 1.25) {
+          video.currentTime = 0.001;
+        }
+      };
+      const onReady = () => {
+        pinToPackStart();
+        startMobileAttachedPlayback(video);
+      };
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
         onReady();
         return;
@@ -590,7 +668,7 @@ export function StreamPlayer({
           transcodeRetryRef.current?.();
           return;
         }
-        if (usesPackagedHls(info)) {
+        if (usesPackagedHls(info) || !isAppleMobileDevice()) {
           setLoading(false);
           setError(
             "Playback failed to start. Wait a moment and tap Retry, or check that ffmpeg can read this file on the server.",
@@ -610,16 +688,19 @@ export function StreamPlayer({
           const hls = new HlsLib({
             enableWorker: true,
             lowLatencyMode: false,
-            liveDurationInfinity: encoding,
-            // This is an on-demand movie playlist that grows while ffmpeg packages
-            // it, not a broadcast. Never chase its advancing "live edge": doing so
-            // auto-jumps the movie forward once ffmpeg gets several segments ahead.
+            autoStartLoad: false,
+            liveDurationInfinity: false,
+            // Growing on-demand pack, not a broadcast. Start at local 0 and never
+            // snap to ffmpeg's advancing live edge (that jumps long movies to the end).
+            startPosition: 0.001,
             liveSyncDurationCount: videoTranscode ? 8 : encoding ? 5 : 3,
             liveMaxLatencyDurationCount: Infinity,
             maxLiveSyncPlaybackRate: 1,
-            backBufferLength: videoTranscode ? 120 : encoding ? 60 : 30,
-            maxBufferLength: videoTranscode ? 120 : encoding ? 60 : 24,
-            maxMaxBufferLength: videoTranscode ? 240 : encoding ? 120 : 48,
+            // Default maxBufferSize is 60MB — a 40Mbps MKV only holds ~12s, then it starves.
+            maxBufferSize: 400_000_000,
+            backBufferLength: videoTranscode ? 120 : 180,
+            maxBufferLength: videoTranscode ? 120 : encoding ? 90 : 60,
+            maxMaxBufferLength: videoTranscode ? 240 : 180,
             maxBufferHole: videoTranscode ? 2 : encoding ? 1 : 0.5,
             highBufferWatchdogPeriod: videoTranscode ? 3 : encoding ? 2 : 1,
             nudgeOffset: 0.2,
@@ -628,6 +709,7 @@ export function StreamPlayer({
             capLevelToPlayerSize: !videoTranscode,
             xhrSetup(xhr) {
               xhr.withCredentials = true;
+              applyPlaybackClientHeader(xhr);
             },
           });
           hlsRef.current = hls;
@@ -671,16 +753,19 @@ export function StreamPlayer({
             } else {
               hls.currentLevel = -1;
             }
+            hls.startLoad(0.001);
+            const media = videoRef.current;
+            if (media && media.currentTime > 1.25) {
+              media.currentTime = 0.001;
+            }
             if (videoTranscode) {
               setBuffering(true);
-              startWhenBuffered(8);
+              startWhenBuffered(4);
             } else if (info.audioTranscode) {
               setBuffering(true);
-              startWhenBuffered(7);
-            } else if (info.remuxStream || info.hevcStream) {
-              setBuffering(true);
-              startWhenBuffered(4);
+              startWhenBuffered(2);
             } else {
+              // MKV/H.264 remux already waited for the first segments — start like Emby.
               void tryStartPlayback();
             }
           });
@@ -722,7 +807,11 @@ export function StreamPlayer({
   const attachPlayback = useCallback(
     (info: PlaybackSessionInfo) => {
       if (info.directPlay) {
-        attachProgressive(info);
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
+        } else {
+          attachHls(info);
+        }
         return;
       }
       if (info.hevcStream && !browserSupportsHevcDirectStream()) {
@@ -730,7 +819,13 @@ export function StreamPlayer({
         transcodeRetryRef.current?.();
         return;
       }
-      // Emby-style: MKV/WebM direct stream + transcode/hevc paths all use packaged HLS.
+      // Desktop/Android: Emby Direct Stream — copy remux to fMP4, no library convert.
+      // iOS still needs packaged HLS because Safari will not play MKV remux pipes.
+      if (info.remuxStream && !info.transcode && !isAppleMobileDevice()) {
+        attachProgressive(info);
+        return;
+      }
+      // Encoded HLS (HEVC→H.264) + iOS remux/hevc.
       if (usesPackagedHls(info)) {
         if (isAppleMobileDevice()) {
           attachNativeHls(info);
@@ -739,7 +834,11 @@ export function StreamPlayer({
         }
         return;
       }
-      attachProgressive(info);
+      if (isAppleMobileDevice()) {
+        attachProgressive(info);
+        return;
+      }
+      attachHls(info);
     },
     [attachHls, attachNativeHls, attachProgressive, usesPackagedHls],
   );
@@ -814,9 +913,9 @@ export function StreamPlayer({
       void stopSession();
       detachEngine();
     };
-    // Boot once per title mount; quality changes are handled in-player.
+    // Re-boot when the episode/title changes (soft client navigation).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playbackKey]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -864,11 +963,8 @@ export function StreamPlayer({
         setBufferedEnd(0);
         return;
       }
-      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
+      const origin = mediaOriginRef.current;
       const max = durationHintRef.current;
-      const displayNow = usingHlsRef.current
-        ? displayTimelineSeconds(video.currentTime, origin, max)
-        : video.currentTime;
       let localEnd = 0;
       const localT = video.currentTime;
       for (let i = 0; i < video.buffered.length; i += 1) {
@@ -888,10 +984,9 @@ export function StreamPlayer({
     };
 
     const onTime = () => {
-      const origin = usingHlsRef.current ? mediaOriginRef.current : 0;
-      const displayTime = usingHlsRef.current
-        ? displayTimelineSeconds(video.currentTime, origin, durationHintRef.current)
-        : video.currentTime;
+      if (seekingRef.current) return;
+      const origin = mediaOriginRef.current;
+      const displayTime = displayTimelineSeconds(video.currentTime, origin, durationHintRef.current);
       setCurrentTime(displayTime);
       if (durationHintRef.current > 0) {
         setDuration(durationHintRef.current);
@@ -912,24 +1007,57 @@ export function StreamPlayer({
         nextStarted.current = true;
         setCountdown(AUTO_NEXT_SECONDS);
       }
+      // iOS Safari often skips `ended` for HLS — treat near-end while still playing as finished.
+      if (
+        autoPlayNext &&
+        next &&
+        !nextStarted.current &&
+        effectiveDur > 0 &&
+        displayTime >= effectiveDur - 0.4 &&
+        !video.paused &&
+        !video.seeking
+      ) {
+        nextStarted.current = true;
+        setCountdown(AUTO_NEXT_SECONDS);
+      }
     };
     const onPlay = () => {
       setPlaying(true);
       setLoading(false);
+      if (seekingRef.current) return;
       revealControls();
+      if (mobileLayoutRef.current || isCoarsePointerMobile()) {
+        const v = videoRef.current;
+        if (v && !isVideoInNativeFullscreen(v) && !pseudoFullscreenRef.current) {
+          beginMobileImmersivePlayback(v);
+          setPseudoFullscreen(true);
+          setControls(true);
+        }
+      }
     };
     const onPause = () => {
+      if (seekingRef.current) return;
       setPlaying(false);
       setControls(true);
       void persistProgress(true);
     };
-    const onWaiting = () => setBuffering(true);
+    const onWaiting = () => {
+      if (!seekingRef.current) {
+        capturePlaybackFrameRef.current();
+      }
+      setBuffering(true);
+    };
     const onPlaying = () => {
+      seekingRef.current = false;
+      setFreezeFrame(null);
       setBuffering(false);
       setLoading(false);
     };
     const onSeeked = () => {
-      setBuffering(false);
+      if (!seekingRef.current) {
+        setFreezeFrame(null);
+        setBuffering(false);
+      }
       void persistProgress(true);
     };
     const onLoaded = () => {
@@ -940,12 +1068,22 @@ export function StreamPlayer({
       applyResume();
     };
     const onCanPlay = () => {
+      if (seekingRef.current && video.paused) {
+        seekingRef.current = false;
+        setFreezeFrame(null);
+        setBuffering(false);
+      } else if (!seekingRef.current) {
+        setFreezeFrame(null);
+        setBuffering(false);
+      }
       applyResume();
     };
     const onEnded = () => {
       void persistProgress(true);
       if (repeatModeRef.current === "one") {
-        seekPlaybackRef.current(0);
+        void Promise.resolve(seekPlaybackRef.current(0)).then(() => {
+          void videoRef.current?.play().catch(() => undefined);
+        });
         return;
       }
       if (autoPlayNext && next) {
@@ -1004,15 +1142,18 @@ export function StreamPlayer({
   useEffect(() => {
     if (countdown == null || !next) return;
     if (countdown <= 0) {
-      router.push(next.href);
+      goToPlayerHref(next.href);
       return;
     }
     const id = window.setTimeout(() => setCountdown((value) => (value == null ? null : value - 1)), 1000);
     return () => window.clearTimeout(id);
-  }, [countdown, next, router]);
+  }, [countdown, goToPlayerHref, next]);
 
   useEffect(() => {
-    setPipSupported("pictureInPictureEnabled" in document && Boolean(document.pictureInPictureEnabled));
+    const syncPipSupported = () => {
+      setPipSupported(videoSupportsPictureInPicture(videoRef.current));
+    };
+    syncPipSupported();
 
     const syncFullscreen = () => {
       const video = videoRef.current;
@@ -1020,13 +1161,16 @@ export function StreamPlayer({
         Boolean(document.fullscreenElement) ||
         (video != null && isVideoInNativeFullscreen(video));
       setFullscreen(isFs);
-      if (isFs && mobileLayoutRef.current) {
+      if (!isFs) {
+        if (!pseudoFullscreenRef.current) {
+          setPseudoFullscreen(false);
+          unlockPlaybackOrientation();
+        }
+      } else if (mobileLayoutRef.current) {
         void lockPlaybackLandscape();
-      } else if (!isFs) {
-        unlockPlaybackOrientation();
       }
     };
-    const onPip = () => setPip(Boolean(document.pictureInPictureElement));
+    const onPip = () => setPip(isVideoInPictureInPicture(videoRef.current));
     document.addEventListener("fullscreenchange", syncFullscreen);
     document.addEventListener("enterpictureinpicture", onPip);
     document.addEventListener("leavepictureinpicture", onPip);
@@ -1034,6 +1178,7 @@ export function StreamPlayer({
     const video = videoRef.current;
     video?.addEventListener("webkitbeginfullscreen", syncFullscreen);
     video?.addEventListener("webkitendfullscreen", syncFullscreen);
+    video?.addEventListener("webkitpresentationmodechanged", onPip);
 
     return () => {
       document.removeEventListener("fullscreenchange", syncFullscreen);
@@ -1041,8 +1186,44 @@ export function StreamPlayer({
       document.removeEventListener("leavepictureinpicture", onPip);
       video?.removeEventListener("webkitbeginfullscreen", syncFullscreen);
       video?.removeEventListener("webkitendfullscreen", syncFullscreen);
+      video?.removeEventListener("webkitpresentationmodechanged", onPip);
     };
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    setPipSupported(videoSupportsPictureInPicture(videoRef.current));
+  }, [loading]);
+
+  const capturePlaybackFrame = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth < 2 || video.videoHeight < 2) return;
+    const canvas = freezeCanvasRef.current;
+    const maxWidth = 960;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const width = Math.max(2, Math.round(video.videoWidth * scale));
+    const height = Math.max(2, Math.round(video.videoHeight * scale));
+    try {
+      if (canvas) {
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, width, height);
+        return;
+      }
+      const shot = document.createElement("canvas");
+      shot.width = width;
+      shot.height = height;
+      const ctx = shot.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, width, height);
+      setFreezeFrame(shot.toDataURL("image/jpeg", 0.72));
+    } catch {
+      /* CORS-tainted canvas: keep the live video visible instead. */
+    }
+  }, []);
+  capturePlaybackFrameRef.current = capturePlaybackFrame;
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -1057,17 +1238,32 @@ export function StreamPlayer({
       return;
     }
     if (video.paused) {
+      if (mobileLayout || isCoarsePointerMobile()) {
+        applyMobileImmersive(video);
+      }
       void video.play().catch(() => undefined);
     } else {
       video.pause();
     }
-  }, [awaitingTap, iosMutedPlay, mobileLayout, tryStartPlayback, unlockMobileAudible]);
+  }, [
+    applyMobileImmersive,
+    awaitingTap,
+    iosMutedPlay,
+    mobileLayout,
+    tryStartPlayback,
+    unlockMobileAudible,
+  ]);
 
   const seekPlaybackTo = useCallback(
     async (targetSeconds: number) => {
       const video = videoRef.current;
       const info = sessionRef.current;
-      if (!video || !info || seekingRef.current) return;
+      if (!video || !info) return;
+      if (seekingRef.current) {
+        pendingSeekRef.current = targetSeconds;
+        setCurrentTime(targetSeconds);
+        return;
+      }
       const wasPlaying = !video.paused;
       const total = durationHintRef.current || duration;
       const target = Math.max(0, Math.min(targetSeconds, total > 0 ? total : targetSeconds));
@@ -1079,124 +1275,118 @@ export function StreamPlayer({
       const previousOrigin = mediaOriginRef.current;
 
       setCurrentTime(target);
+      capturePlaybackFrame();
 
-      if (!usingHlsRef.current || !usesPackagedHls(info)) {
+      const origin = mediaOriginRef.current;
+      const localTarget = localTimelineSeconds(target, origin);
+      const targetIsInCurrentPack = target >= origin - 0.35;
+
+      if (!usingHlsRef.current) {
+        if (targetIsInCurrentPack && isTimeBuffered(video, localTarget)) {
+          video.currentTime = localTarget;
+          setCurrentTime(target);
+          return;
+        }
+        if (info.remuxStream || info.transcode || info.hevcStream) {
+          seekingRef.current = true;
+          pendingSeekRef.current = null;
+          setBuffering(true);
+          mediaOriginRef.current = target;
+          resumeRef.current = target;
+          try {
+            attachProgressive(info);
+            setCurrentTime(target);
+            if (!wasPlaying) {
+              setFreezeFrame(null);
+            }
+          } catch {
+            mediaOriginRef.current = previousOrigin;
+            setCurrentTime(beforeSeek);
+            setFreezeFrame(null);
+            setBuffering(false);
+            setError("Seek failed. Try again in a moment.");
+          } finally {
+            seekingRef.current = false;
+            const queued = pendingSeekRef.current;
+            pendingSeekRef.current = null;
+            if (queued != null) {
+              void seekPlaybackTo(queued);
+            }
+          }
+          return;
+        }
         seekVideoTo(video, target, total);
         setCurrentTime(target);
         return;
       }
 
-      const origin = mediaOriginRef.current;
-      const localTarget = localTimelineSeconds(target, origin);
+      if (!usesPackagedHls(info)) {
+        seekVideoTo(video, target, total);
+        setCurrentTime(target);
+        return;
+      }
+
       // A target before the current package origin cannot be represented as local time 0.
       // Restart packaging from that movie position instead of snapping back to the origin.
-      const targetIsInCurrentPack = target >= origin - 0.35;
-      if (targetIsInCurrentPack && isLocalTimeBuffered(video, localTarget)) {
+      if (targetIsInCurrentPack && isLocalTimeInPack(video, localTarget)) {
         video.currentTime = localTarget;
         setCurrentTime(target);
         return;
       }
 
       seekingRef.current = true;
+      pendingSeekRef.current = null;
       setBuffering(true);
       try {
         mediaOriginRef.current = target;
-        const nextSrc = `${variantHlsUrl(info, {
-          startSeconds: target,
-          resolution: quality === "auto" ? "auto" : quality,
-        })}&_=${Date.now()}`;
-
-        const hls = hlsRef.current;
-        if (hls) {
-          const { default: HlsLib } = await import("hls.js");
-          await new Promise<void>((resolve, reject) => {
-            const timeout = window.setTimeout(() => {
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              reject(new Error("Seek timed out"));
-            }, 90_000);
-            const onParsed = () => {
-              window.clearTimeout(timeout);
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              resolve();
-            };
-            const onError = (_event: string, data: { fatal?: boolean }) => {
-              if (!data.fatal) return;
-              window.clearTimeout(timeout);
-              hls.off(HlsLib.Events.MANIFEST_PARSED, onParsed);
-              hls.off(HlsLib.Events.ERROR, onError);
-              reject(new Error("Seek failed"));
-            };
-            hls.stopLoad();
-            hls.on(HlsLib.Events.MANIFEST_PARSED, onParsed);
-            hls.on(HlsLib.Events.ERROR, onError);
-            hls.loadSource(nextSrc);
-            hls.startLoad(0);
-          });
+        resumeRef.current = target;
+        seekPackRef.current = true;
+        await streamApi
+          .seekHls(info.id, target, quality === "auto" ? undefined : quality)
+          .catch(() => undefined);
+        if (isAppleMobileDevice()) {
+          attachNativeHls(info);
         } else {
-          video.src = nextSrc;
-          video.load();
-          // Start play during the seek gesture. Waiting for metadata first loses
-          // iOS user activation and leaves the movie paused after every scrub.
-          const resumePromise = wasPlaying
-            ? video.play().catch(() => undefined)
-            : Promise.resolve();
-          await new Promise<void>((resolve, reject) => {
-            const timeout = window.setTimeout(() => reject(new Error("Seek timed out")), 90_000);
-            video.addEventListener(
-              "loadedmetadata",
-              () => {
-                window.clearTimeout(timeout);
-                resolve();
-              },
-              { once: true },
-            );
-            video.addEventListener(
-              "error",
-              () => {
-                window.clearTimeout(timeout);
-                reject(new Error("Seek failed"));
-              },
-              { once: true },
-            );
-          });
-          await resumePromise;
+          attachHls(info);
         }
-
+        seekPackRef.current = false;
         setCurrentTime(target);
-        if (wasPlaying) {
-          void video.play().catch(() => undefined);
+        if (!wasPlaying) {
+          setFreezeFrame(null);
         }
       } catch {
+        seekPackRef.current = false;
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
+        pendingSeekRef.current = null;
+        setFreezeFrame(null);
+        setBuffering(false);
         setError("Seek failed. Try again in a moment.");
       } finally {
         seekingRef.current = false;
-        setBuffering(false);
+        const queued = pendingSeekRef.current;
+        pendingSeekRef.current = null;
+        if (queued != null) {
+          void seekPlaybackTo(queued);
+        }
       }
     },
-    [duration, quality, usesPackagedHls],
+    [attachHls, attachNativeHls, attachProgressive, capturePlaybackFrame, duration, quality, usesPackagedHls],
   );
 
-  seekPlaybackRef.current = (seconds) => {
-    void seekPlaybackTo(seconds);
-  };
+  seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);
 
   const seekBy = useCallback(
-    (delta: number) => {
+    (delta: number, options?: { reveal?: boolean }) => {
       const video = videoRef.current;
       if (!video) return;
-      const display = usingHlsRef.current
-        ? displayTimelineSeconds(
-            video.currentTime,
-            mediaOriginRef.current,
-            durationHintRef.current,
-          )
-        : video.currentTime;
+      const display = displayTimelineSeconds(
+        video.currentTime,
+        mediaOriginRef.current,
+        durationHintRef.current,
+      );
       void seekPlaybackTo(display + delta);
-      revealControls();
+      if (options?.reveal !== false) revealControls();
     },
     [revealControls, seekPlaybackTo],
   );
@@ -1219,8 +1409,18 @@ export function StreamPlayer({
     const audio = audioRef.current;
     if (!video) return;
     const value = Math.min(1, Math.max(0, nextVolume));
-    video.volume = value;
-    if (audio) audio.volume = value;
+    try {
+      video.volume = value;
+    } catch {
+      /* iOS: volume is read-only */
+    }
+    if (audio) {
+      try {
+        audio.volume = value;
+      } catch {
+        /* iOS: volume is read-only */
+      }
+    }
     video.muted = value === 0;
     if (audio) audio.muted = value === 0;
     setVolume(value);
@@ -1254,34 +1454,58 @@ export function StreamPlayer({
     if (!shell || !video) return;
 
     if (mobileLayout || isAppleMobileDevice()) {
-      await toggleVideoFullscreen(video, shell);
+      if (pseudoFullscreen) {
+        setPseudoFullscreen(false);
+        unlockPlaybackOrientation();
+        revealControls();
+        return;
+      }
+      if (enterIosNativeVideoFullscreen(video)) {
+        revealControls();
+        return;
+      }
+      const changed = await toggleVideoFullscreen(video, shell);
       const isFs =
         Boolean(document.fullscreenElement) ||
         isVideoInNativeFullscreen(video);
-      if (isFs && mobileLayout) {
+      if (isFs) {
         void lockPlaybackLandscape();
-      } else if (!isFs) {
-        unlockPlaybackOrientation();
+        revealControls();
+        return;
       }
+      if (changed) {
+        unlockPlaybackOrientation();
+        return;
+      }
+      setPseudoFullscreen(true);
+      setControls(true);
+      void lockPlaybackLandscape();
       return;
     }
 
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await shell.requestFullscreen();
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await shell.requestFullscreen();
+      }
+    } catch {
+      /* browser blocked fullscreen */
     }
-  }, [mobileLayout]);
+    revealControls();
+  }, [mobileLayout, pseudoFullscreen, revealControls]);
 
   const togglePip = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !pipSupported) return;
-    if (document.pictureInPictureElement) {
-      await document.exitPictureInPicture();
-    } else {
-      await video.requestPictureInPicture();
+    try {
+      await toggleVideoPictureInPicture(video);
+      setPip(isVideoInPictureInPicture(video));
+      revealControls();
+    } catch {
+      toast.message("Picture in picture is not available right now.");
     }
-  }, [pipSupported]);
+  }, [pipSupported, revealControls]);
 
   const skipTo = useCallback((seconds: number | null) => {
     if (seconds == null) return;
@@ -1307,13 +1531,11 @@ export function StreamPlayer({
       if (info) {
         const video = videoRef.current;
         if (video) {
-          resumeRef.current = usingHlsRef.current
-            ? displayTimelineSeconds(
-                video.currentTime,
-                mediaOriginRef.current,
-                durationHintRef.current,
-              )
-            : video.currentTime;
+          resumeRef.current = displayTimelineSeconds(
+            video.currentTime,
+            mediaOriginRef.current,
+            durationHintRef.current,
+          );
           resumeApplied.current = false;
         }
         if (usingHls) {
@@ -1332,13 +1554,11 @@ export function StreamPlayer({
       if (!id) return;
       const video = videoRef.current;
       const movieTime = video
-        ? usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime
+        ? displayTimelineSeconds(
+            video.currentTime,
+            mediaOriginRef.current,
+            durationHintRef.current,
+          )
         : currentTime;
       try {
         const body = await streamApi.selectTracks(id, input);
@@ -1363,7 +1583,9 @@ export function StreamPlayer({
           audioRef.current?.pause();
           audioRef.current?.removeAttribute("src");
           if (videoRef.current) videoRef.current.muted = muted;
-          if (isAppleMobileDevice()) {
+          if (body.session.remuxStream && !body.session.transcode && !isAppleMobileDevice()) {
+            attachProgressive(body.session);
+          } else if (isAppleMobileDevice()) {
             attachNativeHls(body.session);
           } else {
             attachHls(body.session);
@@ -1374,7 +1596,7 @@ export function StreamPlayer({
         setTrackNotice(err instanceof ApiError ? err.message : "Could not switch tracks.");
       }
     },
-    [attachHls, attachNativeHls, currentTime, muted, queryClient, usesPackagedHls],
+    [attachHls, attachNativeHls, attachProgressive, currentTime, muted, queryClient, usesPackagedHls],
   );
 
   useEffect(() => {
@@ -1393,7 +1615,10 @@ export function StreamPlayer({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(track.url!, { credentials: "include" });
+        const res = await fetch(track.url!, {
+          credentials: "include",
+          headers: playbackClientHeaders(),
+        });
         if (!res.ok) {
           throw new Error("unavailable");
         }
@@ -1476,13 +1701,11 @@ export function StreamPlayer({
       const baseUrl = selectedAudio.url;
       const liveExtract = Boolean(selectedAudio.embedded);
       const movieTime = () =>
-        usingHlsRef.current
-          ? displayTimelineSeconds(
-              video.currentTime,
-              mediaOriginRef.current,
-              durationHintRef.current,
-            )
-          : video.currentTime;
+        displayTimelineSeconds(
+          video.currentTime,
+          mediaOriginRef.current,
+          durationHintRef.current,
+        );
       loadExtracted(baseUrl, liveExtract ? movieTime() : 0);
       if (!liveExtract) {
         enableEmbedded(0);
@@ -1604,27 +1827,44 @@ export function StreamPlayer({
     [changeRate],
   );
 
-  const onSkinClick = useCallback(() => {
+  const lastMobileToggleMs = useRef(0);
+  const pendingSkinToggleRef = useRef<number | null>(null);
+  const lastSkipTapRef = useRef<{ side: "left" | "right"; t: number } | null>(null);
+
+  const toggleMobileControls = useCallback(() => {
+    const now = Date.now();
+    if (now - lastMobileToggleMs.current < 280) return;
+    lastMobileToggleMs.current = now;
+
     if (sheet) {
       setSheet(null);
       setSettingsView("root");
       return;
     }
-    const mobile = mobileLayout || isCoarsePointerMobile();
-    if (mobile) {
-      if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
-        void unlockMobileAudible();
-        revealControls();
-        return;
-      }
-      // YouTube-style mobile behavior: tapping the picture only shows/hides
-      // controls. Play/pause is reserved for the center transport button.
-      if (controls) {
-        setControls(false);
+    if (mobileStartMutedRef.current || iosMutedPlay || awaitingTap) {
+      void unlockMobileAudible();
+      revealControls();
+      return;
+    }
+    setControls((prev) => {
+      if (prev) {
         if (hideTimer.current) window.clearTimeout(hideTimer.current);
-      } else {
-        revealControls();
+        return false;
       }
+      revealControls();
+      return true;
+    });
+  }, [awaitingTap, iosMutedPlay, revealControls, sheet, unlockMobileAudible]);
+
+  const onSkinClick = useCallback(() => {
+    const mobile = mobileLayoutRef.current || isCoarsePointerMobile();
+    if (mobile) {
+      toggleMobileControls();
+      return;
+    }
+    if (sheet) {
+      setSheet(null);
+      setSettingsView("root");
       return;
     }
     if (iosMutedPlay || awaitingTap) {
@@ -1636,20 +1876,74 @@ export function StreamPlayer({
     revealControls();
   }, [
     awaitingTap,
-    controls,
     iosMutedPlay,
-    mobileLayout,
     revealControls,
     sheet,
+    toggleMobileControls,
     togglePlay,
     tryStartPlayback,
-    unlockMobileAudible,
   ]);
+
+  const onMobileSkinTap = useCallback(
+    (side: "left" | "right" | "center", event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      event.preventDefault();
+
+      const now = performance.now();
+      if (side === "left" || side === "right") {
+        const last = lastSkipTapRef.current;
+        if (last && last.side === side && now - last.t < 300) {
+          lastSkipTapRef.current = { side, t: now };
+          if (pendingSkinToggleRef.current != null) {
+            window.clearTimeout(pendingSkinToggleRef.current);
+            pendingSkinToggleRef.current = null;
+          }
+          seekBy(side === "left" ? -10 : 10, { reveal: false });
+          return;
+        }
+        lastSkipTapRef.current = { side, t: now };
+        if (pendingSkinToggleRef.current != null) {
+          window.clearTimeout(pendingSkinToggleRef.current);
+        }
+        pendingSkinToggleRef.current = window.setTimeout(() => {
+          pendingSkinToggleRef.current = null;
+          toggleMobileControls();
+        }, 300);
+        return;
+      }
+
+      lastSkipTapRef.current = null;
+      if (pendingSkinToggleRef.current != null) {
+        window.clearTimeout(pendingSkinToggleRef.current);
+        pendingSkinToggleRef.current = null;
+      }
+      toggleMobileControls();
+    },
+    [seekBy, toggleMobileControls],
+  );
+
+  useEffect(
+    () => () => {
+      if (pendingSkinToggleRef.current != null) {
+        window.clearTimeout(pendingSkinToggleRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) {
+      if (
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (
+        (event.key === " " || event.key === "Enter") &&
+        (target?.tagName === "BUTTON" || Boolean(target?.closest("button")))
+      ) {
         return;
       }
       revealControls();
@@ -1698,11 +1992,11 @@ export function StreamPlayer({
           break;
         case "n":
         case "N":
-          if (next) router.push(next.href);
+          if (next) goToPlayerHref(next.href);
           break;
         case "p":
         case "P":
-          if (previous) router.push(previous.href);
+          if (previous) goToPlayerHref(previous.href);
           break;
         case "i":
         case "I":
@@ -1750,6 +2044,7 @@ export function StreamPlayer({
     changeVolume,
     inIntro,
     inRecap,
+    goToPlayerHref,
     next,
     previous,
     rate,
@@ -1809,21 +2104,58 @@ export function StreamPlayer({
             ? "object-contain max-h-screen w-auto mx-auto [aspect-ratio:4/3]"
             : "object-contain";
 
-  const controlsVisible = controls || !playing || sheet != null;
-  const mobileChromeVisible = mobileLayout && controlsVisible && !loading;
+  const controlsVisible = mobileLayout
+    ? (controls || sheet != null) && !loading
+    : controls || !playing || sheet != null;
+  const mobileImmersive = fullscreen || pseudoFullscreen;
+  const mobileChromeVisible = mobileLayout && controlsVisible;
   const closeSheet = () => {
     setSheet(null);
     setSettingsView("root");
+    revealControls();
   };
 
   useEffect(() => {
-    if (!mobileLayout) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prevOverflow;
+    if (!trackNotice) return;
+    toast.message(trackNotice);
+  }, [trackNotice]);
+
+  const [volumeSliderEnabled, setVolumeSliderEnabled] = useState(true);
+
+  useEffect(() => {
+    setVolumeSliderEnabled(!isHtmlMediaVolumeReadOnly());
+  }, []);
+
+  useEffect(() => {
+    if (mobileLayout || !sheet || sheet === "info" || sheet === "chapters" || sheet === "cast") {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-player-menu-root]")) return;
+      setSheet(null);
+      setSettingsView("root");
     };
-  }, [mobileLayout]);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [mobileLayout, sheet]);
+
+  useEffect(() => {
+    return () => {
+      releaseBrowseScrollLock();
+    };
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const sync = () => setDevicePortrait(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const mobilePortraitLandscapeEmulate = pseudoFullscreen && devicePortrait;
 
   return (
     <div
@@ -1831,18 +2163,26 @@ export function StreamPlayer({
       className={cn(
         "bg-black text-white",
         mobileLayout
-          ? "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden"
+          ? cn(
+              "fixed inset-0 z-50 h-[100dvh] max-h-[100dvh] w-full overflow-hidden",
+              mobileImmersive && "z-[2147483646]",
+              mobilePortraitLandscapeEmulate && "mobile-player-shell-landscape-emulate",
+            )
           : "relative min-h-screen",
       )}
-      onMouseMove={revealControls}
-      onTouchStart={revealControls}
+      onMouseMove={() => {
+        if (!mobileLayoutRef.current && !isCoarsePointerMobile()) revealControls();
+      }}
+      onTouchStart={() => {
+        if (!mobileLayoutRef.current && !isCoarsePointerMobile()) revealControls();
+      }}
     >
       <video
         ref={videoRef}
         className={cn(
           "border-0 bg-black outline-none",
           mobileLayout
-            ? "absolute inset-0 z-[1] h-full w-full object-contain"
+            ? cn("absolute inset-0 z-[1] h-full w-full", videoObjectClass)
             : cn("h-screen w-full", videoObjectClass),
         )}
         playsInline
@@ -1850,8 +2190,47 @@ export function StreamPlayer({
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
         preload="auto"
-        onClick={onSkinClick}
+        onClick={mobileLayout ? undefined : onSkinClick}
       />
+
+      <canvas
+        ref={freezeCanvasRef}
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 z-[2] h-full w-full bg-transparent",
+          videoObjectClass,
+          buffering && !loading ? "opacity-100" : "opacity-0",
+        )}
+      />
+
+      {mobileLayout && !loading && !error ? (
+        <div className="absolute inset-0 z-[5] flex touch-manipulation">
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Rewind 10 seconds"
+            className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("left", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Show or hide player controls"
+            className="h-full min-w-0 flex-1 border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("center", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Forward 10 seconds"
+            className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerUp={(event) => onMobileSkinTap("right", event)}
+            onClick={(event) => event.preventDefault()}
+          />
+        </div>
+      ) : null}
 
       {awaitingTap && !error && !mobileLayout ? (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/50">
@@ -1870,7 +2249,14 @@ export function StreamPlayer({
       <audio ref={audioRef} preload="metadata" className="hidden" />
 
       {showStats ? (
-        <div className="pointer-events-none absolute left-4 top-20 z-20 max-w-sm rounded-lg bg-black/75 px-3 py-2 font-mono text-[11px] leading-relaxed text-green-300 ring-1 ring-white/10">
+        <div
+          className={cn(
+            "pointer-events-none absolute z-30 max-w-[min(100%-2rem,24rem)] rounded-lg bg-black/75 px-3 py-2 font-mono text-[11px] leading-relaxed text-green-300 ring-1 ring-white/10",
+            mobileLayout
+              ? "left-4 top-[max(4.75rem,calc(env(safe-area-inset-top)+3.75rem))]"
+              : "left-4 top-20",
+          )}
+        >
           <p>Player stats</p>
           <p>
             time {formatTime(currentTime)} / {formatTime(duration)}
@@ -1892,27 +2278,11 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || buffering) && !error && !(mobileLayout && playing && !loading) ? (
-        <div
-          className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/45 backdrop-blur-[1px]"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="relative flex h-20 w-20 items-center justify-center">
-            <span className="absolute inset-0 animate-ping rounded-full bg-primary/15 [animation-duration:1.8s]" />
-            <span className="absolute inset-1 animate-spin rounded-full border-2 border-transparent border-r-primary/40 border-t-primary shadow-[0_0_28px_rgb(38_191_176/0.28)] [animation-duration:1.1s]" />
-            <span className="absolute inset-3 animate-spin rounded-full border border-white/10 border-b-white/70 [animation-direction:reverse] [animation-duration:1.7s]" />
-            <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[var(--brand-deep)] shadow-[0_0_24px_rgb(38_191_176/0.42)]">
-              <Play className="ml-0.5 h-5 w-5 fill-white text-white" />
-            </span>
-          </div>
-          {loading ? (
-            <span className="rounded-full bg-black/35 px-4 py-1.5 text-xs font-medium tracking-wide text-white/80 ring-1 ring-white/10">
-              Preparing your movie…
-            </span>
-          ) : null}
-          <span className="sr-only">{loading ? "Loading" : "Buffering"}</span>
-        </div>
+      {(loading || buffering) && !error ? (
+        <PlayerBusyMark
+          mode={loading ? "preparing" : "buffering"}
+          freezeFrame={loading ? null : freezeFrame}
+        />
       ) : null}
 
       {error ? (
@@ -1931,7 +2301,12 @@ export function StreamPlayer({
 
       {inIntro ? (
         <Button
-          className="absolute right-6 top-24 z-20 min-h-12 px-6 text-base"
+          className={cn(
+            "absolute z-30 min-h-12 px-6 text-base",
+            mobileLayout
+              ? "right-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-24",
+          )}
           onClick={() => skipTo(markersRef.current.introEndSeconds)}
         >
           Skip intro
@@ -1939,7 +2314,12 @@ export function StreamPlayer({
       ) : null}
       {inRecap ? (
         <Button
-          className="absolute right-6 top-24 z-20 min-h-12 px-6 text-base"
+          className={cn(
+            "absolute z-30 min-h-12 px-6 text-base",
+            mobileLayout
+              ? "right-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-24",
+          )}
           onClick={() => skipTo(markersRef.current.recapEndSeconds)}
         >
           Skip recap
@@ -1947,14 +2327,30 @@ export function StreamPlayer({
       ) : null}
 
       {countdown != null && next ? (
-        <div className="absolute right-6 top-40 z-20 rounded-lg bg-black/80 p-4">
-          <p className="text-sm">Next episode in {countdown}s</p>
+        <div
+          className={cn(
+            "absolute z-30 rounded-xl bg-black/85 p-4 ring-1 ring-white/15 shadow-lg",
+            mobileLayout
+              ? "inset-x-4 bottom-[max(11rem,calc(env(safe-area-inset-bottom)+10rem))]"
+              : "right-6 top-40",
+          )}
+        >
+          <p className="text-sm font-medium">Next episode in {countdown}s</p>
           <p className="mt-1 text-xs text-white/70">{next.title}</p>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={() => router.push(next.href)}>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              className="min-h-11 flex-1 touch-manipulation sm:flex-none"
+              onClick={() => goToPlayerHref(next.href)}
+            >
               Play now
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setCountdown(null)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11 flex-1 touch-manipulation sm:flex-none"
+              onClick={() => setCountdown(null)}
+            >
               Stay
             </Button>
           </div>
@@ -1964,8 +2360,12 @@ export function StreamPlayer({
       <div
         className={cn(
           "absolute inset-0 z-10 transition-opacity duration-300",
-          mobileLayout ? "h-full" : "flex flex-col justify-between",
-          !mobileLayout && (controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"),
+          mobileLayout
+            ? cn("pointer-events-none h-full", !mobileChromeVisible && "opacity-0")
+            : cn(
+                "flex flex-col justify-between",
+                controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
+              ),
         )}
       >
         {mobileLayout ? (
@@ -1979,16 +2379,14 @@ export function StreamPlayer({
             duration={timelineDuration}
             bufferedEnd={bufferedEnd}
             transcode={packagedPlayback}
-            fullscreen={fullscreen}
-            qualityLabel={qualityMenuValue}
-            subtitlesOn={sheet === "subtitles" || Boolean(selectedSubtitle)}
-            audioOn={sheet === "audio" || audioTracks.length > 1}
+            fullscreen={mobileImmersive}
             settingsOn={sheet === "settings"}
             volume={volume}
             muted={muted}
             onGoBack={goBack}
             onVolumeChange={changeVolume}
             onToggleMute={toggleMute}
+            volumeSliderEnabled={volumeSliderEnabled}
             onVolumePanelChange={(open) => {
               if (open) {
                 setControls(true);
@@ -2009,14 +2407,15 @@ export function StreamPlayer({
                 revealControls();
               }
             }}
-            onToggleSubtitles={toggleSubtitlesMenu}
-            onToggleAudio={toggleAudioMenu}
             onToggleSettings={toggleSettingsMenu}
             onToggleFullscreen={() => void toggleFullscreen()}
-            onOpenQuality={() => {
-              setSheet("settings");
-              setSettingsView("quality");
-            }}
+            pipSupported={pipSupported}
+            pipActive={pip}
+            onTogglePip={() => void togglePip()}
+            hasPreviousEpisode={Boolean(previous)}
+            hasNextEpisode={Boolean(next)}
+            onPreviousEpisode={previous ? () => goToPlayerHref(previous.href) : undefined}
+            onNextEpisode={next ? () => goToPlayerHref(next.href) : undefined}
           />
         ) : (
           <>
@@ -2053,15 +2452,24 @@ export function StreamPlayer({
                 {muted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </IconButton>
             </div>
-            <IconButton label="Cast (not available)" onClick={() => undefined}>
+            <IconButton
+              label="Cast (not available)"
+              onClick={() => toast.message("Cast is not available in the browser player.")}
+            >
               <Cast className="h-5 w-5 opacity-70" />
             </IconButton>
             {pipSupported ? (
-              <IconButton label="Picture in picture" onClick={() => void togglePip()}>
-                <PictureInPicture2 className={cn("h-5 w-5", pip && "text-white")} />
-              </IconButton>
+              <span className="desktop-player-track-icon inline-flex">
+                <IconButton label="Picture in picture" active={pip} onClick={() => void togglePip()}>
+                  <PictureInPicture2 className="h-5 w-5" />
+                </IconButton>
+              </span>
             ) : null}
-            <IconButton label={fullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={() => void toggleFullscreen()}>
+            <IconButton
+              label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              active={fullscreen}
+              onClick={() => void toggleFullscreen()}
+            >
               {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
             </IconButton>
           </div>
@@ -2082,7 +2490,7 @@ export function StreamPlayer({
               <h1 className="truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
-              <div className="relative">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "subtitles" ? (
                   <div
                     role="menu"
@@ -2138,11 +2546,11 @@ export function StreamPlayer({
                     </ul>
                   </div>
                 ) : null}
-                <IconButton label="Subtitles" onClick={toggleSubtitlesMenu}>
-                  <Captions className={cn("h-5 w-5", sheet === "subtitles" && "text-white")} />
+                <IconButton label="Subtitles" active={sheet === "subtitles"} onClick={toggleSubtitlesMenu}>
+                  <Captions className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "audio" ? (
                   <div
                     role="menu"
@@ -2187,12 +2595,13 @@ export function StreamPlayer({
                       ? `Audio track (${selectedAudio?.languageLabel ?? "default"})`
                       : "Audio track"
                   }
+                  active={sheet === "audio"}
                   onClick={toggleAudioMenu}
                 >
-                  <AudioLines className={cn("h-5 w-5", (sheet === "audio" || audioTracks.length > 1) && "text-white")} />
+                  <AudioLines className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="desktop-player-track-icon relative" data-player-menu-root>
                 {sheet === "speed" ? (
                   <div
                     role="menu"
@@ -2223,11 +2632,11 @@ export function StreamPlayer({
                     </ul>
                   </div>
                 ) : null}
-                <IconButton label="Playback speed" onClick={toggleSpeedMenu}>
-                  <Gauge className={cn("h-5 w-5", sheet === "speed" && "text-white")} />
+                <IconButton label="Playback speed" active={sheet === "speed"} onClick={toggleSpeedMenu}>
+                  <Gauge className="h-5 w-5" />
                 </IconButton>
               </div>
-              <div className="relative">
+              <div className="relative" data-player-menu-root>
                 {sheet === "settings" ? (
                   <div
                     role="menu"
@@ -2363,8 +2772,8 @@ export function StreamPlayer({
                     ) : null}
                   </div>
                 ) : null}
-                <IconButton label="Settings" onClick={toggleSettingsMenu}>
-                  <Settings className={cn("h-5 w-5", sheet === "settings" && "text-white")} />
+                <IconButton label="Settings" active={sheet === "settings"} onClick={toggleSettingsMenu}>
+                  <Settings className="h-5 w-5" />
                 </IconButton>
               </div>
             </div>
@@ -2410,14 +2819,19 @@ export function StreamPlayer({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="ml-1 hidden min-h-10 text-white/80 hover:bg-white/10 md:inline-flex"
-                  onClick={() => router.push(previous.href)}
+                  className="ml-1 hidden min-h-10 rounded-full bg-white/10 px-3.5 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-white/15 backdrop-blur-md hover:bg-white/16 hover:text-white md:inline-flex"
+                  onClick={() => goToPlayerHref(previous.href)}
                 >
                   Previous
                 </Button>
               ) : null}
               {next ? (
-                <Button size="sm" className="ml-1 hidden min-h-10 md:inline-flex" onClick={() => router.push(next.href)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1 hidden min-h-10 rounded-full bg-white/10 px-3.5 text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-white/15 backdrop-blur-md hover:bg-white/16 hover:text-white md:inline-flex"
+                  onClick={() => goToPlayerHref(next.href)}
+                >
                   <SkipForward className="h-4 w-4" />
                   Next
                 </Button>
@@ -2555,50 +2969,83 @@ export function StreamPlayer({
 
       {mobileLayout && sheet === "settings" ? (
         <MobileBottomSheet
-          title={
-            settingsView === "quality"
-              ? "Quality"
-              : settingsView === "aspect"
-                ? "Aspect ratio"
-                : settingsView === "repeat"
-                  ? "Repeat"
-                  : "Settings"
-          }
+          title={mobileSettingsTitle(settingsView)}
           onClose={closeSheet}
+          onBack={settingsView === "root" ? undefined : () => setSettingsView("root")}
         >
           {settingsView === "root" ? (
             <ul className="py-1">
-              <SettingsMenuRow label="Quality" value={qualityMenuValue} onClick={() => setSettingsView("quality")} />
-              <SettingsMenuRow label="Aspect ratio" value={aspectLabel} onClick={() => setSettingsView("aspect")} />
-              <SettingsMenuRow label="Playback speed" value={formatSpeedLabel(rate)} onClick={() => setSheet("speed")} />
-              <SettingsMenuRow label="Audio" value={selectedAudio?.languageLabel ?? "Default"} onClick={() => setSheet("audio")} />
+              <SettingsMenuRow touch label="Quality" value={qualityMenuValue} onClick={() => setSettingsView("quality")} />
+              <SettingsMenuRow touch label="Aspect ratio" value={aspectLabel} onClick={() => setSettingsView("aspect")} />
+              <SettingsMenuRow touch label="Playback speed" value={formatSpeedLabel(rate)} onClick={() => setSettingsView("speed")} />
+              <SettingsMenuRow touch label="Audio" value={selectedAudio?.languageLabel ?? "Default"} onClick={() => setSettingsView("audio")} />
               <SettingsMenuRow
+                touch
                 label="Subtitles"
                 value={selectedSubtitle?.languageLabel ?? "Off"}
-                onClick={() => setSheet("subtitles")}
+                onClick={() => setSettingsView("subtitles")}
               />
-              <SettingsMenuRow label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
+              {pipSupported ? (
+                <SettingsMenuRow
+                  touch
+                  label="Picture in picture"
+                  value={pip ? "On" : "Off"}
+                  onClick={() => {
+                    void togglePip();
+                    closeSheet();
+                  }}
+                />
+              ) : null}
+              <SettingsMenuRow
+                touch
+                label="Cast"
+                value="Off"
+                onClick={() => {
+                  toast.message("Cast is not available in the browser player.");
+                  closeSheet();
+                }}
+              />
+              {next || previous ? (
+                <SettingsMenuRow
+                  touch
+                  label="Episodes"
+                  onClick={() => goToPlayerHref(backHref, { autoplay: false })}
+                />
+              ) : null}
+              <SettingsMenuRow touch label="Repeat" value={repeatLabel} onClick={() => setSettingsView("repeat")} />
+              <SettingsMenuRow
+                touch
+                label="Stats for nerds"
+                value={showStats ? "On" : "Off"}
+                onClick={() => {
+                  setShowStats((value) => !value);
+                  closeSheet();
+                }}
+              />
+              {trackNotice ? <li className="px-5 py-3 text-xs text-amber-200">{trackNotice}</li> : null}
             </ul>
           ) : null}
           {settingsView === "quality" ? (
             <ul className="py-1">
               <SettingsChoiceRow
+                touch
                 label={usingHls ? "Auto" : "Auto - Direct"}
                 selected={quality === "auto"}
                 onClick={() => {
                   applyQuality("auto");
-                  closeSheet();
+                  setSettingsView("root");
                 }}
               />
               {qualities.map((item) => (
                 <SettingsChoiceRow
                   key={item.resolution}
+                  touch
                   label={`${item.label} (${item.quality.toUpperCase()})`}
                   selected={quality === item.resolution}
                   disabled={!item.allowed}
                   onClick={() => {
                     applyQuality(item.resolution);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
                 />
               ))}
@@ -2609,11 +3056,12 @@ export function StreamPlayer({
               {ASPECT_OPTIONS.map((option) => (
                 <SettingsChoiceRow
                   key={option.id}
+                  touch
                   label={option.label}
                   selected={aspectRatio === option.id}
                   onClick={() => {
                     setAspectRatio(option.id);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
                 />
               ))}
@@ -2624,12 +3072,64 @@ export function StreamPlayer({
               {REPEAT_OPTIONS.map((option) => (
                 <SettingsChoiceRow
                   key={option.id}
+                  touch
                   label={option.label}
                   selected={repeatMode === option.id}
                   onClick={() => {
                     setRepeatMode(option.id);
-                    closeSheet();
+                    setSettingsView("root");
                   }}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "speed" ? (
+            <ul className="py-1">
+              {SPEEDS.map((speed) => (
+                <SettingsChoiceRow
+                  key={speed}
+                  touch
+                  label={formatSpeedLabel(speed)}
+                  selected={Math.abs(rate - speed) < 0.001}
+                  onClick={() => selectSpeed(speed)}
+                />
+              ))}
+            </ul>
+          ) : null}
+          {settingsView === "audio" ? (
+            <ul className="py-1">
+              {audioTracks.length === 0 ? (
+                <li className="px-5 py-3.5 text-sm text-white/50">Default audio</li>
+              ) : (
+                audioTracks.map((track) => (
+                  <SettingsChoiceRow
+                    key={track.id}
+                    touch
+                    label={formatAudioMenuLabel(track)}
+                    selected={track.id === session?.selectedAudioId}
+                    disabled={!track.playable}
+                    onClick={() => selectAudio(track.id)}
+                  />
+                ))
+              )}
+            </ul>
+          ) : null}
+          {settingsView === "subtitles" ? (
+            <ul className="py-1">
+              <SettingsChoiceRow
+                touch
+                label="Off"
+                selected={!selectedSubtitle}
+                onClick={() => selectSubtitle(null)}
+              />
+              {subtitleTracks.map((track) => (
+                <SettingsChoiceRow
+                  key={track.id}
+                  touch
+                  label={track.languageLabel || track.label}
+                  selected={track.id === session?.selectedSubtitleId}
+                  disabled={!track.playable}
+                  onClick={() => selectSubtitle(track.id)}
                 />
               ))}
             </ul>
@@ -2644,17 +3144,22 @@ function SettingsMenuRow({
   label,
   value,
   onClick,
+  touch,
 }: {
   label: string;
   value?: string;
   onClick: () => void;
+  touch?: boolean;
 }) {
   return (
     <li>
       <button
         type="button"
         role="menuitem"
-        className="flex w-full items-center justify-between gap-8 px-5 py-2.5 text-left text-sm text-white hover:bg-white/10"
+        className={cn(
+          "flex w-full items-center justify-between gap-8 px-5 text-left text-sm text-white hover:bg-white/10",
+          touch ? "py-3.5 active:bg-white/10" : "py-2.5",
+        )}
         onClick={onClick}
       >
         <span>{label}</span>
@@ -2669,11 +3174,13 @@ function SettingsChoiceRow({
   selected,
   disabled,
   onClick,
+  touch,
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
+  touch?: boolean;
 }) {
   return (
     <li>
@@ -2683,7 +3190,8 @@ function SettingsChoiceRow({
         aria-checked={selected}
         disabled={disabled}
         className={cn(
-          "flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40",
+          "flex w-full items-center gap-3 px-5 text-left text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40",
+          touch ? "py-3.5 active:bg-white/10" : "py-2.5",
           selected && "font-medium",
         )}
         onClick={onClick}
@@ -2727,18 +3235,24 @@ function SettingsSubmenu({
 function IconButton({
   label,
   onClick,
+  active,
   children,
 }: {
   label: string;
   onClick: () => void;
+  active?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onClick={onClick}
-      className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary"
+      className={cn(
+        "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary",
+        active && "bg-white/12 text-primary",
+      )}
     >
       {children}
     </button>
@@ -2785,6 +3299,25 @@ function formatAudioMenuLabel(track: PlaybackTrack): string {
   let text = bits.join(" ");
   if (track.isDefault) text += " (Default)";
   return text;
+}
+
+function mobileSettingsTitle(view: SettingsView): string {
+  switch (view) {
+    case "quality":
+      return "Quality";
+    case "aspect":
+      return "Aspect ratio";
+    case "repeat":
+      return "Repeat";
+    case "speed":
+      return "Playback speed";
+    case "audio":
+      return "Audio";
+    case "subtitles":
+      return "Subtitles";
+    default:
+      return "Settings";
+  }
 }
 
 function formatSpeedLabel(speed: number): string {

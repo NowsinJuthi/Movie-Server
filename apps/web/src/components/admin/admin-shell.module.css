@@ -4,29 +4,16 @@
   min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
-  padding-top: 0;
+  padding-top: var(--site-header-offset);
 }
 
 @media (max-width: 1023px) {
   .adminPanel {
     display: flex;
+    flex-direction: column;
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
-  }
-}
-
-.desktopHeader {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .adminPanel {
-    padding-top: 3.75rem;
-  }
-
-  .desktopHeader {
-    display: block;
   }
 }
 
@@ -45,14 +32,14 @@
 
 @media (min-width: 1024px) {
   .shell {
-    min-height: calc(100dvh - 3.75rem);
+    min-height: calc(100dvh - var(--site-header-offset));
   }
 }
 
 @media (min-width: 1024px) {
   .shell {
     grid-template-columns: 20rem 1fr;
-    height: calc(100dvh - 3.75rem);
+    height: calc(100dvh - var(--site-header-offset));
     min-height: 0;
     overflow: hidden;
   }
@@ -61,7 +48,7 @@
 .sidebarBackdrop {
   position: fixed;
   inset: 0;
-  top: 0;
+  top: var(--site-header-offset);
   z-index: 44;
   border: 0;
   background: rgb(0 0 0 / 0.55);
@@ -81,7 +68,7 @@
   .sidebar {
     position: fixed;
     left: 0;
-    top: 0;
+    top: var(--site-header-offset);
     bottom: 0;
     z-index: 45;
     padding-top: 0;
@@ -102,9 +89,9 @@
 @media (min-width: 1024px) {
   .sidebar {
     position: sticky;
-    top: 3.75rem;
+    top: var(--site-header-offset);
     display: flex;
-    height: calc(100dvh - 3.75rem);
+    height: calc(100dvh - var(--site-header-offset));
     transform: none;
     border-bottom: 0;
     border-right: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
@@ -451,7 +438,7 @@
   padding: 0.35rem 0.3rem 0.4rem;
   border-radius: 0.5rem;
   border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  background: color-mix(in srgb, #000f15 55%, transparent);
+  background: color-mix(in srgb, var(--background) 55%, transparent);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
   animation: none;
 }
@@ -490,8 +477,8 @@
   font-weight: 500;
   text-align: left;
   text-decoration: none;
-  color: #94a3b8;
-  background: color-mix(in srgb, #031a22 72%, transparent);
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
   transition:
     border-color 0.2s ease,
     color 0.2s ease,
@@ -535,8 +522,8 @@
   place-items: center;
   border-radius: 0.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  background: color-mix(in srgb, #06212a 70%, transparent);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--secondary) 70%, transparent);
+  color: var(--muted-foreground);
 }
 
 .subnavLink:hover .subnavIconBox {
@@ -648,31 +635,22 @@
 
 @media (max-width: 1023px) {
   .shell {
+    flex: 1;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .mobileMenuBar {
-    grid-row: 1;
+    grid-template-rows: 1fr;
   }
 
   .sidebar {
-    grid-row: 1 / -1;
+    grid-row: 1;
   }
 
   .content {
-    grid-row: 2;
+    grid-row: 1;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .mobileMenuBar {
-    position: sticky;
-    top: 0;
-    z-index: 15;
-    grid-row: 1;
   }
 }
 

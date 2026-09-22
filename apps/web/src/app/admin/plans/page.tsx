@@ -283,6 +283,7 @@ export default function AdminPlansPage() {
                 trialDays: values.trialDays,
                 sortOrder: values.sortOrder,
                 features: values.features,
+                featureBullets: values.featureBullets,
                 isActive: values.isActive,
               },
             });

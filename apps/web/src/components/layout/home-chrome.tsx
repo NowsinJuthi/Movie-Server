@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppHeader } from "@/components/layout/app-header";
-import { MobileNav } from "@/components/layout/mobile-nav";
 import { PwaInstallPrompt } from "@/components/layout/pwa-install-prompt";
 import { cn } from "@/lib/utils";
 import { profileApi } from "@/lib/profile-api";
@@ -61,12 +60,26 @@ export function HomeChrome({
   }, [activeQuery.data, setActiveProfile, router, status, pathname]);
 
   useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    document.documentElement.dataset.standalonePwa = standalone ? "true" : "false";
+  }, []);
+
+  useEffect(() => {
     if (isWatchRoute) return;
     if (!isHomeHero || isSubscribeRoute) {
       setScrolled(true);
       return;
     }
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    const onScroll = () => {
+      // UniQbd-style: mobile header stays a solid bar over the hero (no transparent overlay).
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setScrolled(true);
+        return;
+      }
+      setScrolled(window.scrollY > 24);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -85,17 +98,13 @@ export function HomeChrome({
       ) : null}
       <div
         className={cn(
-          !isWatchRoute && "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0",
+          !isWatchRoute &&
+            "browse-shell-offset pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] lg:pb-0",
         )}
       >
         {children}
       </div>
-      {!isWatchRoute ? (
-        <>
-          <PwaInstallPrompt />
-          <MobileNav />
-        </>
-      ) : null}
+      {!isWatchRoute ? <PwaInstallPrompt /> : null}
     </>
   );
 }

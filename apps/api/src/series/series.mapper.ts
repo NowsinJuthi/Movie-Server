@@ -95,6 +95,7 @@ export function toPublicSeries(
     autoPlayNext: series.autoPlayNext,
     seasonCount: counts?.seasons ?? 0,
     episodeCount: counts?.episodes ?? 0,
+    createdAt: series.createdAt?.toISOString(),
   };
 }
 

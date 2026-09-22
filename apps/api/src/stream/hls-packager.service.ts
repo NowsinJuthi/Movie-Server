@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
@@ -20,10 +21,13 @@ import {
 const PLAYLIST_NAME = 'stream.m3u8';
 const SEGMENT_PATTERN = /^seg\d+\.(?:ts|m4s)$/i;
 const INIT_SEGMENT_NAME = 'init.mp4';
+const HLS_KEY_NAME = 'enc.key';
+const HLS_KEYINFO_NAME = 'enc.keyinfo';
 
 type SessionPackState = {
   startSeconds: number;
   plan: TranscodePlan;
+  generation?: string;
 };
 
 @Injectable()
@@ -54,22 +58,37 @@ export class HlsPackagerService {
   async ensureFirstSegment(
     sessionId: string,
     absPath: string,
-    options?: { startSeconds?: number; timeoutMs?: number; plan?: TranscodePlan },
+    options?: {
+      startSeconds?: number;
+      timeoutMs?: number;
+      plan?: TranscodePlan;
+      generation?: string;
+      forceRestart?: boolean;
+    },
   ): Promise<string> {
     const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     const prior = this.sessionPack.get(sessionId);
     const plan = options?.plan ?? prior?.plan ?? (await buildTranscodePlan(absPath, this.config));
+    const generation = options?.generation;
+    const shouldRestart = Boolean(
+      options?.forceRestart ||
+        (prior &&
+          (prior.startSeconds !== startSeconds ||
+            packagingPlanKey(prior.plan) !== packagingPlanKey(plan) ||
+            (generation != null && generation !== prior.generation))),
+    );
 
-    if (
-      prior &&
-      (prior.startSeconds !== startSeconds || packagingPlanKey(prior.plan) !== packagingPlanKey(plan))
-    ) {
+    if (prior && shouldRestart) {
       await this.stopPackaging(sessionId);
     }
-    this.sessionPack.set(sessionId, { startSeconds, plan });
+    this.sessionPack.set(sessionId, {
+      startSeconds,
+      plan,
+      generation: generation ?? prior?.generation,
+    });
 
     const existing = this.starting.get(sessionId);
-    if (existing) {
+    if (existing && !shouldRestart) {
       return existing;
     }
 
@@ -84,7 +103,7 @@ export class HlsPackagerService {
     const initialSegments = startSeconds > 0.5 ? 1 : hlsInitialSegments(this.config, plan);
     try {
       await this.assertSegmentsReady(outDir, initialSegments, plan);
-      if (!prior || prior.startSeconds === startSeconds) {
+      if (!shouldRestart) {
         return outDir;
       }
     } catch {
@@ -112,6 +131,10 @@ export class HlsPackagerService {
     const playlistPath = path.join(this.outputDir(sessionId), PLAYLIST_NAME);
     const raw = await fs.readFile(playlistPath, 'utf8');
     return rewriteHlsPlaylist(raw, sessionId, mediaToken);
+  }
+
+  resolveKeyPath(sessionId: string): string {
+    return path.join(this.outputDir(sessionId), HLS_KEY_NAME);
   }
 
   resolveSegmentPath(sessionId: string, segment: string): string {
@@ -285,10 +308,13 @@ export class HlsPackagerService {
   private async finalizePlaylist(playlistPath: string): Promise<void> {
     try {
       const raw = await fs.readFile(playlistPath, 'utf8');
-      if (raw.includes('#EXT-X-ENDLIST')) {
-        return;
+      let next = raw.includes('#EXT-X-ENDLIST') ? raw : `${raw.trim()}\n#EXT-X-ENDLIST\n`;
+      if (/#EXT-X-PLAYLIST-TYPE:EVENT/i.test(next)) {
+        next = next.replace(/#EXT-X-PLAYLIST-TYPE:EVENT/i, '#EXT-X-PLAYLIST-TYPE:VOD');
       }
-      await fs.writeFile(playlistPath, `${raw.trim()}\n#EXT-X-ENDLIST\n`, 'utf8');
+      if (next !== raw) {
+        await fs.writeFile(playlistPath, next, 'utf8');
+      }
     } catch {
       /* best effort */
     }
@@ -315,29 +341,48 @@ export function buildFfmpegHlsArgs(
   segmentSeconds: number,
   startSeconds: number,
   config: ConfigService,
+  keyInfoPath?: string,
 ): string[] {
   const playlistPath = path.join(outDir, PLAYLIST_NAME);
   const fmp4 = usesFmp4Segments(plan);
   const segmentPath = path.join(outDir, fmp4 ? 'seg%03d.m4s' : 'seg%03d.ts');
   const base = [
-    ...ffmpegInputArgs(absPath, startSeconds, config),
+    ...ffmpegInputArgs(absPath, startSeconds, config, {
+      skipHwaccel: !plan.encodeVideo,
+      fastOpen: true,
+    }),
     '-map',
     '0:v:0',
     '-map',
     `0:a:${Math.max(0, plan.audioOrdinal)}?`,
+    '-muxdelay',
+    '0',
+    '-muxpreload',
+    '0',
+    '-max_delay',
+    '5000000',
   ];
   const hlsTail = [
     '-f',
     'hls',
     '-hls_time',
     String(segmentSeconds),
+    '-hls_init_time',
+    String(Math.min(2, segmentSeconds)),
+    // Emby/Jellyfin Direct Stream: EVENT playlist from this pack start, remux as
+    // fast as the disk allows (no -re). Players start at segment 0, not live-edge.
     '-hls_list_size',
     '0',
+    '-hls_playlist_type',
+    'event',
     '-hls_flags',
-    'independent_segments+append_list+omit_endlist+program_date_time+temp_file',
+    'independent_segments+omit_endlist+temp_file',
+    '-avoid_negative_ts',
+    'make_zero',
     ...(fmp4
       ? ['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', INIT_SEGMENT_NAME]
       : []),
+    ...(keyInfoPath ? ['-hls_key_info_file', keyInfoPath] : []),
     '-hls_segment_filename',
     segmentPath,
     playlistPath,
@@ -355,7 +400,8 @@ export function rewriteHlsPlaylist(
 ): string {
   const mt = encodeURIComponent(mediaToken);
   const prefix = `/api/v1/stream/${sessionId}/hls/`;
-  return raw
+  const withType = ensureHlsPlaylistType(raw);
+  return withType
     .split('\n')
     .map((line) => {
       const trimmed = line.trim();
@@ -363,6 +409,12 @@ export function rewriteHlsPlaylist(
         return line.replace(
           /URI="[^"]+"/,
           `URI="${prefix}${INIT_SEGMENT_NAME}?mt=${mt}"`,
+        );
+      }
+      if (trimmed.startsWith('#EXT-X-KEY:')) {
+        return line.replace(
+          /URI="[^"]+"/,
+          `URI="/api/v1/stream/${sessionId}/key?mt=${mt}"`,
         );
       }
       if (!trimmed || trimmed.startsWith('#')) {
@@ -375,6 +427,15 @@ export function rewriteHlsPlaylist(
       return line;
     })
     .join('\n');
+}
+
+/** EVENT = start at first segment (Emby Direct Stream). VOD once ffmpeg finishes. */
+export function ensureHlsPlaylistType(raw: string): string {
+  if (/#EXT-X-PLAYLIST-TYPE:/i.test(raw)) {
+    return raw;
+  }
+  const type = raw.includes('#EXT-X-ENDLIST') ? 'VOD' : 'EVENT';
+  return raw.replace(/^#EXTM3U[^\n]*/m, (line) => `${line}\n#EXT-X-PLAYLIST-TYPE:${type}`);
 }
 
 function usesFmp4Segments(plan: TranscodePlan): boolean {
@@ -404,4 +465,17 @@ function packagingPlanKey(plan: TranscodePlan): string {
     `o${plan.audioOrdinal}`,
     plan.probe.videoCodec ?? '',
   ].join(':');
+}
+
+async function writeHlsKeyInfo(outDir: string): Promise<string> {
+  const keyPath = path.join(outDir, HLS_KEY_NAME);
+  try {
+    await fs.access(keyPath);
+  } catch {
+    await fs.writeFile(keyPath, randomBytes(16));
+  }
+  const infoPath = path.join(outDir, HLS_KEYINFO_NAME);
+  const iv = randomBytes(16).toString('hex');
+  await fs.writeFile(infoPath, `${HLS_KEY_NAME}\n${keyPath}\n${iv}\n`);
+  return infoPath;
 }

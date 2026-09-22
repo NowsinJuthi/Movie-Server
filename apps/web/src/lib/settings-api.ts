@@ -39,6 +39,12 @@ export const settingsApi = {
       method: "POST",
       body: JSON.stringify({ to }),
     }),
+  recommendedEmailDomains: () =>
+    apiFetch<{ domains: string[] }>("/admin/settings/recommended-email-domains"),
+  registrationEmailPolicy: () =>
+    apiFetch<import("@movie-server/shared").PublicRegistrationEmailPolicy>(
+      "/settings/registration-email-policy",
+    ),
 };
 
 /** Cache-bust uploaded branding URLs after mutations. */

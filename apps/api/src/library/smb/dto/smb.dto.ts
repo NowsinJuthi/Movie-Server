@@ -151,6 +151,13 @@ export class UploadSmbMediaDto {
   @MaxLength(1024)
   path?: string;
 
+  /** Path under `path`, including subfolders (from folder upload). */
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(1024)
+  relativePath?: string;
+
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true' || value === '1')
   @IsBoolean()

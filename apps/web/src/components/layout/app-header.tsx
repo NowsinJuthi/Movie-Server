@@ -7,18 +7,39 @@ import {
   type PublicProfile,
 } from "@movie-server/shared";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Film, Home, Menu, Sparkles, Tv, X } from "lucide-react";
+import {
+  ChevronDown,
+  Clapperboard,
+  CreditCard,
+  Film,
+  Heart,
+  History,
+  Home,
+  LayoutDashboard,
+  ListVideo,
+  LogOut,
+  Menu,
+  MonitorSmartphone,
+  Settings,
+  Tv,
+  UserRound,
+  X,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { Suspense, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeSelector } from "@/components/theme/theme-selector";
 import { ProfileAvatar } from "@/components/profiles/profile-avatar";
 import { SearchBox } from "@/components/search/search-box";
 import { useBranding } from "@/components/branding/site-brand";
 import { authApi } from "@/lib/auth-api";
 import { publicLibraryApi } from "@/lib/public-library-api";
+import { movieUploadRequestApi } from "@/lib/movie-upload-request-api";
 import { brandingAssetSrc } from "@/lib/settings-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
+import { ensureBrowseDocumentScroll } from "@/lib/browse-document-scroll";
 import { cn } from "@/lib/utils";
 import styles from "./app-header.module.css";
 
@@ -27,12 +48,15 @@ export function AppHeader({
   planLabel,
   scrolled = true,
   variant = "browse",
+  onOpenAdminMenu,
 }: {
   profile?: PublicProfile | null;
   planLabel?: string | null;
   scrolled?: boolean;
   /** browse = storefront; admin = solid bar over admin pages */
   variant?: "browse" | "admin";
+  /** Mobile admin: open the admin navigation drawer (same role as browse hamburger). */
+  onOpenAdminMenu?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,12 +75,32 @@ export function AppHeader({
     staleTime: 60_000,
   });
 
+  const featuresQuery = useQuery({
+    queryKey: ["site-features"],
+    queryFn: movieUploadRequestApi.features,
+    staleTime: 30_000,
+    enabled: variant === "browse",
+  });
+
+  const movieRequestsEnabled = Boolean(featuresQuery.data?.movieUploadRequestsEnabled);
+  const requestsNavActive = pathname === "/home/request-movie";
+
   const libraries = librariesQuery.data?.libraries ?? [];
   const movieLibraries = libraries.filter((library) => library.kind === LibraryKind.Movies);
   const tvLibraries = libraries.filter((library) => library.kind === LibraryKind.Tv);
 
-  const solid = variant === "admin" || scrolled;
+  const [mobileBar, setMobileBar] = useState(false);
   const [browseMenuOpen, setBrowseMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setMobileBar(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const solid = variant === "admin" || scrolled || mobileBar;
 
   useEffect(() => {
     setBrowseMenuOpen(false);
@@ -64,10 +108,9 @@ export function AppHeader({
 
   useEffect(() => {
     if (!browseMenuOpen) return;
-    const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = previous;
+      ensureBrowseDocumentScroll();
     };
   }, [browseMenuOpen]);
 
@@ -76,7 +119,6 @@ export function AppHeader({
   };
 
   const homeActive = pathname === "/home";
-  const discoverActive = pathname === "/home/welcome";
   const activeLibraryId = pathname?.startsWith("/home/library/")
     ? pathname.split("/")[3]
     : null;
@@ -84,11 +126,7 @@ export function AppHeader({
   const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
   const logoButton = (
-    <button
-      type="button"
-      className={styles.logoBtn}
-      onClick={() => router.push("/home")}
-    >
+    <Link href="/home" className={cn(styles.logoBtn, "no-underline")}>
       {logoSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={logoSrc} alt={siteName} className={styles.logoImg} />
@@ -100,7 +138,7 @@ export function AppHeader({
           ) : null}
         </>
       )}
-    </button>
+    </Link>
   );
 
   const headerActions = (
@@ -110,13 +148,20 @@ export function AppHeader({
           <div className={cn(styles.iconBtn, "opacity-70")} aria-hidden />
         }
       >
-        <SearchBox triggerClassName={styles.iconBtn} />
+        <SearchBox triggerClassName={styles.headerCircleBtn} />
       </Suspense>
+      <div className="hidden lg:block">
+        <ThemeSelector variant="compact" />
+      </div>
       {planLabel && variant !== "admin" && !/^staff$/i.test(planLabel) && !/^admin$/i.test(planLabel) ? (
         <Button
           variant="ghost"
           className="hidden md:inline-flex"
-          onClick={() => router.push("/account/subscription")}
+          onClick={() =>
+            router.push(
+              planLabel.trim().toLowerCase() === "subscribe" ? "/subscribe" : "/account/subscription",
+            )
+          }
         >
           {planLabel}
         </Button>
@@ -151,6 +196,7 @@ export function AppHeader({
       <header
         className={cn(
           styles.siteHeader,
+          "site-browse-header",
           !solid && variant === "browse" && styles.siteHeaderTransparent,
         )}
       >
@@ -164,10 +210,20 @@ export function AppHeader({
                 className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
                 onClick={openMobileMenu}
               >
-                <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Menu className={styles.headerIconGlyph} aria-hidden />
               </button>
             ) : null}
-            <div className={cn(variant === "admin" ? "block" : "hidden lg:block")}>{logoButton}</div>
+            {variant === "admin" && onOpenAdminMenu ? (
+              <button
+                type="button"
+                aria-label="Open admin menu"
+                className={cn(styles.iconBtn, styles.mobileMenuBtn, "lg:hidden")}
+                onClick={onOpenAdminMenu}
+              >
+                <Menu className={styles.headerIconGlyph} aria-hidden />
+              </button>
+            ) : null}
+            <div className="hidden lg:block">{logoButton}</div>
           </div>
 
           {/* Center — mobile browse logo + desktop nav */}
@@ -175,17 +231,21 @@ export function AppHeader({
             {variant === "browse" ? (
               <div className={cn(styles.mobileLogoWrap, styles.mobileBrowseLogo)}>{logoButton}</div>
             ) : null}
+            {variant === "admin" ? (
+              <div className={cn(styles.mobileLogoWrap, styles.mobileBrowseLogo, "lg:hidden")}>
+                {logoButton}
+              </div>
+            ) : null}
 
             {variant === "browse" ? (
               <nav className={styles.desktopNav} aria-label="Main">
-                <HeaderLink href="/home" active={homeActive}>
+                <div className={styles.browseNavPanel}>
+                <HeaderLink href="/home" active={homeActive} icon={Home}>
                   Home
-                </HeaderLink>
-                <HeaderLink href="/home/welcome" active={discoverActive}>
-                  Discover
                 </HeaderLink>
                 <NavMenu
                   label="Movies"
+                  icon={Film}
                   active={moviesActive}
                   items={movieLibraries.map((library) => ({
                     id: library.id,
@@ -194,19 +254,70 @@ export function AppHeader({
                     active: library.id === activeLibraryId,
                   }))}
                   emptyHint="Add a movie library in Admin → Media libraries"
+                  footerItems={
+                    movieRequestsEnabled
+                      ? [
+                          {
+                            id: "request-movie",
+                            label: "Upload Request",
+                            href: "/home/request-movie?kind=movie",
+                            icon: Film,
+                          },
+                        ]
+                      : undefined
+                  }
                 />
                 {tvLibraries.length > 0 ? (
-                  <NavMenu
-                    label="TV Shows"
-                    active={tvActive}
+                <NavMenu
+                  label="TV Shows"
+                  icon={Tv}
+                  itemIcon={Tv}
+                  active={tvActive}
                     items={tvLibraries.map((library) => ({
                       id: library.id,
                       label: library.name,
                       href: `/home/library/${library.id}`,
                       active: library.id === activeLibraryId,
                     }))}
+                    footerItems={
+                      movieRequestsEnabled
+                        ? [
+                            {
+                              id: "request-tv",
+                              label: "Request a TV show",
+                              href: "/home/request-movie?kind=tv",
+                              icon: Tv,
+                            },
+                          ]
+                        : undefined
+                    }
                   />
                 ) : null}
+                {movieRequestsEnabled ? (
+                  <NavMenu
+                    label="Upload Request"
+                    icon={Clapperboard}
+                    active={requestsNavActive}
+                    items={[]}
+                    emptyHint={undefined}
+                    footerItems={[
+                      {
+                        id: "req-movie",
+                        label: "Upload Request",
+                        href: "/home/request-movie?kind=movie",
+                        icon: Film,
+                      },
+                      {
+                        id: "req-tv",
+                        label: "Request a TV show",
+                        href: "/home/request-movie?kind=tv",
+                        icon: Tv,
+                      },
+                    ]}
+                    footerOnly
+                  />
+                ) : null}
+                </div>
               </nav>
             ) : (
               <p className="hidden text-sm font-semibold text-muted-foreground lg:block">Administration</p>
@@ -221,7 +332,8 @@ export function AppHeader({
       {variant === "browse" && browseMenuOpen ? (
         <BrowseMobileDrawer
           homeActive={homeActive}
-          discoverActive={discoverActive}
+          showRequestMenu={movieRequestsEnabled}
+          requestsNavActive={requestsNavActive}
           activeLibraryId={activeLibraryId ?? undefined}
           movieLibraries={movieLibraries}
           tvLibraries={tvLibraries}
@@ -238,7 +350,8 @@ export function AppHeader({
 
 function BrowseMobileDrawer({
   homeActive,
-  discoverActive,
+  showRequestMenu,
+  requestsNavActive,
   activeLibraryId,
   movieLibraries,
   tvLibraries,
@@ -246,7 +359,8 @@ function BrowseMobileDrawer({
   onNavigate,
 }: {
   homeActive: boolean;
-  discoverActive: boolean;
+  showRequestMenu: boolean;
+  requestsNavActive: boolean;
   activeLibraryId?: string;
   movieLibraries: Array<{ id: string; name: string }>;
   tvLibraries: Array<{ id: string; name: string }>;
@@ -255,6 +369,7 @@ function BrowseMobileDrawer({
 }) {
   const [moviesOpen, setMoviesOpen] = useState(false);
   const [tvOpen, setTvOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const moviesActive = movieLibraries.some((library) => library.id === activeLibraryId);
   const tvActive = tvLibraries.some((library) => library.id === activeLibraryId);
 
@@ -269,19 +384,17 @@ function BrowseMobileDrawer({
           </button>
         </div>
         <nav className={cn(styles.mobileNavScroll, "brand-scrollbar")} aria-label="Browse libraries">
+          <div className={styles.browseMenuPanel}>
+            <div className={styles.browseSectionHead}>
+              <span className={styles.browseSectionIcon} aria-hidden>
+                <Clapperboard className="h-3.5 w-3.5" />
+              </span>
+              <p className={styles.browseSectionLabel}>Browse</p>
+            </div>
           <ul className={styles.mobileNavList}>
             <li>
               <MobileNavLink active={homeActive} icon={Home} onClick={() => onNavigate("/home")}>
                 Home
-              </MobileNavLink>
-            </li>
-            <li>
-              <MobileNavLink
-                active={discoverActive}
-                icon={Sparkles}
-                onClick={() => onNavigate("/home/welcome")}
-              >
-                Discover
               </MobileNavLink>
             </li>
 
@@ -309,8 +422,27 @@ function BrowseMobileDrawer({
                         </MobileNavLink>
                       </li>
                     ))}
+                    {showRequestMenu ? (
+                      <li>
+                        <MobileNavLink
+                          icon={Clapperboard}
+                          onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                        >
+                          Upload Request
+                        </MobileNavLink>
+                      </li>
+                    ) : null}
                   </ul>
                 ) : null}
+              </li>
+            ) : showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  icon={Film}
+                  onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                >
+                  Upload Request
+                </MobileNavLink>
               </li>
             ) : null}
 
@@ -338,11 +470,65 @@ function BrowseMobileDrawer({
                         </MobileNavLink>
                       </li>
                     ))}
+                    {showRequestMenu ? (
+                      <li>
+                        <MobileNavLink
+                          icon={Clapperboard}
+                          onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                        >
+                          Request a TV show
+                        </MobileNavLink>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+              </li>
+            ) : showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  icon={Tv}
+                  onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                >
+                  Request a TV show
+                </MobileNavLink>
+              </li>
+            ) : null}
+
+            {showRequestMenu ? (
+              <li>
+                <MobileNavLink
+                  active={requestsNavActive}
+                  icon={Clapperboard}
+                  chevron
+                  expanded={requestsOpen}
+                  onClick={() => setRequestsOpen((value) => !value)}
+                >
+                  Upload Request
+                </MobileNavLink>
+                {requestsOpen ? (
+                  <ul className={styles.mobileSubmenu}>
+                    <li>
+                      <MobileNavLink
+                        icon={Film}
+                        onClick={() => onNavigate("/home/request-movie?kind=movie")}
+                      >
+                        Upload Request
+                      </MobileNavLink>
+                    </li>
+                    <li>
+                      <MobileNavLink
+                        icon={Tv}
+                        onClick={() => onNavigate("/home/request-movie?kind=tv")}
+                      >
+                        Request a TV show
+                      </MobileNavLink>
+                    </li>
                   </ul>
                 ) : null}
               </li>
             ) : null}
           </ul>
+          </div>
 
           {movieLibraries.length === 0 && tvLibraries.length === 0 ? (
             <p className="px-3 py-4 text-sm text-muted-foreground">No libraries available yet.</p>
@@ -374,7 +560,11 @@ function MobileNavLink({
       className={cn(styles.mobileNavLink, active && styles.mobileNavLinkActive)}
       onClick={onClick}
     >
-      {active ? <span className={styles.mobileNavIndicator} aria-hidden /> : null}
+      <span
+        className={styles.mobileNavIndicator}
+        aria-hidden
+        style={{ visibility: active ? "visible" : "hidden" }}
+      />
       <span className={cn(styles.mobileNavIconBox, active && styles.mobileNavIconBoxActive)}>
         <Icon className="h-4 w-4" />
       </span>
@@ -398,24 +588,61 @@ export function BrowseHeader(props: {
   return <AppHeader {...props} variant="browse" />;
 }
 
+function BrowseNavItemContent({
+  icon: Icon,
+  active,
+  children,
+  chevron,
+  chevronOpen,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  active?: boolean;
+  children: ReactNode;
+  chevron?: boolean;
+  chevronOpen?: boolean;
+}) {
+  return (
+    <>
+      <span
+        className={styles.navIndicator}
+        aria-hidden
+        style={{ visibility: active ? "visible" : "hidden" }}
+      />
+      <span className={styles.navIconBox}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className={styles.navLabel}>{children}</span>
+      {chevron ? (
+        <ChevronDown
+          className={cn(styles.navDropdownChevron, chevronOpen && styles.navDropdownChevronOpen)}
+          aria-hidden
+        />
+      ) : null}
+    </>
+  );
+}
+
 function HeaderLink({
   href,
   active,
+  icon,
   children,
 }: {
   href: string;
   active?: boolean;
+  icon: ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
-  const router = useRouter();
   return (
-    <button
-      type="button"
-      className={cn(styles.navLink, active && styles.navLinkActive)}
-      onClick={() => router.push(href)}
+    <Link
+      href={href}
+      className={cn(styles.navLink, "no-underline", active && styles.navLinkActive)}
+      aria-current={active ? "page" : undefined}
     >
-      {children}
-    </button>
+      <BrowseNavItemContent icon={icon} active={active}>
+        {children}
+      </BrowseNavItemContent>
+    </Link>
   );
 }
 
@@ -478,17 +705,19 @@ function AccountMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className={styles.accountBtn}
+        className={cn(styles.accountBtn, open && styles.accountBtnOpen)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Account menu"
         onClick={() => setOpen((value) => !value)}
       >
-        {profile ? (
-          <ProfileAvatar profile={profile} size="sm" />
-        ) : (
-          <span className={styles.accountAvatar}>{accountInitial}</span>
-        )}
+        <span className={styles.accountAvatarWrap}>
+          {profile ? (
+            <ProfileAvatar profile={profile} size="sm" />
+          ) : (
+            <span className={styles.accountAvatar}>{accountInitial}</span>
+          )}
+        </span>
         <span className={styles.accountLabel}>{accountLabel}</span>
         <ChevronDown
           className={cn(
@@ -498,119 +727,156 @@ function AccountMenu({
         />
       </button>
       {open ? (
-        <div role="menu" className="absolute right-0 top-full z-50 min-w-[14rem] pt-2">
-          <div className={styles.menuPanel}>
-            <div className={styles.menuHeader}>
-              <p className="truncate text-sm font-semibold text-foreground">{accountLabel}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {profile?.name
-                  ? `Watching as ${profile.name}`
-                  : isAdmin
-                    ? "Admin"
-                    : "Signed in"}
-              </p>
+        <div role="menu" className={styles.accountMenuDropdown}>
+          <div className={cn(styles.accountMenuPanel, "brand-scrollbar")}>
+            <div className={styles.accountMenuHead}>
+              <span className={styles.browseSectionIcon} aria-hidden>
+                <UserRound className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{accountLabel}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {profile?.name
+                    ? `Watching as ${profile.name}`
+                    : isAdmin
+                      ? "Admin"
+                      : "Signed in"}
+                </p>
+              </div>
             </div>
-            <div className="py-1">
+            <ul className={styles.accountMenuList}>
               {profile ? (
+                <li>
+                  <MenuItem
+                    icon={UserRound}
+                    onClick={() => {
+                      setOpen(false);
+                      onProfiles();
+                    }}
+                  >
+                    Switch profile
+                  </MenuItem>
+                </li>
+              ) : null}
+              <li>
                 <MenuItem
+                  icon={ListVideo}
                   onClick={() => {
                     setOpen(false);
-                    onProfiles();
+                    onMyList();
                   }}
                 >
-                  Switch profile
+                  My List
                 </MenuItem>
-              ) : null}
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onMyList();
-                }}
-              >
-                My List
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onFavorites();
-                }}
-              >
-                Favorites
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onHistory();
-                }}
-              >
-                History
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onDevices();
-                }}
-              >
-                Devices
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onSettings();
-                }}
-              >
-                Account settings
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setOpen(false);
-                  onSubscription();
-                }}
-              >
-                Subscription
-              </MenuItem>
-            </div>
-            {isAdmin ? (
-              <div className="border-t border-border py-1">
-                {onAdminRoute ? (
-                  <MenuItem
-                    onClick={() => {
-                      setOpen(false);
-                      onHome();
-                    }}
-                  >
-                    Browse home
-                  </MenuItem>
-                ) : (
-                  <MenuItem
-                    accent
-                    onClick={() => {
-                      setOpen(false);
-                      onAdmin();
-                    }}
-                  >
-                    Admin Dashboard
-                  </MenuItem>
-                )}
-              </div>
-            ) : null}
-            <div className="border-t border-border py-1">
-              <MenuItem
-                danger
-                disabled={signingOut}
-                onClick={async () => {
-                  setSigningOut(true);
-                  try {
-                    await onSignOut();
-                  } finally {
-                    setSigningOut(false);
+              </li>
+              <li>
+                <MenuItem
+                  icon={Heart}
+                  onClick={() => {
                     setOpen(false);
-                  }
-                }}
-              >
-                {signingOut ? "Signing out..." : "Sign out"}
-              </MenuItem>
-            </div>
+                    onFavorites();
+                  }}
+                >
+                  Favorites
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={History}
+                  onClick={() => {
+                    setOpen(false);
+                    onHistory();
+                  }}
+                >
+                  History
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={MonitorSmartphone}
+                  onClick={() => {
+                    setOpen(false);
+                    onDevices();
+                  }}
+                >
+                  Devices
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={Settings}
+                  onClick={() => {
+                    setOpen(false);
+                    onSettings();
+                  }}
+                >
+                  Account settings
+                </MenuItem>
+              </li>
+              <li>
+                <MenuItem
+                  icon={CreditCard}
+                  onClick={() => {
+                    setOpen(false);
+                    onSubscription();
+                  }}
+                >
+                  Subscription
+                </MenuItem>
+              </li>
+            </ul>
+            <ThemeSelector variant="menu" />
+            {isAdmin ? (
+              <>
+                <p className={styles.accountMenuSectionLabel}>Workspace</p>
+                <ul className={styles.accountMenuList}>
+                  <li>
+                    {onAdminRoute ? (
+                      <MenuItem
+                        icon={Home}
+                        onClick={() => {
+                          setOpen(false);
+                          onHome();
+                        }}
+                      >
+                        Browse home
+                      </MenuItem>
+                    ) : (
+                      <MenuItem
+                        icon={LayoutDashboard}
+                        accent
+                        onClick={() => {
+                          setOpen(false);
+                          onAdmin();
+                        }}
+                      >
+                        Admin Dashboard
+                      </MenuItem>
+                    )}
+                  </li>
+                </ul>
+              </>
+            ) : null}
+            <ul className={cn(styles.accountMenuList, styles.accountMenuListDanger)}>
+              <li>
+                <MenuItem
+                  icon={LogOut}
+                  danger
+                  disabled={signingOut}
+                  onClick={async () => {
+                    setSigningOut(true);
+                    try {
+                      await onSignOut();
+                    } finally {
+                      setSigningOut(false);
+                      setOpen(false);
+                    }
+                  }}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </MenuItem>
+              </li>
+            </ul>
           </div>
         </div>
       ) : null}
@@ -619,12 +885,14 @@ function AccountMenu({
 }
 
 function MenuItem({
+  icon: Icon,
   children,
   onClick,
   disabled,
   accent,
   danger,
 }: {
+  icon: ComponentType<{ className?: string }>;
   children: ReactNode;
   onClick: () => void | Promise<void>;
   disabled?: boolean;
@@ -637,29 +905,47 @@ function MenuItem({
       role="menuitem"
       disabled={disabled}
       className={cn(
-        styles.menuItem,
-        accent && styles.menuItemAccent,
-        danger && styles.menuItemDanger,
+        styles.accountMenuItem,
+        accent && styles.accountMenuItemAccent,
+        danger && styles.accountMenuItemDanger,
       )}
       onClick={onClick}
     >
-      {children}
+      <span className={styles.accountMenuIconBox} aria-hidden>
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className={styles.navLabel}>{children}</span>
     </button>
   );
 }
 
+type NavFooterItem = {
+  id: string;
+  label: string;
+  href: string;
+  icon?: ComponentType<{ className?: string }>;
+};
+
 function NavMenu({
   label,
+  icon,
+  itemIcon: ItemIcon = Film,
   items,
   emptyHint,
   active,
+  footerItems,
+  footerOnly,
 }: {
   label: string;
+  icon: ComponentType<{ className?: string }>;
+  itemIcon?: ComponentType<{ className?: string }>;
   items: Array<{ id: string; label: string; href: string; active?: boolean }>;
   emptyHint?: string;
   active?: boolean;
+  footerItems?: NavFooterItem[];
+  /** When true, dropdown shows only footer actions (e.g. Requests menu). */
+  footerOnly?: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -716,34 +1002,73 @@ function NavMenu({
           setOpen((value) => !value);
         }}
       >
-        <span>{label}</span>
-        <ChevronDown
-          className={cn(styles.navDropdownChevron, open && styles.navDropdownChevronOpen)}
-          aria-hidden
-        />
+        <BrowseNavItemContent icon={icon} active={active} chevron chevronOpen={open}>
+          {label}
+        </BrowseNavItemContent>
       </button>
       {open ? (
         <div className={styles.navDropdownMenu} role="menu">
           <div className={styles.navDropdownMenuInner}>
-            {items.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
-            ) : (
-              items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="menuitem"
-                  className={cn(styles.navDropdownItem, item.active && styles.navDropdownItemActive)}
-                  onClick={() => {
-                    cancelScheduledClose();
-                    setOpen(false);
-                    router.push(item.href);
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))
-            )}
+            {!footerOnly ? (
+              items.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">{emptyHint ?? "No libraries yet"}</p>
+              ) : (
+                items.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    role="menuitem"
+                    className={cn(
+                      styles.navDropdownItem,
+                      "no-underline",
+                      item.active && styles.navDropdownItemActive,
+                    )}
+                    aria-current={item.active ? "page" : undefined}
+                    onClick={() => {
+                      cancelScheduledClose();
+                      setOpen(false);
+                    }}
+                  >
+                    <span
+                      className={styles.navIndicator}
+                      aria-hidden
+                      style={{ visibility: item.active ? "visible" : "hidden" }}
+                    />
+                    <span className={styles.navDropdownIconBox} aria-hidden>
+                      <ItemIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 truncate">{item.label}</span>
+                  </Link>
+                ))
+              )
+            ) : null}
+            {footerItems && footerItems.length > 0 ? (
+              <>
+                {!footerOnly && items.length > 0 ? <div className={styles.navDropdownDivider} /> : null}
+                {footerItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      role="menuitem"
+                      className={cn(styles.navDropdownFooterItem, "no-underline")}
+                      onClick={() => {
+                        cancelScheduledClose();
+                        setOpen(false);
+                      }}
+                    >
+                      {Icon ? (
+                        <span className={styles.navDropdownIconBox} aria-hidden>
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -112,6 +112,7 @@ export function toPublicMovie(
     progressSeconds: options?.progress?.progressSeconds,
     durationSeconds: options?.progress?.durationSeconds,
     watched: options?.progress?.completed,
+    createdAt: movie.createdAt?.toISOString(),
   };
 }
 

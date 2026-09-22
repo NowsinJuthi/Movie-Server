@@ -102,7 +102,10 @@ export class FfmpegRemuxService {
     const bin = resolveFfmpegPath(this.config);
     const segmentSeconds = transcodeSegmentSeconds(this.config);
     const args = [
-      ...ffmpegInputArgs(absPath, startSeconds, this.config),
+      ...ffmpegInputArgs(absPath, startSeconds, this.config, {
+        skipHwaccel: !plan.encodeVideo,
+        fastOpen: true,
+      }),
       '-map',
       '0:v:0',
       '-map',

@@ -19,7 +19,7 @@
 .stat {
   border-radius: 1rem;
   border: 1px solid rgb(38 191 176 / 0.18);
-  background: linear-gradient(165deg, rgb(3 26 34 / 0.95), rgb(1 19 26 / 0.9));
+  background: linear-gradient(165deg, color-mix(in srgb, var(--card) 95%, transparent), color-mix(in srgb, var(--background) 90%, transparent));
   padding: 0.95rem 1rem;
 }
 
@@ -29,7 +29,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .statValue {
@@ -43,7 +43,7 @@
 .panel {
   border-radius: 1.15rem;
   border: 1px solid rgb(255 255 255 / 0.07);
-  background: rgb(3 26 34 / 0.72);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
   padding: 1.15rem;
 }
 
@@ -65,7 +65,7 @@
   margin: 0.3rem 0 0;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .formGrid {
@@ -85,7 +85,7 @@
   margin-bottom: 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c5d5d9;
+  color: var(--muted-foreground);
 }
 
 .select,
@@ -138,7 +138,7 @@
   overflow: hidden;
   border-radius: 0.9rem;
   border: 1px solid rgb(255 255 255 / 0.07);
-  background: rgb(3 26 34 / 0.78);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
@@ -157,7 +157,7 @@
   height: 5.25rem;
   background:
     radial-gradient(circle at 30% 20%, rgb(38 191 176 / 0.22), transparent 55%),
-    linear-gradient(160deg, #06212a, #01131a);
+    linear-gradient(160deg, var(--secondary), var(--background));
 }
 
 .cardMedia img {
@@ -229,7 +229,7 @@
 .cardPath {
   margin: 0.15rem 0 0;
   font-size: 0.65rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
   word-break: break-all;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -263,7 +263,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .metricValue {
@@ -290,10 +290,10 @@
 .empty {
   border-radius: 1.15rem;
   border: 1px dashed rgb(255 255 255 / 0.12);
-  background: rgb(3 26 34 / 0.45);
+  background: color-mix(in srgb, var(--card) 45%, transparent);
   padding: 2.5rem 1.25rem;
   text-align: center;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .scanBar {
@@ -322,7 +322,7 @@
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.72rem;
   line-height: 1.55;
-  color: #94a3b8;
+  color: var(--muted-foreground);
 }
 
 .editGrid {
@@ -355,7 +355,7 @@
   place-items: center;
   height: 100%;
   font-size: 0.75rem;
-  color: #8aa3aa;
+  color: var(--muted-foreground);
 }
 
 .itemsWrap {
@@ -373,8 +373,8 @@
 
 .itemsTable th {
   padding: 0.75rem 1rem;
-  background: rgb(6 33 42 / 0.9);
-  color: #8aa3aa;
+  background: color-mix(in srgb, var(--secondary) 90%, transparent);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;

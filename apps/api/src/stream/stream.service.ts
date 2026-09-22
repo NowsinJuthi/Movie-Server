@@ -323,6 +323,7 @@ export class StreamService {
     userId: string,
     preferredResolution?: string,
     startSeconds = 0,
+    packGeneration?: string,
   ): Promise<void> {
     const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
     if (!session.videoTranscode && !session.videoRemux) {
@@ -331,6 +332,27 @@ export class StreamService {
     await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
       startSeconds: Math.max(0, startSeconds),
       plan: this.sessionTranscodePlan(session),
+      generation: packGeneration,
+    });
+  }
+
+  /** Package MP4 direct-play as fMP4 HLS so playlists never expose one full-file /media URL. */
+  async ensureDirectPlayHls(
+    sessionId: string,
+    userId: string,
+    preferredResolution?: string,
+    startSeconds = 0,
+    packGeneration?: string,
+  ): Promise<void> {
+    const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
+    if (session.videoTranscode || session.videoRemux) {
+      return;
+    }
+    const plan = await buildTranscodePlan(absPath, this.config);
+    await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
+      startSeconds: Math.max(0, startSeconds),
+      plan,
+      generation: packGeneration,
     });
   }
 
@@ -339,10 +361,17 @@ export class StreamService {
     resolution: string,
     mediaToken: string,
   ): Promise<string> {
-    if (!session.videoTranscode && !session.videoRemux) {
-      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+    try {
+      return await this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
+    } catch {
+      if (!session.videoTranscode && !session.videoRemux) {
+        return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+      }
+      throw new NotFoundException({
+        error: ErrorCode.PlaybackUnavailable,
+        message: 'HLS playlist is not ready.',
+      });
     }
-    return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
   }
 
   async seekHls(
@@ -353,11 +382,13 @@ export class StreamService {
   ): Promise<void> {
     const session = await this.sessions.requireOwned(sessionId, userId);
     await this.ensurePlayable(session, userId);
-    if (!session.videoTranscode && !session.videoRemux) {
+    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
+    const generation = `seek-${Date.now()}`;
+    if (session.videoTranscode || session.videoRemux) {
+      await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped, generation);
       return;
     }
-    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
-    await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped);
+    await this.ensureDirectPlayHls(sessionId, userId, preferredResolution, clamped, generation);
   }
 
   async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {
@@ -651,7 +682,7 @@ export class StreamService {
     sessionId: string,
     userId: string,
     preferredResolution?: string,
-    options?: { disallowRemux?: boolean },
+    options?: { disallowRemux?: boolean; startSeconds?: number },
   ): Promise<{
     size: number;
     mime: string;
@@ -686,6 +717,7 @@ export class StreamService {
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
     const needsTranscode = session.videoTranscode;
     const remux = containerRemux || needsTranscode;
+    const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     // iOS Safari cannot play MKV/WebM remux streams; HLS transcode path handles mobile playback.
     if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !needsTranscode) {
       throw new BadRequestException({
@@ -701,10 +733,14 @@ export class StreamService {
         remux: true,
         open: async () =>
           needsTranscode
-            ? this.remux.openVideoStream(located.absPath, this.sessionTranscodePlan(session), 0)
+            ? this.remux.openVideoStream(
+                located.absPath,
+                this.sessionTranscodePlan(session),
+                startSeconds,
+              )
             : this.remux.openVideoRemux(
                 located.absPath,
-                0,
+                startSeconds,
                 session.transcodeAudioOrdinal ?? 0,
               ),
       };
@@ -808,7 +844,8 @@ export class StreamService {
       id: session.id,
       protocol: 'hls',
       hlsUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
-      progressiveUrl: `${API}/stream/${session.id}/media?mt=${mt}`,
+      // Never advertise a full-file URL — IDM sniffs this from the playback JSON.
+      progressiveUrl: `${API}/stream/${session.id}/master?mt=${mt}`,
       // Video re-encode only — audio-only AAC conversion (DTS/EAC3) is DirectStream, not transcode.
       transcode: Boolean(session.transcodeEncodeVideo),
       audioTranscode: Boolean(session.transcodeEncodeAudio),

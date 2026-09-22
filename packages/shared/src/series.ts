@@ -79,6 +79,7 @@ export type PublicSeries = {
   autoPlayNext: boolean;
   seasonCount: number;
   episodeCount: number;
+  createdAt?: string;
 };
 
 export type PublicSeason = {
