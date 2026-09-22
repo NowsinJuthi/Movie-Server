@@ -87,13 +87,13 @@ export function LibraryBrowseClient() {
         </section>
       ) : (
         <>
-          <section className="px-3 pb-4 pt-24 sm:px-4 md:px-5 lg:px-6">
+          <section className="px-3 pb-2 pt-3 sm:px-4 md:px-5 md:pt-4 lg:px-6 lg:pt-3">
             <h1 className="text-xl font-semibold text-[#f8fafc] md:text-2xl">
               {library?.name ?? "Library"}
             </h1>
           </section>
 
-          <section className="w-full space-y-6 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
+          <section className="w-full space-y-4 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             {!browseQuery.data && !error ? (
