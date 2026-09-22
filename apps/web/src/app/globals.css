@@ -189,6 +189,13 @@ body {
   overscroll-behavior-x: contain;
 }
 
+/* Phone/tablet: PiP, audio, quality, captions stay in Settings only. */
+@media (pointer: coarse), (hover: none) {
+  .desktop-player-track-icon {
+    display: none !important;
+  }
+}
+
 
 .poster-placeholder {
   position: absolute;

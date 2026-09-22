@@ -2254,7 +2254,7 @@ export function StreamPlayer({
               <Cast className="h-5 w-5 opacity-70" />
             </IconButton>
             {pipSupported ? (
-              <span className="hidden lg:inline-flex">
+              <span className="desktop-player-track-icon hidden xl:inline-flex">
                 <IconButton label="Picture in picture" onClick={() => void togglePip()}>
                   <PictureInPicture2 className={cn("h-5 w-5", pip && "text-white")} />
                 </IconButton>
@@ -2281,7 +2281,7 @@ export function StreamPlayer({
               <h1 className="truncate text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
-              <div className="relative hidden lg:block">
+              <div className="desktop-player-track-icon relative hidden xl:block">
                 {sheet === "subtitles" ? (
                   <div
                     role="menu"
@@ -2341,7 +2341,7 @@ export function StreamPlayer({
                   <Captions className={cn("h-5 w-5", sheet === "subtitles" && "text-white")} />
                 </IconButton>
               </div>
-              <div className="relative hidden lg:block">
+              <div className="desktop-player-track-icon relative hidden xl:block">
                 {sheet === "audio" ? (
                   <div
                     role="menu"
@@ -2391,7 +2391,7 @@ export function StreamPlayer({
                   <AudioLines className={cn("h-5 w-5", (sheet === "audio" || audioTracks.length > 1) && "text-white")} />
                 </IconButton>
               </div>
-              <div className="relative hidden lg:block">
+              <div className="desktop-player-track-icon relative hidden xl:block">
                 {sheet === "speed" ? (
                   <div
                     role="menu"
