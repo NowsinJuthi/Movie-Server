@@ -218,6 +218,26 @@
   font-weight: 600;
 }
 
+.titleFile {
+  display: block;
+  margin-top: 0.15rem;
+  max-width: min(28rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--foreground) 88%, var(--muted-foreground));
+}
+
+.titleFileMuted {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
 .titleMeta {
   display: block;
   margin-top: 0.1rem;

@@ -16,6 +16,7 @@ import { AdminTracksController } from './admin-tracks.controller';
 import { ArtworkController } from './artwork.controller';
 import { StreamModule } from '../stream/stream.module';
 import { LibraryExclusionModule } from '../library/library-exclusion.module';
+import { LibraryItem, LibraryItemSchema } from '../library/schemas/library-item.schema';
 import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
 
 @Module({
@@ -28,6 +29,7 @@ import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
       { name: Movie.name, schema: MovieSchema },
       { name: MovieCollection.name, schema: MovieCollectionSchema },
       { name: MediaAsset.name, schema: MediaAssetSchema },
+      { name: LibraryItem.name, schema: LibraryItemSchema },
     ]),
   ],
   controllers: [

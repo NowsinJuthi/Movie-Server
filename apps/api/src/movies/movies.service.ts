@@ -5,11 +5,14 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import path from 'node:path';
 import {
   BulkMovieAction,
   ErrorCode,
   MATURITY_RANK,
   MediaAssetStatus,
+  LibraryFileKind,
+  LibraryItemStatus,
   MediaKind,
   MovieAvailability,
   MovieSort,
@@ -52,6 +55,7 @@ import { foldMarkerFields, toPlaybackMarkers } from '../stream/playback-markers.
 import { WatchHistoryService } from '../profiles/watch-history.service';
 import { SubscriptionAccessService } from '../subscriptions/subscription-access.service';
 import { LibraryExclusionService } from '../library/library-exclusion.service';
+import { LibraryItem, LibraryItemDocument } from '../library/schemas/library-item.schema';
 import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
 
 const SHELF_LIMIT = 12;
@@ -64,6 +68,8 @@ export class MoviesService {
     @InjectModel(MediaAsset.name) private readonly assetModel: Model<MediaAssetDocument>,
     @InjectModel(MovieCollection.name)
     private readonly collectionModel: Model<MovieCollectionDocument>,
+    @InjectModel(LibraryItem.name)
+    private readonly libraryItemModel: Model<LibraryItemDocument>,
     private readonly profiles: ProfilesService,
     private readonly collections: CollectionsService,
     private readonly artwork: ArtworkStorageService,
@@ -193,17 +199,71 @@ export class MoviesService {
     return map;
   }
 
+  private libraryVideoFileName(relativePath: string): string {
+    return path.posix.basename(relativePath.replace(/\\/g, '/'));
+  }
+
+  private rankPrimaryLibraryVideo(item: LibraryItemDocument): number {
+    let score = 0;
+    if (item.status === LibraryItemStatus.Ready) {
+      score += 1_000_000;
+    }
+    score += Math.min(item.sizeBytes, 10_000_000_000);
+    return score;
+  }
+
+  private async primaryLibraryVideosByMovie(
+    movieIds: Types.ObjectId[],
+  ): Promise<Map<string, { fileName: string; sizeBytes: number }>> {
+    if (movieIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.libraryItemModel
+      .find({
+        movieId: { $in: movieIds },
+        fileKind: LibraryFileKind.Video,
+        ignored: false,
+        duplicateOf: null,
+      })
+      .select('movieId relativePath sizeBytes status')
+      .lean();
+    const best = new Map<string, { fileName: string; sizeBytes: number; rank: number }>();
+    for (const row of rows) {
+      if (!row.movieId) {
+        continue;
+      }
+      const movieId = String(row.movieId);
+      const rank = this.rankPrimaryLibraryVideo(row as LibraryItemDocument);
+      const candidate = {
+        fileName: this.libraryVideoFileName(row.relativePath),
+        sizeBytes: row.sizeBytes,
+        rank,
+      };
+      const current = best.get(movieId);
+      if (!current || candidate.rank > current.rank) {
+        best.set(movieId, candidate);
+      }
+    }
+    const out = new Map<string, { fileName: string; sizeBytes: number }>();
+    for (const [movieId, value] of best) {
+      out.set(movieId, { fileName: value.fileName, sizeBytes: value.sizeBytes });
+    }
+    return out;
+  }
+
   private mapMovies(
     movies: MovieDocument[],
     assets: Map<string, MediaAssetDocument[]>,
     entitlement?: SubscriptionEntitlement | null,
     admin = false,
+    libraryVideos?: Map<string, { fileName: string; sizeBytes: number }>,
   ): PublicMovie[] {
     return movies.map((movie) =>
       toPublicMovie(movie, {
         entitlement,
         assets: assets.get(String(movie._id)) ?? [],
         admin,
+        sourceVideo: admin ? (libraryVideos?.get(String(movie._id)) ?? null) : undefined,
       }),
     );
   }
@@ -228,9 +288,13 @@ export class MoviesService {
         .skip((page - 1) * limit)
         .limit(limit),
     ]);
-    const assets = await this.assetsByMovie(movies.map((movie) => movie._id));
+    const movieIds = movies.map((movie) => movie._id);
+    const [assets, libraryVideos] = await Promise.all([
+      this.assetsByMovie(movieIds),
+      options.admin ? this.primaryLibraryVideosByMovie(movieIds) : Promise.resolve(new Map()),
+    ]);
     return {
-      items: this.mapMovies(movies, assets, options.entitlement, options.admin),
+      items: this.mapMovies(movies, assets, options.entitlement, options.admin, libraryVideos),
       page,
       limit,
       total,

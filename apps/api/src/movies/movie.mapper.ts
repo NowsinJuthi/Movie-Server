@@ -62,6 +62,7 @@ export function toPublicMovie(
     assets?: Array<Pick<MediaAssetDocument, 'kind' | 'quality' | 'status'>>;
     admin?: boolean;
     progress?: { progressSeconds: number; durationSeconds: number; completed: boolean } | null;
+    sourceVideo?: { fileName: string; sizeBytes: number } | null;
   },
 ): PublicMovie {
   const assets = options?.assets ?? [];
@@ -113,6 +114,12 @@ export function toPublicMovie(
     durationSeconds: options?.progress?.durationSeconds,
     watched: options?.progress?.completed,
     createdAt: movie.createdAt?.toISOString(),
+    ...(options?.admin
+      ? {
+          videoFileName: options.sourceVideo?.fileName ?? null,
+          videoFileSizeBytes: options.sourceVideo?.sizeBytes ?? null,
+        }
+      : {}),
   };
 }
 
