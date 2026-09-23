@@ -10,6 +10,7 @@ import { ApiError, refreshSession } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { BrandingProvider } from "@/components/branding/site-brand";
+import { MediaInfoProvider } from "@/components/home/media-info-dialog";
 import { BrowseScrollGuard } from "@/components/layout/browse-scroll-guard";
 import { ThemeColorSync } from "@/components/theme/theme-color-sync";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -183,10 +184,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={client}>
         <AuthHydrator>
           <BrandingProvider>
-            <ThemeColorSync />
-            <BrowseScrollGuard />
-            {children}
-            <ThemedToaster />
+            <MediaInfoProvider>
+              <ThemeColorSync />
+              <BrowseScrollGuard />
+              {children}
+              <ThemedToaster />
+            </MediaInfoProvider>
           </BrandingProvider>
         </AuthHydrator>
       </QueryClientProvider>

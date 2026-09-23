@@ -3,9 +3,8 @@
 import type { HomeCard } from "@movie-server/shared";
 import { Play } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
-import { homeCardToInfoTarget, MediaInfoDialog } from "./media-info-dialog";
+import { homeCardToInfoTarget, useMediaInfoOpen } from "./media-info-dialog";
 import styles from "./media-card.module.css";
 import { PosterImage } from "./poster-image";
 
@@ -20,7 +19,7 @@ export function MediaCard({
   onToggleList?: (card: HomeCard) => void;
   listPending?: boolean;
 }) {
-  const [infoOpen, setInfoOpen] = useState(false);
+  const openMediaInfo = useMediaInfoOpen();
   const playHref = autoplayPlayerHref(card.watchHref ?? card.href);
 
   return (
@@ -55,7 +54,7 @@ export function MediaCard({
         <button
           type="button"
           className="line-clamp-2 w-full text-sm font-medium leading-snug text-foreground hover:underline"
-          onClick={() => setInfoOpen(true)}
+          onClick={() => openMediaInfo(homeCardToInfoTarget(card))}
         >
           {card.title}
         </button>
@@ -63,16 +62,12 @@ export function MediaCard({
           <button
             type="button"
             className="mt-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
-            onClick={() => setInfoOpen(true)}
+            onClick={() => openMediaInfo(homeCardToInfoTarget(card))}
           >
             {card.year}
           </button>
         ) : null}
       </div>
-
-      {infoOpen ? (
-        <MediaInfoDialog target={homeCardToInfoTarget(card)} onClose={() => setInfoOpen(false)} />
-      ) : null}
     </article>
   );
 }

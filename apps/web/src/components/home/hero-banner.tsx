@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { autoplayPlayerHref, rememberPlayerReturn } from "@/lib/player-return";
 import { cn } from "@/lib/utils";
+import { homeCardToInfoTarget, useMediaInfoOpen } from "./media-info-dialog";
 import { PosterImage } from "./poster-image";
 
 export function HeroBanner({
@@ -19,6 +20,7 @@ export function HeroBanner({
   onToggleList?: (card: HomeCard) => void;
 }) {
   const router = useRouter();
+  const openMediaInfo = useMediaInfoOpen();
   const slides = (cards?.length ? cards : card ? [card] : []).slice(0, 6);
   const [index, setIndex] = useState(0);
 
@@ -101,7 +103,7 @@ export function HeroBanner({
           <button
             type="button"
             aria-label="More info"
-            onClick={() => router.push(active.href)}
+            onClick={() => openMediaInfo(homeCardToInfoTarget(active))}
             className="relative z-10 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur-md active:scale-[0.96]"
           >
             <Info className="h-4 w-4" />

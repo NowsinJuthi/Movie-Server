@@ -218,6 +218,14 @@ body {
   }
 }
 
+html[data-media-info-open="true"] {
+  overflow: hidden !important;
+}
+
+html[data-media-info-open="true"] body {
+  overflow: hidden !important;
+}
+
 @media (display-mode: standalone) {
   html {
     scrollbar-width: none;
