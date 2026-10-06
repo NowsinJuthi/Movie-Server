@@ -3,6 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AdminPage } from "@/components/admin/admin-page";
+import {
+  AdminInvoicesMobileList,
+  AdminPaymentsMobileList,
+} from "@/components/admin/admin-payments-mobile-list";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -34,36 +38,51 @@ export default function AdminBillingPage() {
 
   return (
     <AdminPage title="Payments & invoices" description="Card numbers are never stored. Refunds are processed through the configured provider." error={error}>
-      <h2 className="mb-3 text-lg font-medium">Transactions</h2>
-      <AdminTable columns={["When", "Kind", "Status", "Amount", "Provider", ""]}>
-        {(payments.data?.payments ?? []).map((payment) => (
-          <tr key={payment.id}>
-            <AdminTd>{new Date(payment.createdAt).toLocaleString()}</AdminTd>
-            <AdminTd className="capitalize">{payment.kind}</AdminTd>
-            <AdminTd>{payment.status}</AdminTd>
-            <AdminTd>{formatCents(payment.amountCents, payment.currency)}</AdminTd>
-            <AdminTd className="font-mono text-xs">{payment.providerPaymentId ?? payment.providerSessionId ?? "—"}</AdminTd>
-            <AdminTd>
-              {payment.status === "success" ? (
-                <Button size="sm" variant="outline" onClick={() => setPending(payment.id)}>
-                  Refund
-                </Button>
-              ) : null}
-            </AdminTd>
-          </tr>
-        ))}
-      </AdminTable>
-      <h2 className="mb-3 mt-8 text-lg font-medium">Invoices</h2>
-      <AdminTable columns={["Number", "Status", "Amount", "Issued"]}>
-        {(invoices.data?.invoices ?? payments.data?.invoices ?? []).map((invoice) => (
-          <tr key={invoice.id}>
-            <AdminTd>{invoice.number}</AdminTd>
-            <AdminTd>{invoice.status}</AdminTd>
-            <AdminTd>{formatCents(invoice.amountCents, invoice.currency)}</AdminTd>
-            <AdminTd>{new Date(invoice.issuedAt).toLocaleString()}</AdminTd>
-          </tr>
-        ))}
-      </AdminTable>
+      <h2 className="mb-3 text-base font-medium sm:text-lg">Transactions</h2>
+      <div className="lg:hidden">
+        <AdminPaymentsMobileList
+          payments={payments.data?.payments ?? []}
+          onRefund={setPending}
+        />
+      </div>
+      <div className="hidden lg:block">
+        <AdminTable columns={["When", "Kind", "Status", "Amount", "Provider", ""]}>
+          {(payments.data?.payments ?? []).map((payment) => (
+            <tr key={payment.id}>
+              <AdminTd>{new Date(payment.createdAt).toLocaleString()}</AdminTd>
+              <AdminTd className="capitalize">{payment.kind}</AdminTd>
+              <AdminTd>{payment.status}</AdminTd>
+              <AdminTd>{formatCents(payment.amountCents, payment.currency)}</AdminTd>
+              <AdminTd className="font-mono text-xs">
+                {payment.providerPaymentId ?? payment.providerSessionId ?? "—"}
+              </AdminTd>
+              <AdminTd>
+                {payment.status === "success" ? (
+                  <Button size="sm" variant="outline" onClick={() => setPending(payment.id)}>
+                    Refund
+                  </Button>
+                ) : null}
+              </AdminTd>
+            </tr>
+          ))}
+        </AdminTable>
+      </div>
+      <h2 className="mb-3 mt-6 text-base font-medium sm:mt-8 sm:text-lg">Invoices</h2>
+      <div className="lg:hidden">
+        <AdminInvoicesMobileList invoices={invoices.data?.invoices ?? payments.data?.invoices ?? []} />
+      </div>
+      <div className="hidden lg:block">
+        <AdminTable columns={["Number", "Status", "Amount", "Issued"]}>
+          {(invoices.data?.invoices ?? payments.data?.invoices ?? []).map((invoice) => (
+            <tr key={invoice.id}>
+              <AdminTd>{invoice.number}</AdminTd>
+              <AdminTd>{invoice.status}</AdminTd>
+              <AdminTd>{formatCents(invoice.amountCents, invoice.currency)}</AdminTd>
+              <AdminTd>{new Date(invoice.issuedAt).toLocaleString()}</AdminTd>
+            </tr>
+          ))}
+        </AdminTable>
+      </div>
       <ConfirmDialog
         open={Boolean(pending)}
         title="Refund this payment?"
