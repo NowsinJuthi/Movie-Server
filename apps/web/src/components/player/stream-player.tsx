@@ -263,6 +263,7 @@ export function StreamPlayer({
   const [buffering, setBuffering] = useState(false);
   /** Last frame painted to canvas — only true after a successful capture. */
   const [frameHoldActive, setFrameHoldActive] = useState(false);
+  const [freezeSnapshot, setFreezeSnapshot] = useState<string | null>(null);
   const [hasPlaybackStarted, setHasPlaybackStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -665,6 +666,7 @@ export function StreamPlayer({
       video.removeAttribute("poster");
     }
     setFrameHoldActive(false);
+    setFreezeSnapshot(null);
   }, []);
 
   /** Safari native HLS — Emby-style segmented stream for fast mobile start. */
@@ -1259,12 +1261,19 @@ export function StreamPlayer({
     try {
       const painted = paintHoldFrameCanvas(video, canvas, shellRef.current);
       if (painted) {
+        let snapshot: string | null = null;
         try {
-          video.poster = canvas.toDataURL("image/jpeg", 0.85);
+          snapshot = canvas.toDataURL("image/jpeg", 0.85);
+          video.poster = snapshot;
         } catch {
           /* poster optional when canvas is not readable */
         }
-        flushSync(() => setFrameHoldActive(true));
+        flushSync(() => {
+          setFrameHoldActive(true);
+          if (snapshot) {
+            setFreezeSnapshot(snapshot);
+          }
+        });
       }
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
@@ -2240,10 +2249,8 @@ export function StreamPlayer({
         className={cn(
           "absolute inset-0 z-[1] h-full w-full border-0 bg-black outline-none",
           videoObjectClass,
-          frameHoldActive && buffering ? "opacity-0" : "opacity-100",
         )}
         playsInline
-        crossOrigin="anonymous"
         autoPlay={autoplayRequestedRef.current}
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
@@ -2251,14 +2258,19 @@ export function StreamPlayer({
         onClick={mobileLayout ? undefined : onSkinClick}
       />
 
-      <canvas
-        ref={freezeCanvasRef}
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-0 z-[20] h-full w-full object-cover transition-opacity duration-150",
-          frameHoldActive ? "opacity-100" : "opacity-0",
-        )}
-      />
+      <canvas ref={freezeCanvasRef} aria-hidden className="pointer-events-none absolute h-0 w-0 opacity-0" />
+      {freezeSnapshot ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={freezeSnapshot}
+          alt=""
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0 z-[18] h-full w-full object-cover transition-opacity duration-150",
+            buffering || frameHoldActive ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : null}
 
       {mobileLayout && !loading && !error ? (
         <div className="absolute inset-0 z-[5] flex touch-manipulation">
@@ -2321,9 +2333,7 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {loading && !hasPlaybackStarted && !buffering && !error ? (
-        <PlayerBusyMark mode="preparing" />
-      ) : null}
+      {loading && !session && !buffering && !error ? <PlayerBusyMark mode="preparing" /> : null}
       {buffering && !error ? <PlayerBusyMark mode="buffering" /> : null}
 
       {error ? (

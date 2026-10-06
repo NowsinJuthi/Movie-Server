@@ -13,7 +13,10 @@ export function PlayerBusyMark({
   const buffering = mode === "buffering";
   return (
     <div
-      className={cn(styles.overlay, buffering ? styles.overlayBuffering : styles.overlayPreparing)}
+      className={cn(
+        buffering ? styles.spinnerAnchor : styles.overlay,
+        !buffering && styles.overlayPreparing,
+      )}
       role="status"
       aria-live="polite"
       aria-label={buffering ? "Buffering" : "Loading"}

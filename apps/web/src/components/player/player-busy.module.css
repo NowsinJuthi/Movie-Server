@@ -22,6 +22,17 @@
   background: transparent;
 }
 
+/** Mid-playback stall — icon only, no full-screen layer (keeps video visible). */
+.spinnerAnchor {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  transform: translate(-50%, -50%);
+  background: none;
+}
+
 .mark {
   position: relative;
   z-index: 1;
