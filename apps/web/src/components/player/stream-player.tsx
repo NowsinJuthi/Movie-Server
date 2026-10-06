@@ -251,6 +251,8 @@ export function StreamPlayer({
   const seekingRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
   const seekPackRef = useRef(false);
+  /** Skip clearing `<video>` pixels while remux/HLS restarts after a seek. */
+  const preserveVideoPictureRef = useRef(false);
   const seekPlaybackRef = useRef<(seconds: number) => void | Promise<void>>(() => undefined);
   const transcodeRetryRef = useRef<(() => void) | null>(null);
   const repeatModeRef = useRef<RepeatMode>("none");
@@ -259,8 +261,8 @@ export function StreamPlayer({
   const [markers, setMarkers] = useState<PlaybackMarkers>(emptyPlaybackMarkers());
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
-  /** Keeps last-frame canvas visible while remux/HLS restarts (video element goes black). */
-  const [holdFrame, setHoldFrame] = useState(false);
+  /** Last frame painted to canvas — only true after a successful capture. */
+  const [frameHoldActive, setFrameHoldActive] = useState(false);
   const [hasPlaybackStarted, setHasPlaybackStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -417,7 +419,8 @@ export function StreamPlayer({
     }
     usingHlsRef.current = false;
     const video = videoRef.current;
-    if (video) {
+    const keepPicture = preserveVideoPictureRef.current;
+    if (video && !keepPicture) {
       video.removeAttribute("src");
       video.load();
     }
@@ -628,6 +631,7 @@ export function StreamPlayer({
       setIosMutedPlay(false);
       video.src = src;
       video.load();
+      preserveVideoPictureRef.current = false;
       // A second Range fetch starts another ffmpeg remux and starves the player.
       if (!remuxOffset) {
         void warmMediaUrl(src);
@@ -653,6 +657,15 @@ export function StreamPlayer({
     },
     [detachEngine, startMobileAttachedPlayback, tryStartPlayback, warmMediaUrl],
   );
+
+  const releaseFrameHold = useCallback(() => {
+    const video = videoRef.current;
+    clearHoldFrameCanvas(freezeCanvasRef.current);
+    if (video?.poster) {
+      video.removeAttribute("poster");
+    }
+    setFrameHoldActive(false);
+  }, []);
 
   /** Safari native HLS — Emby-style segmented stream for fast mobile start. */
   const attachNativeHls = useCallback(
@@ -822,6 +835,7 @@ export function StreamPlayer({
           });
           hls.loadSource(src);
           hls.attachMedia(video);
+          preserveVideoPictureRef.current = false;
           return;
         }
 
@@ -831,6 +845,7 @@ export function StreamPlayer({
           setUsingHls(true);
           video.src = src;
           video.load();
+          preserveVideoPictureRef.current = false;
           void tryStartPlayback();
           return;
         }
@@ -1051,6 +1066,7 @@ export function StreamPlayer({
     };
     const onPlay = () => {
       setPlaying(true);
+      setHasPlaybackStarted(true);
       setLoading(false);
       if (seekingRef.current) return;
       revealControls();
@@ -1076,15 +1092,13 @@ export function StreamPlayer({
     const onPlaying = () => {
       seekingRef.current = false;
       setHasPlaybackStarted(true);
-      clearHoldFrameCanvas(freezeCanvasRef.current);
-      setHoldFrame(false);
+      releaseFrameHold();
       setBuffering(false);
       setLoading(false);
     };
     const onSeeked = () => {
       if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        clearHoldFrameCanvas(freezeCanvasRef.current);
-        setHoldFrame(false);
+        releaseFrameHold();
         setBuffering(false);
       }
       void persistProgress(true);
@@ -1101,8 +1115,7 @@ export function StreamPlayer({
         seekingRef.current = false;
       }
       if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        clearHoldFrameCanvas(freezeCanvasRef.current);
-        setHoldFrame(false);
+        releaseFrameHold();
         setBuffering(false);
       }
       applyResume();
@@ -1166,7 +1179,22 @@ export function StreamPlayer({
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("error", onError);
     };
-  }, [applyResume, attachProgressive, autoPlayNext, boot, durationHint, next, persistProgress, preferredQuality, quality, revealControls, tryStartPlayback, usesPackagedHls, usingHls]);
+  }, [
+    applyResume,
+    attachProgressive,
+    autoPlayNext,
+    boot,
+    durationHint,
+    next,
+    persistProgress,
+    preferredQuality,
+    quality,
+    releaseFrameHold,
+    revealControls,
+    tryStartPlayback,
+    usesPackagedHls,
+    usingHls,
+  ]);
 
   useEffect(() => {
     if (countdown == null || !next) return;
@@ -1231,7 +1259,12 @@ export function StreamPlayer({
     try {
       const painted = paintHoldFrameCanvas(video, canvas, shellRef.current);
       if (painted) {
-        flushSync(() => setHoldFrame(true));
+        try {
+          video.poster = canvas.toDataURL("image/jpeg", 0.85);
+        } catch {
+          /* poster optional when canvas is not readable */
+        }
+        flushSync(() => setFrameHoldActive(true));
       }
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
@@ -1308,14 +1341,15 @@ export function StreamPlayer({
           mediaOriginRef.current = target;
           resumeRef.current = target;
           try {
+            preserveVideoPictureRef.current = true;
             capturePlaybackFrame();
             attachProgressive(info);
             setCurrentTime(target);
           } catch {
             mediaOriginRef.current = previousOrigin;
             setCurrentTime(beforeSeek);
-            clearHoldFrameCanvas(freezeCanvasRef.current);
-            setHoldFrame(false);
+            releaseFrameHold();
+            preserveVideoPictureRef.current = false;
             setBuffering(false);
             setError("Seek failed. Try again in a moment.");
           } finally {
@@ -1350,6 +1384,8 @@ export function StreamPlayer({
       seekingRef.current = true;
       pendingSeekRef.current = null;
       setBuffering(true);
+      preserveVideoPictureRef.current = true;
+      capturePlaybackFrame();
       try {
         mediaOriginRef.current = target;
         resumeRef.current = target;
@@ -1369,8 +1405,8 @@ export function StreamPlayer({
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
         pendingSeekRef.current = null;
-        clearHoldFrameCanvas(freezeCanvasRef.current);
-        setHoldFrame(false);
+        releaseFrameHold();
+        preserveVideoPictureRef.current = false;
         setBuffering(false);
         setError("Seek failed. Try again in a moment.");
       } finally {
@@ -1382,7 +1418,7 @@ export function StreamPlayer({
         }
       }
     },
-    [attachHls, attachNativeHls, attachProgressive, capturePlaybackFrame, duration, quality, usesPackagedHls],
+    [attachHls, attachNativeHls, attachProgressive, capturePlaybackFrame, duration, quality, releaseFrameHold, usesPackagedHls],
   );
 
   seekPlaybackRef.current = (seconds) => seekPlaybackTo(seconds);
@@ -2204,9 +2240,10 @@ export function StreamPlayer({
         className={cn(
           "absolute inset-0 z-[1] h-full w-full border-0 bg-black outline-none",
           videoObjectClass,
-          holdFrame && buffering ? "opacity-0" : "opacity-100",
+          frameHoldActive && buffering ? "opacity-0" : "opacity-100",
         )}
         playsInline
+        crossOrigin="anonymous"
         autoPlay={autoplayRequestedRef.current}
         // Legacy iOS inline playback (pre-iOS 10).
         {...({ "webkit-playsinline": "true", "x-webkit-airplay": "allow" } as Record<string, string>)}
@@ -2219,7 +2256,7 @@ export function StreamPlayer({
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 z-[20] h-full w-full object-cover transition-opacity duration-150",
-          holdFrame ? "opacity-100" : "opacity-0",
+          frameHoldActive ? "opacity-100" : "opacity-0",
         )}
       />
 
@@ -2284,8 +2321,10 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {loading && !hasPlaybackStarted && !error ? <PlayerBusyMark mode="preparing" /> : null}
-      {buffering && hasPlaybackStarted && !error ? <PlayerBusyMark mode="buffering" /> : null}
+      {loading && !hasPlaybackStarted && !buffering && !error ? (
+        <PlayerBusyMark mode="preparing" />
+      ) : null}
+      {buffering && !error ? <PlayerBusyMark mode="buffering" /> : null}
 
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6">
