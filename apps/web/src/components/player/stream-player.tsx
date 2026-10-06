@@ -1044,7 +1044,7 @@ export function StreamPlayer({
       setLoading(false);
     };
     const onSeeked = () => {
-      if (!seekingRef.current) {
+      if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         setHoldFrame(false);
         setBuffering(false);
       }
@@ -1060,9 +1060,8 @@ export function StreamPlayer({
     const onCanPlay = () => {
       if (seekingRef.current && video.paused) {
         seekingRef.current = false;
-        setHoldFrame(false);
-        setBuffering(false);
-      } else if (!seekingRef.current) {
+      }
+      if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         setHoldFrame(false);
         setBuffering(false);
       }
@@ -2196,7 +2195,7 @@ export function StreamPlayer({
         className={cn(
           "pointer-events-none absolute inset-0 z-[20] h-full w-full bg-transparent transition-opacity duration-150",
           videoObjectClass,
-          (holdFrame || buffering) && !loading ? "opacity-100" : "opacity-0",
+          holdFrame && !loading ? "opacity-100" : "opacity-0",
         )}
       />
 
@@ -2261,9 +2260,8 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {(loading || buffering) && !error ? (
-        <PlayerBusyMark mode={loading ? "preparing" : "buffering"} />
-      ) : null}
+      {loading && !error ? <PlayerBusyMark mode="preparing" /> : null}
+      {buffering && !loading && !error ? <PlayerBusyMark mode="buffering" /> : null}
 
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6">

@@ -25,14 +25,18 @@ export function PlayerBusyMark({
           <circle className={styles.arc} cx="40" cy="40" r="34" />
           <circle className={styles.arcInner} cx="40" cy="40" r="26" />
         </svg>
-        <span className={styles.dots} aria-hidden>
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-          <span className={styles.dot} />
-        </span>
-        <span className={styles.core}>
-          <Play className={styles.play} />
-        </span>
+        {!buffering ? (
+          <span className={styles.dots} aria-hidden>
+            <span className={styles.dot} />
+            <span className={styles.dot} />
+            <span className={styles.dot} />
+          </span>
+        ) : null}
+        {!buffering ? (
+          <span className={styles.core}>
+            <Play className={styles.play} />
+          </span>
+        ) : null}
       </div>
     </div>
   );
