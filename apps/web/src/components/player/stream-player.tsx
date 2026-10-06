@@ -421,7 +421,8 @@ export function StreamPlayer({
     if (mobileLayoutRef.current || isCoarsePointerMobile()) {
       applyMobileImmersive(video);
     }
-    setLoading(true);
+    // Do not set loading here — boot() owns the first-load overlay. Mid-playback
+    // reattach (seek/remux restart) must keep the last frame + ring only.
     const preferAudible = wantsAudibleAutoplay();
     try {
       if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
@@ -2195,7 +2196,7 @@ export function StreamPlayer({
         className={cn(
           "pointer-events-none absolute inset-0 z-[20] h-full w-full bg-transparent transition-opacity duration-150",
           videoObjectClass,
-          holdFrame && !loading ? "opacity-100" : "opacity-0",
+          holdFrame ? "opacity-100" : "opacity-0",
         )}
       />
 
