@@ -30,6 +30,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type {
@@ -103,6 +104,39 @@ const REPEAT_OPTIONS: Array<{ id: RepeatMode; label: string }> = [
 const PROGRESS_MS = 10_000;
 const HEARTBEAT_MS = 20_000;
 const AUTO_NEXT_SECONDS = 5;
+
+function paintHoldFrameCanvas(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  shell: HTMLElement | null,
+): boolean {
+  if (video.videoWidth < 2 || video.videoHeight < 2) {
+    return false;
+  }
+  const cw = Math.max(2, shell?.clientWidth ?? video.videoWidth);
+  const ch = Math.max(2, shell?.clientHeight ?? video.videoHeight);
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return false;
+  }
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const scale = Math.max(cw / vw, ch / vh);
+  const dw = vw * scale;
+  const dh = vh * scale;
+  const dx = (cw - dw) / 2;
+  const dy = (ch - dh) / 2;
+  ctx.drawImage(video, dx, dy, dw, dh);
+  canvas.style.opacity = "1";
+  return true;
+}
+
+function clearHoldFrameCanvas(canvas: HTMLCanvasElement | null) {
+  if (!canvas) return;
+  canvas.style.opacity = "0";
+}
 
 export type PlayerNeighbor = {
   id: string;
@@ -227,6 +261,7 @@ export function StreamPlayer({
   const [buffering, setBuffering] = useState(false);
   /** Keeps last-frame canvas visible while remux/HLS restarts (video element goes black). */
   const [holdFrame, setHoldFrame] = useState(false);
+  const [hasPlaybackStarted, setHasPlaybackStarted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -1040,12 +1075,15 @@ export function StreamPlayer({
     };
     const onPlaying = () => {
       seekingRef.current = false;
+      setHasPlaybackStarted(true);
+      clearHoldFrameCanvas(freezeCanvasRef.current);
       setHoldFrame(false);
       setBuffering(false);
       setLoading(false);
     };
     const onSeeked = () => {
       if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        clearHoldFrameCanvas(freezeCanvasRef.current);
         setHoldFrame(false);
         setBuffering(false);
       }
@@ -1063,6 +1101,7 @@ export function StreamPlayer({
         seekingRef.current = false;
       }
       if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        clearHoldFrameCanvas(freezeCanvasRef.current);
         setHoldFrame(false);
         setBuffering(false);
       }
@@ -1187,29 +1226,13 @@ export function StreamPlayer({
 
   const capturePlaybackFrame = useCallback(() => {
     const video = videoRef.current;
-    if (!video || video.videoWidth < 2 || video.videoHeight < 2) return;
     const canvas = freezeCanvasRef.current;
-    const maxWidth = 960;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
-    const width = Math.max(2, Math.round(video.videoWidth * scale));
-    const height = Math.max(2, Math.round(video.videoHeight * scale));
+    if (!video || !canvas) return;
     try {
-      if (canvas) {
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        ctx.drawImage(video, 0, 0, width, height);
-        setHoldFrame(true);
-        return;
+      const painted = paintHoldFrameCanvas(video, canvas, shellRef.current);
+      if (painted) {
+        flushSync(() => setHoldFrame(true));
       }
-      const shot = document.createElement("canvas");
-      shot.width = width;
-      shot.height = height;
-      const ctx = shot.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(video, 0, 0, width, height);
-      setHoldFrame(true);
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
     }
@@ -1291,6 +1314,7 @@ export function StreamPlayer({
           } catch {
             mediaOriginRef.current = previousOrigin;
             setCurrentTime(beforeSeek);
+            clearHoldFrameCanvas(freezeCanvasRef.current);
             setHoldFrame(false);
             setBuffering(false);
             setError("Seek failed. Try again in a moment.");
@@ -1345,6 +1369,7 @@ export function StreamPlayer({
         mediaOriginRef.current = previousOrigin;
         setCurrentTime(beforeSeek);
         pendingSeekRef.current = null;
+        clearHoldFrameCanvas(freezeCanvasRef.current);
         setHoldFrame(false);
         setBuffering(false);
         setError("Seek failed. Try again in a moment.");
@@ -2165,7 +2190,7 @@ export function StreamPlayer({
               mobileImmersive && "z-[2147483646]",
               mobilePortraitLandscapeEmulate && "mobile-player-shell-landscape-emulate",
             )
-          : "relative min-h-screen",
+          : "relative h-screen min-h-screen overflow-hidden",
       )}
       onMouseMove={() => {
         if (!mobileLayoutRef.current && !isCoarsePointerMobile()) revealControls();
@@ -2177,10 +2202,9 @@ export function StreamPlayer({
       <video
         ref={videoRef}
         className={cn(
-          "border-0 bg-black outline-none",
-          mobileLayout
-            ? cn("absolute inset-0 z-[1] h-full w-full", videoObjectClass)
-            : cn("h-screen w-full", videoObjectClass),
+          "absolute inset-0 z-[1] h-full w-full border-0 bg-black outline-none",
+          videoObjectClass,
+          holdFrame && buffering ? "opacity-0" : "opacity-100",
         )}
         playsInline
         autoPlay={autoplayRequestedRef.current}
@@ -2194,8 +2218,7 @@ export function StreamPlayer({
         ref={freezeCanvasRef}
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-0 z-[20] h-full w-full bg-transparent transition-opacity duration-150",
-          videoObjectClass,
+          "pointer-events-none absolute inset-0 z-[20] h-full w-full object-cover transition-opacity duration-150",
           holdFrame ? "opacity-100" : "opacity-0",
         )}
       />
@@ -2261,8 +2284,8 @@ export function StreamPlayer({
         </div>
       ) : null}
 
-      {loading && !error ? <PlayerBusyMark mode="preparing" /> : null}
-      {buffering && !loading && !error ? <PlayerBusyMark mode="buffering" /> : null}
+      {loading && !hasPlaybackStarted && !error ? <PlayerBusyMark mode="preparing" /> : null}
+      {buffering && hasPlaybackStarted && !error ? <PlayerBusyMark mode="buffering" /> : null}
 
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6">

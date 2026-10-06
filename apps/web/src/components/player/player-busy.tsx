@@ -19,7 +19,7 @@ export function PlayerBusyMark({
       aria-label={buffering ? "Buffering" : "Loading"}
     >
       <div className={cn(styles.mark, buffering && styles.markBuffering)}>
-        <span className={styles.glow} aria-hidden />
+        {!buffering ? <span className={styles.glow} aria-hidden /> : null}
         <svg className={styles.rings} viewBox="0 0 80 80" aria-hidden>
           <circle className={styles.track} cx="40" cy="40" r="34" />
           <circle className={styles.arc} cx="40" cy="40" r="34" />
