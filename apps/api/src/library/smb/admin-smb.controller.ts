@@ -94,7 +94,10 @@ export class AdminSmbController {
         message: 'Video file is required.',
       });
     }
-    return this.smb.uploadMedia(id, query.path ?? '', file, { scan: query.scan });
+    return this.smb.uploadMedia(id, query.path ?? '', file, {
+      scan: query.scan,
+      relativePath: query.relativePath,
+    });
   }
 
   @Patch(':id')

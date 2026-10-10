@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function PosterImage({
   src,
@@ -28,7 +29,7 @@ export function PosterImage({
   }, [src, retry]);
 
   if (!displaySrc) {
-    return <div className={className} aria-hidden />;
+    return <div className={cn(className, "poster-placeholder")} aria-hidden data-poster-placeholder />;
   }
 
   return (

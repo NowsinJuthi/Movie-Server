@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyStreamProxyHeader, streamProxyPolicyFromEnv } from "@/lib/stream-delivery-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,17 +9,32 @@ const API = process.env.API_INTERNAL_URL || "http://127.0.0.1:4000";
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(req: NextRequest, context: RouteContext): Promise<Response> {
+  const proxySecret = streamProxyPolicyFromEnv().streamProxySecret;
+
   const { path } = await context.params;
   const target = new URL(`${API}/api/v1/stream/${path.map(encodeURIComponent).join("/")}`);
   target.search = req.nextUrl.search;
 
   const headers = new Headers();
+  if (proxySecret) {
+    applyStreamProxyHeader(headers, proxySecret);
+  }
   const cookie = req.headers.get("cookie");
   if (cookie) headers.set("cookie", cookie);
+  const userAgent = req.headers.get("user-agent");
+  if (userAgent) headers.set("user-agent", userAgent);
+  const referer = req.headers.get("referer");
+  if (referer) headers.set("referer", referer);
   const range = req.headers.get("range");
   if (range) headers.set("range", range);
   const accept = req.headers.get("accept");
   if (accept) headers.set("accept", accept);
+  const secFetchSite = req.headers.get("sec-fetch-site");
+  if (secFetchSite) headers.set("sec-fetch-site", secFetchSite);
+  const secFetchMode = req.headers.get("sec-fetch-mode");
+  if (secFetchMode) headers.set("sec-fetch-mode", secFetchMode);
+  const secFetchDest = req.headers.get("sec-fetch-dest");
+  if (secFetchDest) headers.set("sec-fetch-dest", secFetchDest);
 
   const upstream = await fetch(target, {
     method: req.method,

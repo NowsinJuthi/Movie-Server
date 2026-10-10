@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Shield } from "lucide-react";
+import { Mail, Shield } from "lucide-react";
 import type { AdminSiteSettings } from "@movie-server/shared";
+import { emailDomainPolicyStatus } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
+import { EmailDomainListEditor } from "@/components/admin/email-domain-list-editor";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,9 @@ export default function AdminSettingsPage() {
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [testTo, setTestTo] = useState("");
+  const [emailAllowlist, setEmailAllowlist] = useState<string[]>([]);
+  const [emailBlocklist, setEmailBlocklist] = useState<string[]>([]);
+  const [importingDomains, setImportingDomains] = useState(false);
 
   const query = useQuery({
     queryKey: ["admin-settings"],
@@ -48,6 +53,8 @@ export default function AdminSettingsPage() {
     setSmtpPassword("");
     setFromName(settings.smtp.fromName);
     setFromEmail(settings.smtp.fromEmail);
+    setEmailAllowlist(settings.emailDomains?.allowlist ?? []);
+    setEmailBlocklist(settings.emailDomains?.blocklist ?? []);
   }
 
   function smtpSettingsInput(enabled = smtpEnabled) {
@@ -94,17 +101,33 @@ export default function AdminSettingsPage() {
     },
   });
 
-  const logoMutation = useMutation({
-    mutationFn: (file: File) => settingsApi.uploadLogo(file),
+  const logoLightMutation = useMutation({
+    mutationFn: (file: File) => settingsApi.uploadLogoLight(file),
     onSuccess: async (data) => {
       setError(null);
-      setSuccess("Logo updated.");
+      setSuccess("Light mode logo updated.");
       applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
     onError: (err: unknown) => {
       setSuccess(null);
-      setError(err instanceof ApiError ? err.message : "Logo upload failed.");
+      setError(err instanceof ApiError ? err.message : "Light logo upload failed.");
+    },
+  });
+
+  const logoDarkMutation = useMutation({
+    mutationFn: (file: File) => settingsApi.uploadLogoDark(file),
+    onSuccess: async (data) => {
+      setError(null);
+      setSuccess("Dark mode logo updated.");
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    },
+    onError: (err: unknown) => {
+      setSuccess(null);
+      setError(err instanceof ApiError ? err.message : "Dark logo upload failed.");
     },
   });
 
@@ -122,10 +145,19 @@ export default function AdminSettingsPage() {
     },
   });
 
-  const clearLogoMutation = useMutation({
-    mutationFn: () => settingsApi.clearLogo(),
+  const clearLogoLightMutation = useMutation({
+    mutationFn: () => settingsApi.clearLogoLight(),
     onSuccess: async (data) => {
-      setSuccess("Logo removed.");
+      setSuccess("Light mode logo removed.");
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+    },
+  });
+
+  const clearLogoDarkMutation = useMutation({
+    mutationFn: () => settingsApi.clearLogoDark(),
+    onSuccess: async (data) => {
+      setSuccess("Dark mode logo removed.");
       applySettings(data.settings);
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
@@ -139,6 +171,53 @@ export default function AdminSettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
     },
   });
+
+  const saveEmailDomainsMutation = useMutation({
+    mutationFn: () =>
+      settingsApi.update({
+        emailDomains: {
+          allowlist: emailAllowlist,
+          blocklist: emailBlocklist,
+          allowlistEnabled: emailAllowlist.length > 0,
+        },
+      }),
+    onSuccess: async (data) => {
+      setError(null);
+      setSuccess(
+        emailAllowlist.length > 0
+          ? "Saved — only allowlisted domains can register."
+          : "Email domain policy saved.",
+      );
+      applySettings(data.settings);
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+    onError: (err: unknown) => {
+      setSuccess(null);
+      setError(err instanceof ApiError ? err.message : "Unable to save email domain policy.");
+    },
+  });
+
+  async function importRecommendedDomains() {
+    setImportingDomains(true);
+    setSuccess(null);
+    try {
+      const { domains } = await settingsApi.recommendedEmailDomains();
+      const seen = new Set(emailAllowlist);
+      const merged = [...emailAllowlist];
+      for (const domain of domains) {
+        if (seen.has(domain)) continue;
+        seen.add(domain);
+        merged.push(domain);
+      }
+      merged.sort();
+      setEmailAllowlist(merged);
+      setSuccess(`Merged ${domains.length} recommended domains. Save to apply.`);
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : "Import failed.");
+    } finally {
+      setImportingDomains(false);
+    }
+  }
 
   const testMutation = useMutation({
     mutationFn: async () => {
@@ -169,6 +248,8 @@ export default function AdminSettingsPage() {
   const settings = query.data;
   const loadError = query.error instanceof ApiError ? query.error.message : null;
   const bust = settings?.siteName;
+  const lightLogoPreview = settings ? (settings.logoLightUrl ?? settings.logoUrl) : null;
+  const darkLogoPreview = settings ? (settings.logoDarkUrl ?? settings.logoUrl) : null;
 
   return (
     <AdminPage
@@ -203,12 +284,69 @@ export default function AdminSettingsPage() {
             <Alert className="border-emerald-500/40 text-emerald-300">{success}</Alert>
           ) : null}
 
+          <section className="admin-card space-y-4">
+            <div className="flex flex-wrap items-start gap-3">
+              <span className="grid h-9 w-9 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                <Mail className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-semibold">Registration email domains</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {emailDomainPolicyStatus({
+                    allowlist: emailAllowlist,
+                    blocklist: emailBlocklist,
+                    allowlistEnabled: emailAllowlist.length > 0,
+                  })}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Allowlist-এ যে domain গুলো add করবেন, শুধু সেগুলো দিয়ে register করা যাবে। List খালি
+              করলে (save) আবার সব domain open — blocklist ছাড়া। Admin panel থেকে user add করলে এই
+              rule লাগে না।
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={importingDomains}
+              onClick={() => void importRecommendedDomains()}
+            >
+              {importingDomains ? "Importing…" : "Import recommended providers (uniqbd set)"}
+            </Button>
+            <EmailDomainListEditor
+              label="Allowed domains"
+              hint="Exact hostname (e.g. yahoo.co.uk). List-এ না থাকলে signup block।"
+              domains={emailAllowlist}
+              onChange={setEmailAllowlist}
+              bulkPlaceholder={"gmail.com\nyahoo.com\noutlook.com"}
+            />
+            <EmailDomainListEditor
+              label="Extra blocked domains"
+              hint="Allowlist খালি থাকলে শুধু এই domain গুলো block। Allowlist active থাকলে allowlist-এর বাইরে যাই block-ই থাকুক।"
+              domains={emailBlocklist}
+              onChange={setEmailBlocklist}
+              bulkPlaceholder={"tempmail.com\ndisposable.example"}
+            />
+            <Button
+              type="button"
+              disabled={saveEmailDomainsMutation.isPending}
+              onClick={() => {
+                setSuccess(null);
+                saveEmailDomainsMutation.mutate();
+              }}
+            >
+              {saveEmailDomainsMutation.isPending ? "Saving..." : "Save email domains"}
+            </Button>
+          </section>
+
           <div className="admin-grid-1-lg-2">
             <section className="admin-card flex h-full flex-col space-y-4">
               <div>
                 <h2 className="text-base font-semibold">Website branding</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Site name appears in the header, admin panel, browser title, and email subjects.
+                  Upload separate logos for light and dark mode (PNG, SVG, or WebP).
                 </p>
               </div>
               <div className="space-y-2">
@@ -221,42 +359,78 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
-              <div className="grid flex-1 grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-3 rounded-lg border border-border/70 p-4">
-                  <p className="text-sm font-medium">Logo</p>
-                  {settings.logoUrl ? (
+              <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
+                <div className="space-y-3 rounded-lg border border-border/70 bg-background/40 p-4">
+                  <p className="text-sm font-medium">Logo — light mode</p>
+                  <p className="text-xs text-muted-foreground">Shown when the site uses light theme.</p>
+                  {lightLogoPreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={brandingAssetSrc(settings.logoUrl, bust) ?? undefined}
-                      alt="Logo preview"
+                      src={brandingAssetSrc(lightLogoPreview, bust) ?? undefined}
+                      alt="Light mode logo preview"
                       className="h-12 w-auto max-w-full object-contain"
                     />
                   ) : (
-                    <p className="text-xs text-muted-foreground">No logo uploaded</p>
+                    <p className="text-xs text-muted-foreground">No light logo uploaded</p>
                   )}
                   <Input
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/svg+xml"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) logoMutation.mutate(file);
+                      if (file) logoLightMutation.mutate(file);
                       e.target.value = "";
                     }}
                   />
-                  {settings.logoUrl ? (
+                  {settings.logoLightUrl ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={clearLogoMutation.isPending}
-                      onClick={() => clearLogoMutation.mutate()}
+                      disabled={clearLogoLightMutation.isPending}
+                      onClick={() => clearLogoLightMutation.mutate()}
                     >
-                      Remove logo
+                      Remove light logo
                     </Button>
                   ) : null}
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-border/70 p-4">
+                <div className="space-y-3 rounded-lg border border-border/70 bg-zinc-950/80 p-4">
+                  <p className="text-sm font-medium text-zinc-100">Logo — dark mode</p>
+                  <p className="text-xs text-zinc-400">Shown when the site uses dark theme.</p>
+                  {darkLogoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={brandingAssetSrc(darkLogoPreview, bust) ?? undefined}
+                      alt="Dark mode logo preview"
+                      className="h-12 w-auto max-w-full object-contain"
+                    />
+                  ) : (
+                    <p className="text-xs text-zinc-500">No dark logo uploaded</p>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) logoDarkMutation.mutate(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {settings.logoDarkUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={clearLogoDarkMutation.isPending}
+                      onClick={() => clearLogoDarkMutation.mutate()}
+                    >
+                      Remove dark logo
+                    </Button>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-border/70 p-4 sm:col-span-2 lg:col-span-1">
                   <p className="text-sm font-medium">Favicon</p>
                   {settings.faviconUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element

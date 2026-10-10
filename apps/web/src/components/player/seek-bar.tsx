@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { sliderRatioFromClient } from "./slider-geometry";
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -25,6 +26,7 @@ export function SeekBar({
   onScrubbingChange,
   variant = "default",
   transcode = false,
+  emphasis = false,
 }: {
   currentTime: number;
   duration: number;
@@ -36,6 +38,8 @@ export function SeekBar({
   variant?: "default" | "emby";
   /** Live HLS transcode — hide misleading full-buffer bar from Safari */
   transcode?: boolean;
+  /** Taller track + touch target (mobile player) */
+  emphasis?: boolean;
 }) {
   const accentClass = "bg-primary";
   const trackRef = useRef<HTMLDivElement>(null);
@@ -56,12 +60,10 @@ export function SeekBar({
   const tipRatio = scrubbing ? displayRatio : (hoverRatio ?? displayRatio);
   const active = hovering || scrubbing;
 
-  const ratioFromClientX = useCallback((clientX: number) => {
+  const ratioFromClient = useCallback((clientX: number, clientY: number) => {
     const el = trackRef.current;
     if (!el) return 0;
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0) return 0;
-    return clamp01((clientX - rect.left) / rect.width);
+    return sliderRatioFromClient(el, clientX, clientY);
   }, []);
 
   const previewRatioRef = useRef<number | null>(null);
@@ -81,10 +83,14 @@ export function SeekBar({
   }, [onScrubbingChange, onSeek]);
 
   const beginScrub = useCallback(
-    (clientX: number, event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+    (
+      clientX: number,
+      clientY: number,
+      event?: { preventDefault?: () => void; stopPropagation?: () => void },
+    ) => {
       event?.preventDefault?.();
       event?.stopPropagation?.();
-      const ratio = ratioFromClientX(clientX);
+      const ratio = ratioFromClient(clientX, clientY);
       previewRatioRef.current = ratio;
       setPreviewRatio(ratio);
       scrubbingRef.current = true;
@@ -92,7 +98,7 @@ export function SeekBar({
       setHovering(true);
       onScrubbingChange?.(true);
     },
-    [onScrubbingChange, ratioFromClientX],
+    [onScrubbingChange, ratioFromClient],
   );
 
   useEffect(() => {
@@ -105,11 +111,15 @@ export function SeekBar({
   useEffect(() => {
     if (!scrubbing) return;
     const onMove = (event: PointerEvent) => {
-      const ratio = ratioFromClientX(event.clientX);
+      if (event.pointerType === "touch") return;
+      const ratio = ratioFromClient(event.clientX, event.clientY);
       previewRatioRef.current = ratio;
       setPreviewRatio(ratio);
     };
-    const onUp = () => endScrub();
+    const onUp = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      endScrub();
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -118,15 +128,16 @@ export function SeekBar({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [scrubbing, endScrub, ratioFromClientX]);
+  }, [scrubbing, endScrub, ratioFromClient]);
 
   const isMobileVariant = variant === "emby";
+  const mobileEmphasis = isMobileVariant && emphasis;
 
   return (
     <div
       className={cn(
         "group/seek relative w-full select-none",
-        isMobileVariant ? "py-3" : "py-2",
+        mobileEmphasis ? "py-4" : isMobileVariant ? "py-3" : "py-2",
       )}
       onPointerEnter={() => setHovering(true)}
       onPointerLeave={() => {
@@ -137,7 +148,7 @@ export function SeekBar({
       }}
       onPointerMove={(event) => {
         if (scrubbingRef.current) return;
-        setHoverRatio(ratioFromClientX(event.clientX));
+        setHoverRatio(ratioFromClient(event.clientX, event.clientY));
       }}
     >
       {(active && tipRatio != null && duration > 0) || scrubbing ? (
@@ -160,33 +171,61 @@ export function SeekBar({
         aria-valuetext={formatSeekTime(displayRatio * duration)}
         className={cn(
           "relative w-full cursor-pointer touch-none outline-none",
-          isMobileVariant && "min-h-11",
+          mobileEmphasis ? "min-h-[3.25rem]" : isMobileVariant && "min-h-11",
         )}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
         }}
         onPointerDown={(event) => {
+          if (event.pointerType === "touch") return;
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
           event.stopPropagation();
           event.currentTarget.setPointerCapture?.(event.pointerId);
-          beginScrub(event.clientX, event);
+          beginScrub(event.clientX, event.clientY, event);
+        }}
+        onTouchStart={(event) => {
+          if (event.touches.length !== 1) return;
+          event.stopPropagation();
+          beginScrub(event.touches[0].clientX, event.touches[0].clientY, event);
+        }}
+        onTouchMove={(event) => {
+          if (!scrubbingRef.current || event.touches.length !== 1) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const ratio = ratioFromClient(event.touches[0].clientX, event.touches[0].clientY);
+          previewRatioRef.current = ratio;
+          setPreviewRatio(ratio);
+        }}
+        onTouchEnd={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
+        }}
+        onTouchCancel={(event) => {
+          if (!scrubbingRef.current) return;
+          event.stopPropagation();
+          endScrub();
         }}
         onKeyDown={(event) => {
           if (!duration) return;
           const step = event.shiftKey ? 0.05 : 0.01;
           if (event.key === "ArrowRight" || event.key === "ArrowUp") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(clamp01(playedRatio + step));
           } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(clamp01(playedRatio - step));
           } else if (event.key === "Home") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(0);
           } else if (event.key === "End") {
             event.preventDefault();
+            event.stopPropagation();
             onSeek(1);
           }
         }}
@@ -195,14 +234,20 @@ export function SeekBar({
         <div
           className={cn(
             "absolute inset-x-0",
-            isMobileVariant ? "-top-4 -bottom-4" : "-top-2 -bottom-2",
+            mobileEmphasis ? "-top-5 -bottom-5" : isMobileVariant ? "-top-4 -bottom-4" : "-top-2 -bottom-2",
           )}
         />
 
         <div
           className={cn(
             "relative w-full overflow-hidden rounded-full bg-white/20 transition-[height] duration-150",
-            active ? "h-[5px]" : "h-[3px]",
+            mobileEmphasis
+              ? active
+                ? "h-2"
+                : "h-1.5"
+              : active
+                ? "h-[5px]"
+                : "h-[3px]",
           )}
         >
           {/* Buffered — hidden for transcode (Safari reports fantasy ranges) */}
@@ -225,9 +270,9 @@ export function SeekBar({
             "pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.25)] transition-[width,height,opacity,transform] duration-150",
             accentClass,
             variant === "emby"
-              ? active
+              ? mobileEmphasis || active
                 ? "h-4 w-4 opacity-100"
-                : "h-3 w-3 opacity-100"
+                : "h-3.5 w-3.5 opacity-100"
               : active
                 ? "h-3.5 w-3.5 opacity-100"
                 : "h-2.5 w-2.5 opacity-0 group-hover/seek:opacity-100",

@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      statusBarStyle: "black-translucent",
+      statusBarStyle: "default",
       title: branding.siteName,
     },
     formatDetection: {
@@ -41,16 +41,17 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover" as const,
+  colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#01131a" },
+    { media: "(prefers-color-scheme: light)", color: "#f4fbfa" },
     { media: "(prefers-color-scheme: dark)", color: "#01131a" },
   ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full dark`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground antialiased">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <body className="min-h-dvh bg-background text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

@@ -66,6 +66,7 @@ const useQueue = process.env.NODE_ENV !== 'test' && process.env.REDIS_HOST !== '
   ],
   exports: [
     ProfilesService,
+    ProfileAccessService,
     WatchHistoryService,
     MyListService,
     FavoritesService,

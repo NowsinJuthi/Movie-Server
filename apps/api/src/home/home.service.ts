@@ -199,7 +199,11 @@ export class HomeService {
       null;
     let slider: HomeCard[] = hero ? [hero] : [];
 
-    const [cmsHero, cmsRows] = await Promise.all([this.cms.findHero(), this.cms.listEnabledRows()]);
+    const [cmsHero, cmsRows, cmsManaged] = await Promise.all([
+      this.cms.findHero(),
+      this.cms.listEnabledRows(),
+      this.cms.hasRowConfigs(),
+    ]);
     if (cmsHero?.enabled) {
       const ids =
         cmsHero.itemIds?.length > 0
@@ -218,15 +222,12 @@ export class HomeService {
       }
     }
 
-    if (cmsRows.length > 0) {
+    if (cmsManaged) {
       const defaultRows = rows;
       const defaultByKey = new Map<string, HomeRow>();
       for (const row of defaultRows) {
         defaultByKey.set(this.homeRowKey(row), row);
       }
-      const configuredKeys = new Set(
-        cmsRows.map((cfg) => this.homeRowConfigKey(cfg.kind, cfg.genre)),
-      );
 
       const built = await Promise.all(
         cmsRows.map(async (cfg) => {
@@ -278,17 +279,8 @@ export class HomeService {
           row.source === HomeRowSource.Personalized &&
           (row.kind === HomeRowKind.RecentlyWatched || row.kind === HomeRowKind.BecauseYouWatched),
       );
-      const leftover = defaultRows.filter((row) => {
-        if (
-          row.source === HomeRowSource.Personalized &&
-          (row.kind === HomeRowKind.RecentlyWatched || row.kind === HomeRowKind.BecauseYouWatched)
-        ) {
-          return false;
-        }
-        return !configuredKeys.has(this.homeRowKey(row));
-      });
 
-      rows = [...autoPersonalized, ...built, ...leftover].filter((row): row is HomeRow => Boolean(row));
+      rows = [...autoPersonalized, ...built].filter((row): row is HomeRow => Boolean(row));
     }
 
     const payload: HomeResponse = { hero, slider, rows, myListIds, favoriteIds };

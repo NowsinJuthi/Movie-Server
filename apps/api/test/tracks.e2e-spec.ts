@@ -9,6 +9,7 @@ import os from 'os';
 import path from 'path';
 import { ErrorCode, UserRole } from '@movie-server/shared';
 import { UsersService } from '../src/users/users.service';
+import { asPlaybackClient } from './stream-test-headers';
 
 const password = 'StrongPass1x';
 const prefix = '/api/v1';
@@ -219,14 +220,14 @@ Bangla subtitle
 
     const embeddedAudio = session.audioTracks.find((item: { playable: boolean }) => !item.playable);
     expect(embeddedAudio).toBeTruthy();
-    const blockedAudio = await request(server)
-      .get(`${prefix}/stream/${session.id}/audio/${embeddedAudio.id}`)
+    const blockedAudio = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${session.id}/audio/${embeddedAudio.id}`))
       .set('Cookie', viewer);
     expect(blockedAudio.status).toBe(404);
     expect(blockedAudio.body.error).toBe(ErrorCode.AudioUnavailable);
 
-    const vtt = await request(server)
-      .get(`${prefix}/stream/${session.id}/subtitles/${subBn.id}`)
+    const vtt = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${session.id}/subtitles/${subBn.id}`))
       .set('Cookie', viewer);
     expect(vtt.status).toBe(200);
     expect(String(vtt.headers['content-type'])).toMatch(/text\/vtt/i);
@@ -234,8 +235,8 @@ Bangla subtitle
     expect(String(vtt.text)).toContain('Bangla subtitle');
     expect(JSON.stringify(vtt.body)).not.toMatch(/C:\\|\/var\/|storage\//i);
 
-    const srt = await request(server)
-      .get(`${prefix}/stream/${session.id}/subtitles/${subEn.id}`)
+    const srt = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${session.id}/subtitles/${subEn.id}`))
       .set('Cookie', viewer);
     expect(srt.status).toBe(200);
     expect(String(srt.text)).toContain('WEBVTT');
@@ -245,8 +246,8 @@ Bangla subtitle
     const anon = await request(server).get(`${prefix}/stream/${session.id}/subtitles/${subEn.id}`);
     expect(anon.status).toBe(401);
 
-    const audio = await request(server)
-      .get(`${prefix}/stream/${session.id}/audio/${audioHi.id}`)
+    const audio = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${session.id}/audio/${audioHi.id}`))
       .set('Cookie', viewer);
     expect([200, 206]).toContain(audio.status);
 
@@ -286,8 +287,8 @@ Bangla subtitle
     expect(missing.status).toBe(404);
     expect(missing.body.error).toBe(ErrorCode.TrackNotFound);
 
-    const unsupported = await request(server)
-      .get(`${prefix}/stream/${session.id}/subtitles/${subEs.id}`)
+    const unsupported = await asPlaybackClient(request(server)
+      .get(`${prefix}/stream/${session.id}/subtitles/${subEs.id}`))
       .set('Cookie', viewer);
     expect(unsupported.status).toBe(404);
     expect(unsupported.body.error).toBe(ErrorCode.SubtitleUnavailable);

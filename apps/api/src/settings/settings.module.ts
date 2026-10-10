@@ -5,6 +5,7 @@ import { BrandingStorageService } from './branding-storage.service';
 import { PublicSettingsController } from './public-settings.controller';
 import { SettingsSecretCrypto } from './settings-secret.crypto';
 import { SiteSettings, SiteSettingsSchema } from './schemas/site-settings.schema';
+import { EmailDomainPolicyService } from './email-domain-policy.service';
 import { SiteSettingsService } from './site-settings.service';
 
 @Global()
@@ -13,7 +14,7 @@ import { SiteSettingsService } from './site-settings.service';
     MongooseModule.forFeature([{ name: SiteSettings.name, schema: SiteSettingsSchema }]),
   ],
   controllers: [AdminSettingsController, PublicSettingsController],
-  providers: [SiteSettingsService, BrandingStorageService, SettingsSecretCrypto],
-  exports: [SiteSettingsService],
+  providers: [SiteSettingsService, EmailDomainPolicyService, BrandingStorageService, SettingsSecretCrypto],
+  exports: [SiteSettingsService, EmailDomainPolicyService],
 })
 export class SettingsModule {}

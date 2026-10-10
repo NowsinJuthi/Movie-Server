@@ -3,9 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { BrowseShell } from "@/components/browse/browse-shell";
-import { MediaInfoDialog } from "@/components/home/media-info-dialog";
+import { useMediaInfoOpen } from "@/components/home/media-info-dialog";
 import { PosterImage } from "@/components/home/poster-image";
 import { invalidatePersonalization } from "@/components/home/use-personalization";
 import { profileApi } from "@/lib/profile-api";
@@ -82,7 +81,7 @@ function MyListPoster({
   removing: boolean;
   onRemove: () => void;
 }) {
-  const [infoOpen, setInfoOpen] = useState(false);
+  const openMediaInfo = useMediaInfoOpen();
   const playHref = href.includes("/watch")
     ? href
     : kind === "movie"
@@ -117,7 +116,15 @@ function MyListPoster({
         <button
           type="button"
           className="line-clamp-2 w-full text-sm font-medium leading-snug text-white hover:underline"
-          onClick={() => setInfoOpen(true)}
+          onClick={() =>
+            openMediaInfo({
+              id: mediaId,
+              kind,
+              title,
+              href: href.replace(/\/watch$/, "") || href,
+              watchHref: kind === "movie" ? playHref : null,
+            })
+          }
         >
           {title}
         </button>
@@ -125,25 +132,20 @@ function MyListPoster({
           <button
             type="button"
             className="mt-0.5 text-xs text-white/60 hover:text-white/80 hover:underline"
-            onClick={() => setInfoOpen(true)}
+            onClick={() =>
+              openMediaInfo({
+                id: mediaId,
+                kind,
+                title,
+                href: href.replace(/\/watch$/, "") || href,
+                watchHref: kind === "movie" ? playHref : null,
+              })
+            }
           >
             {year}
           </button>
         ) : null}
       </div>
-
-      {infoOpen ? (
-        <MediaInfoDialog
-          target={{
-            id: mediaId,
-            kind,
-            title,
-            href: href.replace(/\/watch$/, "") || href,
-            watchHref: kind === "movie" ? playHref : null,
-          }}
-          onClose={() => setInfoOpen(false)}
-        />
-      ) : null}
     </li>
   );
 }

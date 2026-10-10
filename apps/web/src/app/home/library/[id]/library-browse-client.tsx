@@ -38,7 +38,7 @@ export function LibraryBrowseClient() {
       if (merged.genre) params.set("genre", merged.genre);
       if (merged.year) params.set("year", String(merged.year));
       if (merged.minRating != null) params.set("minRating", String(merged.minRating));
-      if (merged.sort) params.set("sort", merged.sort);
+      if (merged.sort && merged.sort !== "newest") params.set("sort", merged.sort);
       const query = params.toString();
       router.replace(query ? `/home/library/${id}?${query}` : `/home/library/${id}`, { scroll: false });
     },
@@ -87,13 +87,13 @@ export function LibraryBrowseClient() {
         </section>
       ) : (
         <>
-          <section className="px-3 pb-4 pt-24 sm:px-4 md:px-5 lg:px-6">
-            <h1 className="text-xl font-semibold text-[#f8fafc] md:text-2xl">
+          <section className="px-3 pb-2 pt-3 sm:px-4 md:px-5 md:pt-4 lg:px-6 lg:pt-3">
+            <h1 className="text-xl font-semibold text-foreground md:text-2xl">
               {library?.name ?? "Library"}
             </h1>
           </section>
 
-          <section className="w-full space-y-6 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
+          <section className="w-full space-y-4 px-3 pb-24 sm:px-4 md:px-5 lg:px-6">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             {!browseQuery.data && !error ? (
@@ -112,8 +112,8 @@ export function LibraryBrowseClient() {
                 />
 
                 {filteredItems.length === 0 ? (
-                  <div className="rounded-xl border border-[rgb(14_40_50/0.72)] bg-[linear-gradient(180deg,rgb(3_26_34/0.98)_0%,rgb(1_19_26/0.99)_100%)] px-4 py-10 text-center">
-                    <p className="text-sm text-[rgb(148_163_184/0.85)]">No titles match your filters.</p>
+                  <div className="rounded-xl border border-border bg-card px-4 py-10 text-center">
+                    <p className="text-sm text-muted-foreground">No titles match your filters.</p>
                     <Button className="mt-4" variant="outline" onClick={clearFilters}>
                       Clear filters
                     </Button>

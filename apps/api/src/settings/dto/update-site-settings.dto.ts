@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsInt,
@@ -54,12 +56,41 @@ export class UpdateSmtpSettingsDto {
   fromEmail?: string;
 }
 
+export class UpdateEmailDomainsDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
+  @MaxLength(253, { each: true })
+  allowlist?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
+  @MaxLength(253, { each: true })
+  blocklist?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  allowlistEnabled?: boolean;
+}
+
 export class UpdateSiteSettingsDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(80)
   siteName?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  movieUploadRequestsEnabled?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateEmailDomainsDto)
+  emailDomains?: UpdateEmailDomainsDto;
 
   @IsOptional()
   @ValidateNested()

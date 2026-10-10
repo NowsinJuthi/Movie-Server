@@ -27,6 +27,7 @@ import { AdminModule } from './admin/admin.module';
 import { LicenseModule } from './license/license.module';
 import { SettingsModule } from './settings/settings.module';
 import { RolePermissionsModule } from './role-permissions/role-permissions.module';
+import { MovieUploadRequestsModule } from './movie-upload-requests/movie-upload-requests.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { HealthController } from './health/health.controller';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -101,6 +102,7 @@ const useQueue = process.env.NODE_ENV !== 'test' && process.env.REDIS_HOST !== '
     LicenseModule,
     SettingsModule,
     RolePermissionsModule,
+    MovieUploadRequestsModule,
     RealtimeModule,
   ],
   controllers: [HealthController],

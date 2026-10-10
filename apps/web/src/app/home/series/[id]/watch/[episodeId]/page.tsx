@@ -56,8 +56,12 @@ export default function EpisodeWatchPage() {
     autoPlayNext: false,
   };
 
+  const playbackKey = `${params.id}:${params.episodeId}`;
+
   return (
     <StreamPlayer
+      key={playbackKey}
+      playbackKey={playbackKey}
       title={episode?.title ?? "Loading..."}
       year={series?.firstAirYear}
       subtitle={

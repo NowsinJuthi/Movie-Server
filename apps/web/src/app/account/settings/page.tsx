@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScreenMessage } from "@/components/profiles/pin-dialog";
 import { PageShell } from "@/components/layout/page-shell";
+import { ThemeSelector } from "@/components/theme/theme-selector";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { ApiError } from "@/lib/api";
@@ -114,6 +115,10 @@ export default function AccountSettingsPage() {
         </div>
       }
     >
+      <section className="max-w-xl space-y-4 rounded-xl border border-border bg-card/60 p-5">
+        <ThemeSelector variant="panel" />
+      </section>
+
       <section className="max-w-xl space-y-4 rounded-xl border border-border bg-card/60 p-5">
         <div>
           <h2 className="text-lg font-semibold">Profile</h2>

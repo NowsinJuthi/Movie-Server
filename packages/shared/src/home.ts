@@ -79,6 +79,7 @@ export type HomeCard = {
   progressRatio: number | null;
   episodeLabel: string | null;
   inMyList: boolean;
+  createdAt?: string;
 };
 
 export type HomeRow = {

@@ -25,6 +25,13 @@ import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import styles from "./collections-page.module.css";
 
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 export default function AdminCollectionsPage() {
   const router = useRouter();
   const { user, status } = useAuthStore();
@@ -259,6 +266,23 @@ export default function AdminCollectionsPage() {
                         </span>
                         <span className={styles.titleText}>
                           <span className={styles.titleName}>{item.title}</span>
+                          {item.videoFileName || item.videoFileSizeBytes != null ? (
+                            <span
+                              className={styles.titleFile}
+                              title={
+                                item.videoFileName && item.videoFileSizeBytes != null
+                                  ? `${item.videoFileName} · ${formatBytes(item.videoFileSizeBytes)}`
+                                  : item.videoFileName ?? undefined
+                              }
+                            >
+                              {item.videoFileName ?? "Video file"}
+                              {item.videoFileSizeBytes != null
+                                ? ` · ${formatBytes(item.videoFileSizeBytes)}`
+                                : ""}
+                            </span>
+                          ) : (
+                            <span className={styles.titleFileMuted}>No linked video file</span>
+                          )}
                           <span className={styles.titleMeta}>
                             {item.featured ? "Featured" : "Catalog"}
                             {item.trending ? " · Trending" : ""}

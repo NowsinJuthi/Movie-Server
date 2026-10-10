@@ -95,14 +95,11 @@ export function planTranscode(probe: LibraryProbe, mode: 'auto' | 'always' | 'ne
   if (mode === 'never') {
     return { transcode: false, encodeVideo: false, encodeAudio: false, audioOrdinal, probe };
   }
-  if (mode === 'always') {
-    return { transcode: true, encodeVideo: true, encodeAudio: true, audioOrdinal, probe };
-  }
-  const encodeVideo = !isBrowserSafeVideoCodec(probe.videoCodec);
-  const encodeAudio = !isBrowserSafeAudioCodec(audioCodec);
+  // Emby Direct Stream: never re-encode video. Audio may still be AAC for the browser.
+  const encodeAudio = mode === 'always' || !isBrowserSafeAudioCodec(audioCodec);
   return {
-    transcode: encodeVideo || encodeAudio,
-    encodeVideo,
+    transcode: encodeAudio,
+    encodeVideo: false,
     encodeAudio,
     audioOrdinal,
     probe,
@@ -297,6 +294,37 @@ export function hlsStreamCopyVideoArgs(videoCodec: string | null | undefined): s
   return ['-c:v', 'copy', '-bsf:v', 'h264_mp4toannexb'];
 }
 
+/** Stream-copy video for progressive fMP4 (no annexb — that breaks <video> playback). */
+export function progressiveStreamCopyVideoArgs(videoCodec: string | null | undefined): string[] {
+  if (isHevcVideoCodec(videoCodec)) {
+    return ['-c:v', 'copy', '-tag:v', 'hvc1'];
+  }
+  return ['-c:v', 'copy'];
+}
+
+export function buildProgressiveOutputArgs(
+  config: ConfigService,
+  plan: TranscodePlan,
+  segmentSeconds: number,
+): string[] {
+  const args: string[] = [];
+  if (plan.encodeVideo) {
+    args.push(...videoEncodeArgs(config, segmentSeconds, plan.probe));
+  } else {
+    args.push(...progressiveStreamCopyVideoArgs(plan.probe.videoCodec));
+  }
+  if (plan.encodeAudio) {
+    args.push(...audioEncodeArgs(!plan.encodeVideo));
+  } else {
+    args.push('-c:a', 'copy');
+  }
+  if (plan.encodeAudio && !plan.encodeVideo) {
+    args.push('-max_interleave_delta', '0');
+  }
+  args.push('-max_muxing_queue_size', '9999');
+  return args;
+}
+
 export function buildHlsTranscodeOutputArgs(
   config: ConfigService,
   plan: TranscodePlan,
@@ -320,20 +348,30 @@ export function buildHlsTranscodeOutputArgs(
   return args;
 }
 
-export function ffmpegInputArgs(absPath: string, startSeconds: number, config?: ConfigService): string[] {
+export function ffmpegInputArgs(
+  absPath: string,
+  startSeconds: number,
+  config?: ConfigService,
+  options?: { skipHwaccel?: boolean; fastOpen?: boolean },
+): string[] {
   const args: string[] = ['-hide_banner', '-loglevel', 'error'];
   if (startSeconds > 0.5) {
     args.push('-ss', startSeconds.toFixed(3));
   }
-  const hwaccel = config ? transcodeHwaccel(config) : 'none';
-  if (hwaccel !== 'none') {
-    args.push('-hwaccel', hwaccel === 'auto' ? 'auto' : hwaccel);
+  // Copy remux (Emby Direct Stream) must not open a decoder via -hwaccel.
+  if (!options?.skipHwaccel) {
+    const hwaccel = config ? transcodeHwaccel(config) : 'none';
+    if (hwaccel !== 'none') {
+      args.push('-hwaccel', hwaccel === 'auto' ? 'auto' : hwaccel);
+    }
   }
+  // 32M/10s probe on SMB delays the first frame several seconds vs Emby.
+  const fastOpen = Boolean(options?.fastOpen) || startSeconds > 0.5;
   args.push(
     '-probesize',
-    startSeconds > 0.5 ? '5M' : '32M',
+    fastOpen ? '5M' : '32M',
     '-analyzeduration',
-    startSeconds > 0.5 ? '2M' : '10M',
+    fastOpen ? '2M' : '10M',
     '-fflags',
     '+genpts+discardcorrupt',
     '-threads',

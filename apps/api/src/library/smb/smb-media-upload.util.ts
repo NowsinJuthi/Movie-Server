@@ -13,6 +13,34 @@ export function sanitizeUploadFilename(original: string): string {
   return base;
 }
 
+/** Relative path inside the upload folder (may include subdirectories). */
+export function sanitizeUploadRelativePath(relative: string): string {
+  const posix = relative.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  if (!posix || posix.includes('\0')) {
+    throw new BadRequestException({
+      error: ErrorCode.ValidationFailed,
+      message: 'Invalid upload path.',
+    });
+  }
+  const segments = posix.split('/').filter((segment) => segment.length > 0 && segment !== '.');
+  if (segments.length === 0 || segments.some((segment) => segment === '..')) {
+    throw new BadRequestException({
+      error: ErrorCode.ValidationFailed,
+      message: 'Invalid upload path.',
+    });
+  }
+  for (const segment of segments) {
+    if (segment.length > 255) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Upload path segment is too long.',
+      });
+    }
+  }
+  sanitizeUploadFilename(segments[segments.length - 1]!);
+  return segments.join('/');
+}
+
 export function joinRemotePath(directory: string, filename: string): string {
   const dir = directory.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
   return dir ? `${dir}/${filename}` : filename;

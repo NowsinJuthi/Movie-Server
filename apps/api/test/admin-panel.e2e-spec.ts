@@ -117,6 +117,11 @@ describe('Admin panel (e2e)', () => {
     );
     assertNoSecrets(dashboard.body);
 
+    const metrics = await request(server).get(`${prefix}/admin/server-metrics`).set('Cookie', admin);
+    expect(metrics.status).toBe(200);
+    expect(metrics.body.cpu.cores).toBeGreaterThan(0);
+    expect(metrics.body.memory.totalBytes).toBeGreaterThan(0);
+
     const health = await request(server).get(`${prefix}/admin/health`).set('Cookie', admin);
     expect(health.status).toBe(200);
     expect(health.body.mongo).toBe('up');

@@ -4,7 +4,9 @@ import type { HomeCard, PublicMovie } from "@movie-server/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Info, Play, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import styles from "./media-info-dialog.module.css";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DragSlider } from "@/components/ui/drag-slider";
@@ -21,13 +23,33 @@ import { PersonalizationControls } from "./personalization-controls";
 import { invalidatePersonalization } from "./use-personalization";
 import { PosterImage } from "./poster-image";
 
-type MediaInfoTarget = {
+export type MediaInfoTarget = {
   id: string;
   kind: "movie" | "series";
   title: string;
   href: string;
   watchHref?: string | null;
 };
+
+const MediaInfoOpenContext = createContext<((target: MediaInfoTarget) => void) | null>(null);
+
+export function useMediaInfoOpen() {
+  const open = useContext(MediaInfoOpenContext);
+  return open ?? (() => {});
+}
+
+export function MediaInfoProvider({ children }: { children: ReactNode }) {
+  const [target, setTarget] = useState<MediaInfoTarget | null>(null);
+  const open = useCallback((next: MediaInfoTarget) => setTarget(next), []);
+  const close = useCallback(() => setTarget(null), []);
+
+  return (
+    <MediaInfoOpenContext.Provider value={open}>
+      {children}
+      {target ? <MediaInfoDialog target={target} onClose={close} /> : null}
+    </MediaInfoOpenContext.Provider>
+  );
+}
 
 export function MediaInfoDialog({
   target,
@@ -39,6 +61,11 @@ export function MediaInfoDialog({
   const router = useRouter();
   const queryClient = useQueryClient();
   const open = Boolean(target);
+  const [mounted, setMounted] = useState(false);
+
+  useLayoutEffect(() => {
+    setMounted(true);
+  }, []);
 
   const movieQuery = useQuery({
     queryKey: ["media-info", "movie", target?.id],
@@ -74,11 +101,30 @@ export function MediaInfoDialog({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    const html = document.documentElement;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyTop = document.body.style.top;
+    const prevBodyWidth = document.body.style.width;
+
+    html.dataset.mediaInfoOpen = "true";
     document.body.style.overflow = "hidden";
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+    }
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      delete html.dataset.mediaInfoOpen;
+      document.body.style.overflow = prevBodyOverflow;
+      html.style.overflow = prevHtmlOverflow;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.top = prevBodyTop;
+      document.body.style.width = prevBodyWidth;
+      window.scrollTo(0, scrollY);
       document.removeEventListener("keydown", onKey);
     };
   }, [open, onClose]);
@@ -148,11 +194,11 @@ export function MediaInfoDialog({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-label="Close" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-2xl sm:mx-4 sm:rounded-2xl">
-        <div className="relative h-36 shrink-0 overflow-hidden sm:h-44">
+  const panel = (
+    <div className={styles.root} role="dialog" aria-modal="true" aria-labelledby="media-info-title">
+      <button type="button" className={styles.backdrop} aria-label="Close" onClick={onClose} />
+      <div className={styles.sheet}>
+        <div className={styles.hero}>
           {backdropUrl ? (
             <PosterImage src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
           ) : (
@@ -162,7 +208,7 @@ export function MediaInfoDialog({
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgb(38_191_176/0.22),transparent_55%)]" />
           <button
             type="button"
-            className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-foreground hover:bg-secondary"
+            className={`${styles.closeBtn} inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-foreground hover:bg-secondary`}
             aria-label="Close"
             onClick={onClose}
           >
@@ -170,9 +216,9 @@ export function MediaInfoDialog({
           </button>
         </div>
 
-        <div className="relative -mt-14 min-h-0 flex-1 overflow-y-auto brand-scrollbar px-4 pb-6 sm:-mt-16 sm:px-6 sm:pb-7">
-          <div className="flex items-start gap-4 sm:gap-5">
-            <div className="w-28 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary shadow-[0_12px_40px_-16px_rgb(38_191_176/0.45)] sm:w-36">
+        <div className={styles.headerBlock}>
+          <div className="flex items-start gap-3 sm:gap-5">
+            <div className="w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary shadow-[0_12px_40px_-16px_rgb(38_191_176/0.45)] sm:w-36">
               <div className="aspect-[2/3]">
                 {posterUrl ? (
                   <PosterImage src={posterUrl} alt="" className="h-full w-full object-cover" />
@@ -182,16 +228,18 @@ export function MediaInfoDialog({
               </div>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-3 pt-1">
+            <div className="min-w-0 flex-1 space-y-2 pt-1 sm:space-y-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                   {target.kind === "series" ? "Series" : "Movie"}
                 </p>
-                <h2 className="mt-1 text-xl font-bold leading-tight text-foreground sm:text-3xl">{title}</h2>
+                <h2 id="media-info-title" className="mt-1 text-lg font-bold leading-snug text-foreground sm:text-3xl">
+                  {title}
+                </h2>
                 {originalTitle && originalTitle !== title ? (
                   <p className="mt-1 text-sm text-muted-foreground">{originalTitle}</p>
                 ) : null}
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-1.5 text-xs text-muted-foreground sm:mt-2 sm:text-sm">
                   {[
                     year,
                     runtime ? `${runtime} min` : null,
@@ -219,8 +267,10 @@ export function MediaInfoDialog({
               ) : null}
             </div>
           </div>
+        </div>
 
-          <div className="mt-5 space-y-5">
+        <div className={`${styles.body} brand-scrollbar`}>
+          <div className="space-y-5">
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading details…</p>
             ) : (
@@ -373,6 +423,9 @@ export function MediaInfoDialog({
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(panel, document.body);
 }
 
 function Meta({ label, values }: { label: string; values: string[] }) {

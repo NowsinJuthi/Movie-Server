@@ -1,12 +1,12 @@
 .page {
-  /* UniQbd login palette */
-  --auth-accent: #26bfb0;
-  --auth-accent-soft: #5eead4;
-  --auth-accent-deep: #0a6258;
-  --auth-page-bg: #01131a;
-  --auth-ink: #e8f6f8;
-  --auth-muted: #8aa3aa;
-  --auth-panel: #01131a;
+  /* UniQbd login palette — follows site theme tokens */
+  --auth-accent: var(--primary);
+  --auth-accent-soft: var(--brand-soft);
+  --auth-accent-deep: var(--brand-deep);
+  --auth-page-bg: var(--background);
+  --auth-ink: var(--foreground);
+  --auth-muted: var(--muted-foreground);
+  --auth-panel: var(--card);
 
   flex: 1;
   min-height: 100dvh;
@@ -19,6 +19,13 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+}
+
+.themeSwitch {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top, 0px));
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  z-index: 6;
 }
 
 .page::before,
@@ -294,15 +301,15 @@
 
 .panel :global(input) {
   min-height: 44px;
-  border: 1px solid rgb(38 191 176 / 0.52);
+  border: 1px solid color-mix(in srgb, var(--primary) 52%, var(--border));
   border-radius: 10px;
-  background: rgb(1 19 26 / 0.76);
+  background: color-mix(in srgb, var(--background) 76%, var(--card));
   color: var(--auth-ink);
   box-shadow: none;
 }
 
 .panel :global(input::placeholder) {
-  color: #5f7a80;
+  color: var(--muted-foreground);
 }
 
 .panel :global(input:focus-visible) {
@@ -356,7 +363,7 @@
     width: 100%;
     min-width: 0;
     height: 100%;
-    padding: 32px 24px;
+    padding: 4.5rem 24px 32px;
     overflow-y: auto;
   }
 

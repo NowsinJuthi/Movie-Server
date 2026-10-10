@@ -110,7 +110,7 @@ export class LibraryService implements OnModuleInit {
         return { library: pub, items: [] };
       }
 
-      const movies = await this.movies.find({ _id: { $in: movieIds }, published: true }).sort({ title: 1 });
+      const movies = await this.movies.find({ _id: { $in: movieIds }, published: true }).sort({ createdAt: -1 });
       const assets = await this.assets
         .find({ movieId: { $in: movies.map((movie) => movie._id) }, kind: MediaKind.Video })
         .select('movieId kind quality status');
@@ -147,7 +147,7 @@ export class LibraryService implements OnModuleInit {
       return { library: pub, items: [] };
     }
 
-    const seriesDocs = await this.series.find({ _id: { $in: seriesIds }, published: true }).sort({ title: 1 });
+    const seriesDocs = await this.series.find({ _id: { $in: seriesIds }, published: true }).sort({ createdAt: -1 });
     return {
       library: pub,
       items: seriesDocs.map((doc) => seriesToHomeCard(toPublicSeries(doc), myList)),

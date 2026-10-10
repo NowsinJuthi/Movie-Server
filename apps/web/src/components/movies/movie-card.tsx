@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import type { PublicMovie } from "@movie-server/shared";
-import { MediaInfoDialog, movieToInfoTarget } from "@/components/home/media-info-dialog";
+import { movieToInfoTarget, useMediaInfoOpen } from "@/components/home/media-info-dialog";
 import {
   autoplayPlayerHref,
   markMobileAutoplayTap,
@@ -12,7 +11,7 @@ import {
 import { isCoarsePointerMobile } from "@/lib/device-playback";
 
 export function MovieCard({ movie }: { movie: PublicMovie }) {
-  const [infoOpen, setInfoOpen] = useState(false);
+  const openMediaInfo = useMediaInfoOpen();
 
   return (
     <article className="overflow-hidden rounded-md bg-secondary">
@@ -40,21 +39,18 @@ export function MovieCard({ movie }: { movie: PublicMovie }) {
         <button
           type="button"
           className="line-clamp-2 w-full text-sm font-medium leading-snug text-white hover:underline"
-          onClick={() => setInfoOpen(true)}
+          onClick={() => openMediaInfo(movieToInfoTarget(movie))}
         >
           {movie.title}
         </button>
         <button
           type="button"
           className="text-xs text-white/60 hover:underline"
-          onClick={() => setInfoOpen(true)}
+          onClick={() => openMediaInfo(movieToInfoTarget(movie))}
         >
           {movie.releaseYear}
         </button>
       </div>
-      {infoOpen ? (
-        <MediaInfoDialog target={movieToInfoTarget(movie)} onClose={() => setInfoOpen(false)} />
-      ) : null}
     </article>
   );
 }

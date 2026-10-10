@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -64,9 +66,12 @@ import {
 const API = '/api/v1';
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
 
+const HLS_ORPHAN_SWEEP_MS = 15 * 60 * 1000;
+
 @Injectable()
-export class StreamService {
+export class StreamService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StreamService.name);
+  private hlsSweepTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly sessions: PlaybackSessionStore,
@@ -84,6 +89,32 @@ export class StreamService {
     @InjectModel(LibraryItem.name) private readonly items: Model<LibraryItemDocument>,
     @InjectModel(MediaLibrary.name) private readonly libraries: Model<MediaLibraryDocument>,
   ) {}
+
+  onModuleInit(): void {
+    void this.sweepOrphanHlsPacks('startup');
+    this.hlsSweepTimer = setInterval(() => void this.sweepOrphanHlsPacks('interval'), HLS_ORPHAN_SWEEP_MS);
+  }
+
+  onModuleDestroy(): void {
+    if (this.hlsSweepTimer) {
+      clearInterval(this.hlsSweepTimer);
+      this.hlsSweepTimer = null;
+    }
+  }
+
+  private async sweepOrphanHlsPacks(reason: 'startup' | 'interval'): Promise<void> {
+    try {
+      const liveIds = await this.sessions.listLiveSessionIds();
+      const removed = await this.hlsPackager.sweepOrphanDirs(liveIds);
+      if (removed > 0) {
+        this.logger.log(`HLS pack sweep (${reason}): removed ${removed} orphan folder(s)`);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `HLS pack sweep failed (${reason}): ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
 
   async open(input: {
     user: RequestUser;
@@ -111,9 +142,6 @@ export class StreamService {
     const deviceId = (input.deviceId?.trim() || 'default').slice(0, 80);
     const deviceLabel = (input.deviceLabel?.trim() || 'AmarPin').slice(0, 80);
     const isAppleMobile = /iPhone|iPad|iPod/i.test(deviceLabel);
-    // iOS gets Emby-style HEVC copy in CMAF/fMP4 HLS. Ignore the older web
-    // bundle's blanket force flag so capable iPhones do not software-encode 1080p.
-    const forceVideoTranscode = Boolean(input.forceVideoTranscode) && !isAppleMobile;
     const entitlement = await this.access.assertQuality(input.user.id, input.quality);
     const maxQuality = entitlement.maxVideoQuality;
     if (!maxQuality) {
@@ -191,18 +219,15 @@ export class StreamService {
       const rawPlan = this.remux.available()
         ? await this.resolveTranscodePlan(located.absPath, selected.libraryItemId)
         : null;
-      // iOS HEVC must use CMAF/fMP4 HLS (chosen by HlsPackagerService), not
-      // MPEG-TS. Other clients continue to use their declared capabilities.
-      const allowHevcDirect =
-        (isAppleMobile || Boolean(input.clientHevc)) && !forceVideoTranscode;
+      // Emby Direct Stream: copy video always. HEVC stays HEVC (CMAF/fMP4 on iOS).
       let transcodePlan = rawPlan
-        ? applyClientCapabilities(rawPlan, { hevcDirectStream: allowHevcDirect })
+        ? applyClientCapabilities(rawPlan, { hevcDirectStream: true })
         : null;
-      if (forceVideoTranscode && transcodePlan) {
+      if (transcodePlan) {
         transcodePlan = {
           ...transcodePlan,
-          encodeVideo: true,
-          transcode: true,
+          encodeVideo: false,
+          transcode: transcodePlan.encodeAudio,
         };
       }
       if (transcodePlan && selectedAudio?.embedded) {
@@ -323,6 +348,7 @@ export class StreamService {
     userId: string,
     preferredResolution?: string,
     startSeconds = 0,
+    packGeneration?: string,
   ): Promise<void> {
     const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
     if (!session.videoTranscode && !session.videoRemux) {
@@ -331,6 +357,27 @@ export class StreamService {
     await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
       startSeconds: Math.max(0, startSeconds),
       plan: this.sessionTranscodePlan(session),
+      generation: packGeneration,
+    });
+  }
+
+  /** Package MP4 direct-play as fMP4 HLS so playlists never expose one full-file /media URL. */
+  async ensureDirectPlayHls(
+    sessionId: string,
+    userId: string,
+    preferredResolution?: string,
+    startSeconds = 0,
+    packGeneration?: string,
+  ): Promise<void> {
+    const { absPath, session } = await this.resolveSessionMediaPath(sessionId, userId, preferredResolution);
+    if (session.videoTranscode || session.videoRemux) {
+      return;
+    }
+    const plan = await buildTranscodePlan(absPath, this.config);
+    await this.hlsPackager.ensureFirstSegment(sessionId, absPath, {
+      startSeconds: Math.max(0, startSeconds),
+      plan,
+      generation: packGeneration,
     });
   }
 
@@ -339,10 +386,17 @@ export class StreamService {
     resolution: string,
     mediaToken: string,
   ): Promise<string> {
-    if (!session.videoTranscode && !session.videoRemux) {
-      return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+    try {
+      return await this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
+    } catch {
+      if (!session.videoTranscode && !session.videoRemux) {
+        return buildMediaPlaylist(session.durationSeconds, resolution, mediaToken);
+      }
+      throw new NotFoundException({
+        error: ErrorCode.PlaybackUnavailable,
+        message: 'HLS playlist is not ready.',
+      });
     }
-    return this.hlsPackager.readPlaylistForApi(session.id, mediaToken);
   }
 
   async seekHls(
@@ -353,11 +407,13 @@ export class StreamService {
   ): Promise<void> {
     const session = await this.sessions.requireOwned(sessionId, userId);
     await this.ensurePlayable(session, userId);
-    if (!session.videoTranscode && !session.videoRemux) {
+    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
+    const generation = `seek-${Date.now()}`;
+    if (session.videoTranscode || session.videoRemux) {
+      await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped, generation);
       return;
     }
-    const clamped = Math.max(0, Math.min(seconds, session.durationSeconds || seconds));
-    await this.ensureMobileHls(sessionId, userId, preferredResolution, clamped);
+    await this.ensureDirectPlayHls(sessionId, userId, preferredResolution, clamped, generation);
   }
 
   async readMobileHlsPlaylist(sessionId: string, mediaToken: string): Promise<string> {
@@ -651,7 +707,7 @@ export class StreamService {
     sessionId: string,
     userId: string,
     preferredResolution?: string,
-    options?: { disallowRemux?: boolean },
+    options?: { disallowRemux?: boolean; startSeconds?: number },
   ): Promise<{
     size: number;
     mime: string;
@@ -684,10 +740,12 @@ export class StreamService {
     const ext = path.extname(located.relativePath).toLowerCase();
     const containerRemux =
       session.videoRemux ?? this.needsVideoRemux(located.absPath, located.relativePath);
-    const needsTranscode = session.videoTranscode;
-    const remux = containerRemux || needsTranscode;
+    const remux = containerRemux || session.videoTranscode;
+    const encodeAudio = session.transcodeEncodeAudio ?? false;
+    const encodeVideo = session.transcodeEncodeVideo ?? false;
+    const startSeconds = Math.max(0, options?.startSeconds ?? 0);
     // iOS Safari cannot play MKV/WebM remux streams; HLS transcode path handles mobile playback.
-    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !needsTranscode) {
+    if (remux && options?.disallowRemux && (ext === '.mkv' || ext === '.webm') && !encodeAudio) {
       throw new BadRequestException({
         error: ErrorCode.PlaybackUnavailable,
         message:
@@ -695,17 +753,19 @@ export class StreamService {
       });
     }
     if (remux) {
+      const plan = this.sessionTranscodePlan(session);
       return {
         size: 0,
         mime: 'video/mp4',
         remux: true,
         open: async () =>
-          needsTranscode
-            ? this.remux.openVideoStream(located.absPath, this.sessionTranscodePlan(session), 0)
+          encodeAudio || encodeVideo
+            ? this.remux.openVideoStream(located.absPath, plan, startSeconds)
             : this.remux.openVideoRemux(
                 located.absPath,
-                0,
-                session.transcodeAudioOrdinal ?? 0,
+                startSeconds,
+                plan.audioOrdinal,
+                plan.probe.videoCodec,
               ),
       };
     }

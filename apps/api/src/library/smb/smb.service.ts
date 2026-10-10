@@ -14,7 +14,12 @@ import { ErrorCode, LibraryKind, StorageProviderKind } from '@movie-server/share
 import { LibraryService } from '../library.service';
 import { LibraryScanService } from '../library-scan.service';
 import { resolveSafePath } from '../storage/path-safety';
-import { joinRemotePath, remotePathInLibrary, sanitizeUploadFilename } from './smb-media-upload.util';
+import {
+  joinRemotePath,
+  remotePathInLibrary,
+  sanitizeUploadFilename,
+  sanitizeUploadRelativePath,
+} from './smb-media-upload.util';
 import { MediaLibrary, MediaLibraryDocument } from '../schemas/media-library.schema';
 import { SmbCredentialCrypto } from './smb-credential.crypto';
 import { SmbClientService, type SmbAuth } from './smb-client.service';
@@ -281,7 +286,7 @@ export class SmbService implements OnModuleInit {
     id: string,
     remoteDirectory: string,
     file: Express.Multer.File,
-    options: { scan?: boolean } = {},
+    options: { scan?: boolean; relativePath?: string } = {},
   ) {
     if (!file?.path) {
       throw new BadRequestException({
@@ -293,7 +298,10 @@ export class SmbService implements OnModuleInit {
     const server = await this.requireServer(id, true);
     const auth = this.toAuth(server);
     const directory = this.sanitizeRemotePath(remoteDirectory);
-    const filename = sanitizeUploadFilename(file.originalname);
+    const relativeKey = options.relativePath?.trim()
+      ? sanitizeUploadRelativePath(options.relativePath)
+      : sanitizeUploadFilename(file.originalname);
+    const filename = path.basename(relativeKey);
     if (!this.client.isVideoFile(filename)) {
       await fs.unlink(file.path).catch(() => undefined);
       throw new BadRequestException({
@@ -316,7 +324,7 @@ export class SmbService implements OnModuleInit {
 
     let destination: string;
     try {
-      destination = resolveSafePath(mountRoot, filename);
+      destination = resolveSafePath(mountRoot, relativeKey);
     } catch {
       await fs.unlink(file.path).catch(() => undefined);
       throw new BadRequestException({
@@ -338,7 +346,7 @@ export class SmbService implements OnModuleInit {
       await fs.unlink(file.path).catch(() => undefined);
     }
 
-    const remoteFilePath = joinRemotePath(directory, filename);
+    const remoteFilePath = joinRemotePath(directory, relativeKey);
     server.lastOkAt = new Date();
     server.lastError = null;
     await server.save();

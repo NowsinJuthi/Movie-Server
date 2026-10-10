@@ -108,6 +108,8 @@ export type PublicPlan = {
   maxDevices: number;
   maxStreams: number;
   features: PlanFeature[];
+  /** When non-empty, shown on subscription cards instead of auto-generated lines. */
+  featureBullets: string[];
   trialDays: number;
   isActive: boolean;
   sortOrder: number;

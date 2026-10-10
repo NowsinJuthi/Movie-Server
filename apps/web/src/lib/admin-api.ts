@@ -3,6 +3,7 @@ import type {
   AdminCatalogTerm,
   AdminDashboard,
   AdminHealth,
+  AdminServerMetrics,
   AdminHomeHero,
   AdminHomeRow,
   AdminJobsResponse,
@@ -11,6 +12,9 @@ import type {
   AdminTrackRow,
   AdminUserRow,
   AdminSubscriptionRow,
+  ContentUploadRequestKind,
+  MovieUploadRequestRow,
+  MovieUploadRequestStatus,
   PublicInvoice,
   PublicPlan,
   PublicSubscription,
@@ -31,6 +35,7 @@ function qs(query: Record<string, string | number | boolean | undefined>) {
 
 export const adminApi = {
   dashboard: () => apiFetch<AdminDashboard>("/admin/dashboard"),
+  serverMetrics: () => apiFetch<AdminServerMetrics>("/admin/server-metrics"),
   health: () => apiFetch<AdminHealth>("/admin/health"),
   jobs: () => apiFetch<AdminJobsResponse>("/admin/jobs"),
   audit: (query: { q?: string; page?: number; limit?: number } = {}) =>
@@ -196,4 +201,27 @@ export const adminApi = {
       body: JSON.stringify({ shuffleItems }),
     }),
   plans: () => apiFetch<{ plans: PublicPlan[] }>("/admin/plans"),
+  movieUploadRequests: (query: {
+    q?: string;
+    status?: MovieUploadRequestStatus;
+    kind?: ContentUploadRequestKind;
+    page?: number;
+    limit?: number;
+  } = {}) =>
+    apiFetch<AdminPage<MovieUploadRequestRow>>(`/admin/movie-upload-requests${qs(query)}`),
+  patchMovieUploadRequest: (
+    id: string,
+    input: { status?: MovieUploadRequestStatus; adminNote?: string },
+  ) =>
+    apiFetch<MovieUploadRequestRow>(`/admin/movie-upload-requests/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  movieUploadRequestFeature: () =>
+    apiFetch<{ enabled: boolean }>("/admin/movie-upload-requests/feature"),
+  setMovieUploadRequestFeature: (enabled: boolean) =>
+    apiFetch<{ enabled: boolean }>("/admin/movie-upload-requests/feature", {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
 };
