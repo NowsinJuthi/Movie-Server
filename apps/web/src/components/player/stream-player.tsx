@@ -289,6 +289,8 @@ export function StreamPlayer({
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
   const [seekScrubbing, setSeekScrubbing] = useState(false);
+  const seekScrubbingRef = useRef(false);
+  seekScrubbingRef.current = seekScrubbing;
   /** Last frame painted to canvas — only true after a successful capture. */
   const [frameHoldActive, setFrameHoldActive] = useState(false);
   const [freezeSnapshot, setFreezeSnapshot] = useState<string | null>(null);
@@ -375,6 +377,7 @@ export function StreamPlayer({
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     hideTimer.current = window.setTimeout(() => {
       if (sheet) return;
+      if (seekScrubbingRef.current) return;
       if (videoRef.current && !videoRef.current.paused) {
         setControls(false);
       }
@@ -1932,8 +1935,10 @@ export function StreamPlayer({
     setControls((prev) => {
       if (prev) {
         if (hideTimer.current) window.clearTimeout(hideTimer.current);
+        setSeekScrubbing(false);
         return false;
       }
+      setSeekScrubbing(false);
       revealControls();
       return true;
     });
@@ -2179,7 +2184,7 @@ export function StreamPlayer({
   const videoObjectClass = videoObjectFitClass(aspectRatio);
 
   const controlsVisible = mobileLayout
-    ? (controls || sheet != null) && !loading
+    ? (controls || sheet != null || seekScrubbing) && !loading
     : controls || !playing || sheet != null;
   const mobileImmersive = fullscreen || pseudoFullscreen;
   const mobileChromeVisible = mobileLayout && controlsVisible;
@@ -2479,7 +2484,6 @@ export function StreamPlayer({
                 revealControls();
               }
             }}
-            scrubbing={seekScrubbing}
             onToggleSettings={toggleSettingsMenu}
             onToggleFullscreen={() => void toggleFullscreen()}
             pipSupported={pipSupported}

@@ -45,13 +45,12 @@
 }
 
 .fileInput {
-  position: absolute;
+  position: fixed;
+  left: -9999px;
+  top: 0;
   width: 1px;
   height: 1px;
   opacity: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  pointer-events: none;
 }
 
 .pickActions {
@@ -64,6 +63,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  border: 0;
   border-radius: 0.55rem;
   background: rgb(38 191 176 / 0.18);
   padding: 0.45rem 0.85rem;
@@ -75,6 +75,18 @@
 
 .pickButton:hover {
   background: rgb(38 191 176 / 0.28);
+}
+
+.pickButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.blocked {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgb(251 191 36 / 0.95);
 }
 
 .fileMeta {

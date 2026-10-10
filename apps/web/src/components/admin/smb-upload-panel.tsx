@@ -81,12 +81,17 @@ export function SmbUploadPanel({
   serverId,
   directoryPath,
   directoryLabel,
+  uploadEnabled = true,
+  uploadBlockedReason,
   onUploaded,
   onStatusChange,
 }: {
   serverId: string;
   directoryPath: string;
   directoryLabel: string;
+  /** False when the share is not browsable (fix Samba password first). */
+  uploadEnabled?: boolean;
+  uploadBlockedReason?: string;
   onUploaded?: (result: AdminSmbUploadResponse) => void;
   onStatusChange?: (status: SmbUploadStatus | null) => void;
 }) {
@@ -162,7 +167,7 @@ export function SmbUploadPanel({
   };
 
   const upload = async () => {
-    if (!pick) return;
+    if (!pick || !uploadEnabled) return;
     setBusy(true);
     setProcessing(false);
     setDisplayProgress(0);
@@ -250,7 +255,7 @@ export function SmbUploadPanel({
             {directoryLabel}
           </p>
         </div>
-        <Button type="button" size="sm" disabled={!pick || busy} onClick={() => void upload()}>
+        <Button type="button" size="sm" disabled={!pick || busy || !uploadEnabled} onClick={() => void upload()}>
           {busy ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -272,8 +277,10 @@ export function SmbUploadPanel({
           id="smb-upload-file"
           type="file"
           accept={VIDEO_ACCEPT}
-          disabled={busy}
+          disabled={busy || !uploadEnabled}
           className={styles.fileInput}
+          tabIndex={-1}
+          aria-hidden
           onChange={(event) => {
             setPick(pickFromFileList(event.target.files, false));
             if (folderInputRef.current) folderInputRef.current.value = "";
@@ -286,8 +293,10 @@ export function SmbUploadPanel({
           id="smb-upload-folder"
           type="file"
           accept={VIDEO_ACCEPT}
-          disabled={busy}
+          disabled={busy || !uploadEnabled}
           className={styles.fileInput}
+          tabIndex={-1}
+          aria-hidden
           multiple
           {...({ webkitdirectory: "true", mozdirectory: "true" } as InputHTMLAttributes<HTMLInputElement>)}
           onChange={(event) => {
@@ -307,15 +316,28 @@ export function SmbUploadPanel({
           }}
         />
         <div className={styles.pickActions}>
-          <label htmlFor="smb-upload-file" className={styles.pickButton}>
+          <button
+            type="button"
+            disabled={busy || !uploadEnabled}
+            className={styles.pickButton}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <Upload className="h-4 w-4" aria-hidden />
             Choose file
-          </label>
-          <label htmlFor="smb-upload-folder" className={styles.pickButton}>
+          </button>
+          <button
+            type="button"
+            disabled={busy || !uploadEnabled}
+            className={styles.pickButton}
+            onClick={() => folderInputRef.current?.click()}
+          >
             <FolderUp className="h-4 w-4" aria-hidden />
             Choose folder
-          </label>
+          </button>
         </div>
+        {!uploadEnabled && uploadBlockedReason ? (
+          <p className={styles.blocked}>{uploadBlockedReason}</p>
+        ) : null}
         {pickSummary ? (
           <p className={styles.fileMeta}>{pickSummary}</p>
         ) : (

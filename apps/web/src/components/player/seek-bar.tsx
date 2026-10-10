@@ -130,6 +130,28 @@ export function SeekBar({
     };
   }, [scrubbing, endScrub, ratioFromClient]);
 
+  /** iOS often misses touchend on the track — listen on window while scrubbing. */
+  useEffect(() => {
+    if (!scrubbing) return;
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const ratio = ratioFromClient(event.touches[0].clientX, event.touches[0].clientY);
+      previewRatioRef.current = ratio;
+      setPreviewRatio(ratio);
+    };
+    const onTouchEnd = () => {
+      endScrub();
+    };
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [scrubbing, endScrub, ratioFromClient]);
+
   const isMobileVariant = variant === "emby";
   const mobileEmphasis = isMobileVariant && emphasis;
 
