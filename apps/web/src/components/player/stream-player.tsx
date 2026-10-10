@@ -105,10 +105,23 @@ const PROGRESS_MS = 10_000;
 const HEARTBEAT_MS = 20_000;
 const AUTO_NEXT_SECONDS = 5;
 
+function videoObjectFitClass(aspectRatio: AspectRatio): string {
+  return aspectRatio === "cover"
+    ? "object-cover"
+    : aspectRatio === "fill"
+      ? "object-fill"
+      : aspectRatio === "16:9"
+        ? "object-contain aspect-video max-h-screen w-auto mx-auto"
+        : aspectRatio === "4:3"
+          ? "object-contain max-h-screen w-auto mx-auto [aspect-ratio:4/3]"
+          : "object-contain";
+}
+
 function paintHoldFrameCanvas(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
   shell: HTMLElement | null,
+  aspectRatio: AspectRatio,
 ): boolean {
   if (video.videoWidth < 2 || video.videoHeight < 2) {
     return false;
@@ -123,11 +136,25 @@ function paintHoldFrameCanvas(
   }
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-  const scale = Math.max(cw / vw, ch / vh);
-  const dw = vw * scale;
-  const dh = vh * scale;
-  const dx = (cw - dw) / 2;
-  const dy = (ch - dh) / 2;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, cw, ch);
+  let dw: number;
+  let dh: number;
+  let dx: number;
+  let dy: number;
+  if (aspectRatio === "fill") {
+    dw = cw;
+    dh = ch;
+    dx = 0;
+    dy = 0;
+  } else {
+    const scale =
+      aspectRatio === "cover" ? Math.max(cw / vw, ch / vh) : Math.min(cw / vw, ch / vh);
+    dw = vw * scale;
+    dh = vh * scale;
+    dx = (cw - dw) / 2;
+    dy = (ch - dh) / 2;
+  }
   ctx.drawImage(video, dx, dy, dw, dh);
   canvas.style.opacity = "1";
   return true;
@@ -261,6 +288,7 @@ export function StreamPlayer({
   const [markers, setMarkers] = useState<PlaybackMarkers>(emptyPlaybackMarkers());
   const [loading, setLoading] = useState(true);
   const [buffering, setBuffering] = useState(false);
+  const [seekScrubbing, setSeekScrubbing] = useState(false);
   /** Last frame painted to canvas — only true after a successful capture. */
   const [frameHoldActive, setFrameHoldActive] = useState(false);
   const [freezeSnapshot, setFreezeSnapshot] = useState<string | null>(null);
@@ -1259,7 +1287,7 @@ export function StreamPlayer({
     const canvas = freezeCanvasRef.current;
     if (!video || !canvas) return;
     try {
-      const painted = paintHoldFrameCanvas(video, canvas, shellRef.current);
+      const painted = paintHoldFrameCanvas(video, canvas, shellRef.current, aspectRatio);
       if (painted) {
         let snapshot: string | null = null;
         try {
@@ -1278,7 +1306,7 @@ export function StreamPlayer({
     } catch {
       /* CORS-tainted canvas: keep the live video visible instead. */
     }
-  }, []);
+  }, [aspectRatio]);
   capturePlaybackFrameRef.current = capturePlaybackFrame;
 
   const togglePlay = useCallback(() => {
@@ -2148,16 +2176,7 @@ export function StreamPlayer({
     if (selectedAudio) parts.push(formatAudioMenuLabel(selectedAudio));
     return parts.join(" ");
   }, [quality, selectedAudio, session?.selectedResolution, usingHls]);
-  const videoObjectClass =
-    aspectRatio === "cover"
-      ? "object-cover"
-      : aspectRatio === "fill"
-        ? "object-fill"
-        : aspectRatio === "16:9"
-          ? "object-contain aspect-video max-h-screen w-auto mx-auto"
-          : aspectRatio === "4:3"
-            ? "object-contain max-h-screen w-auto mx-auto [aspect-ratio:4/3]"
-            : "object-contain";
+  const videoObjectClass = videoObjectFitClass(aspectRatio);
 
   const controlsVisible = mobileLayout
     ? (controls || sheet != null) && !loading
@@ -2266,7 +2285,8 @@ export function StreamPlayer({
           alt=""
           aria-hidden
           className={cn(
-            "pointer-events-none absolute inset-0 z-[18] h-full w-full object-cover transition-opacity duration-150",
+            "pointer-events-none absolute inset-0 z-[18] h-full w-full transition-opacity duration-150",
+            videoObjectClass,
             buffering || frameHoldActive ? "opacity-100" : "opacity-0",
           )}
         />
@@ -2451,6 +2471,7 @@ export function StreamPlayer({
             onSeek={seekToRatio}
             onSeekBy={seekBy}
             onScrubbingChange={(active) => {
+              setSeekScrubbing(active);
               if (active) {
                 setControls(true);
                 if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -2458,6 +2479,7 @@ export function StreamPlayer({
                 revealControls();
               }
             }}
+            scrubbing={seekScrubbing}
             onToggleSettings={toggleSettingsMenu}
             onToggleFullscreen={() => void toggleFullscreen()}
             pipSupported={pipSupported}
@@ -2838,6 +2860,7 @@ export function StreamPlayer({
             transcode={packagedPlayback}
             onSeek={seekToRatio}
             onScrubbingChange={(active) => {
+              setSeekScrubbing(active);
               if (active) {
                 setControls(true);
                 if (hideTimer.current) window.clearTimeout(hideTimer.current);

@@ -219,6 +219,8 @@ export type EmbyMobileChromeProps = {
   onSeek: (ratio: number) => void;
   onSeekBy: (seconds: number) => void;
   onScrubbingChange: (active: boolean) => void;
+  /** Timeline drag — keep video visible with a slim seek bar only. */
+  scrubbing?: boolean;
   onToggleSettings: () => void;
   onToggleFullscreen: () => void;
   pipSupported?: boolean;
@@ -253,6 +255,7 @@ export function EmbyMobileChrome({
   onSeek,
   onSeekBy,
   onScrubbingChange,
+  scrubbing = false,
   onToggleSettings,
   onToggleFullscreen,
   pipSupported = false,
@@ -294,7 +297,12 @@ export function EmbyMobileChrome({
       )}
     >
       {/* Top — back + title (Emby-style minimal bar) */}
-      <header className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-3">
+      <header
+        className={cn(
+          "pointer-events-auto relative z-10 flex shrink-0 items-center gap-1 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-3",
+          scrubbing && "pointer-events-none opacity-0",
+        )}
+      >
         <button
           type="button"
           aria-label="Back"
@@ -407,24 +415,28 @@ export function EmbyMobileChrome({
       {/* Bottom dock — transport → scrubber → tool icons */}
       <div
         className={cn(
-          "pointer-events-auto relative z-20 max-h-[min(52vh,420px)] shrink-0 overflow-y-auto overscroll-contain",
+          "pointer-events-auto relative z-20 shrink-0 overflow-y-auto overscroll-contain",
+          scrubbing
+            ? "max-h-none pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-0"
+            : "max-h-[min(52vh,420px)] pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
           "pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
-          "pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-          fullscreen && "pb-[max(1rem,env(safe-area-inset-bottom))]",
+          !scrubbing && fullscreen && "pb-[max(1rem,env(safe-area-inset-bottom))]",
         )}
         onPointerDown={stopControlBubble}
         onTouchStart={stopControlBubble}
       >
-        <div className="mb-3 flex items-center justify-center overflow-visible py-1">
-          <MobileTransportCluster
-            compact={fullscreen}
-            playing={playing}
-            onTogglePlay={onTogglePlay}
-            onSeekBy={onSeekBy}
-            onPreviousEpisode={hasPreviousEpisode ? onPreviousEpisode : undefined}
-            onNextEpisode={hasNextEpisode ? onNextEpisode : undefined}
-          />
-        </div>
+        {scrubbing ? null : (
+          <div className="mb-3 flex items-center justify-center overflow-visible py-1">
+            <MobileTransportCluster
+              compact={fullscreen}
+              playing={playing}
+              onTogglePlay={onTogglePlay}
+              onSeekBy={onSeekBy}
+              onPreviousEpisode={hasPreviousEpisode ? onPreviousEpisode : undefined}
+              onNextEpisode={hasNextEpisode ? onNextEpisode : undefined}
+            />
+          </div>
+        )}
 
         <MobileSeekEmbyRow
           currentTime={currentTime}
