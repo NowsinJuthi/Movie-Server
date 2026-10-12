@@ -41,6 +41,7 @@ export function movieToHomeCard(movie: PublicMovie, myList: Set<string>, extras?
     progressRatio: progressRatio(movie.progressSeconds, movie.durationSeconds),
     episodeLabel: null,
     inMyList: myList.has(movie.id),
+    createdAt: movie.createdAt,
     ...extras,
   };
 }
@@ -74,6 +75,7 @@ export function seriesToHomeCard(
     progressRatio: null,
     episodeLabel: null,
     inMyList: myList.has(series.id),
+    createdAt: series.createdAt,
     ...extras,
   };
 }

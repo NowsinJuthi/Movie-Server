@@ -69,7 +69,7 @@ export function PwaInstallPrompt() {
     <div
       className={cn(
         "fixed inset-x-3 z-50 rounded-xl border border-primary/25 bg-card/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-md lg:hidden",
-        "bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]",
+        "bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))]",
       )}
     >
       <button

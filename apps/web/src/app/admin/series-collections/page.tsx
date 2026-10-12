@@ -25,6 +25,18 @@ import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import styles from "../collections/collections-page.module.css";
 
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let n = value;
+  let i = -1;
+  do {
+    n /= 1024;
+    i += 1;
+  } while (n >= 1024 && i < units.length - 1);
+  return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 export default function AdminSeriesCollectionsPage() {
   const router = useRouter();
   const { user, status } = useAuthStore();
@@ -259,6 +271,23 @@ export default function AdminSeriesCollectionsPage() {
                         </span>
                         <span className={styles.titleText}>
                           <span className={styles.titleName}>{item.title}</span>
+                          {item.videoFileName || item.videoFileSizeBytes != null ? (
+                            <span
+                              className={styles.titleFile}
+                              title={
+                                item.videoFileName && item.videoFileSizeBytes != null
+                                  ? `${item.videoFileName} · ${formatBytes(item.videoFileSizeBytes)}`
+                                  : item.videoFileName ?? undefined
+                              }
+                            >
+                              {item.videoFileName ?? "Video file"}
+                              {item.videoFileSizeBytes != null
+                                ? ` · ${formatBytes(item.videoFileSizeBytes)}`
+                                : ""}
+                            </span>
+                          ) : (
+                            <span className={styles.titleFileMuted}>No linked video file</span>
+                          )}
                           <span className={styles.titleMeta}>
                             {item.featured ? "Featured" : "Catalog"}
                             {item.trending ? " · Trending" : ""}

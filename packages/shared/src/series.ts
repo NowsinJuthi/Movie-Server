@@ -79,6 +79,11 @@ export type PublicSeries = {
   autoPlayNext: boolean;
   seasonCount: number;
   episodeCount: number;
+  createdAt?: string;
+  /** Admin catalog only — primary linked library video file name. */
+  videoFileName?: string | null;
+  /** Admin catalog only — primary linked library video size in bytes. */
+  videoFileSizeBytes?: number | null;
 };
 
 export type PublicSeason = {

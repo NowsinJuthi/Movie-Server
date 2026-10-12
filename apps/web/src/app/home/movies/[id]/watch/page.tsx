@@ -50,6 +50,8 @@ export default function MovieWatchPage() {
 
   return (
     <StreamPlayer
+      key={params.id}
+      playbackKey={params.id}
       title={movie?.title ?? "Loading..."}
       year={movie?.releaseYear}
       mediaInfo={

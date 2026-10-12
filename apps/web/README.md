@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AmarPin Web (`@movie-server/web`)
 
-## Getting Started
+Next.js application for **[movies.amarpin.com](https://movies.amarpin.com)**: the public streaming UI (profiles, home, watch, subscribe, account) and the **Admin** panel at `/admin`.
 
-First, run the development server:
+This app is part of the **Movie-Server** monorepo. Setup, environment variables, production deploy, and API pairing are documented in the **[root README](../../README.md)**.
+
+## Development
+
+From the repository root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run build -w @movie-server/shared
+npm run dev:web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. The web app expects the API at http://localhost:4000 (`NEXT_PUBLIC_API_URL` in `.env`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build -w @movie-server/web
+npm run start:web
+```
 
-## Learn More
+On the live VPS, use `bash deploy/aapanel/rebuild-web.sh` after deploying web source changes.
 
-To learn more about Next.js, take a look at the following resources:
+## Structure (high level)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Path | Purpose |
+|------|---------|
+| `src/app/home/` | Authenticated viewer experience |
+| `src/app/admin/` | Staff admin routes |
+| `src/app/login`, `register`, `subscribe` | Auth and billing entry points |
+| `src/components/` | Shared UI, player, layout, admin widgets |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Shared types come from `@movie-server/shared` (build the shared package before building web).

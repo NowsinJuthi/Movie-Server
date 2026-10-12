@@ -77,6 +77,10 @@ export class HomeCmsService {
     return this.rows.find({ enabled: true }).sort({ sortOrder: 1, createdAt: 1 }).exec();
   }
 
+  async hasRowConfigs(): Promise<boolean> {
+    return (await this.rows.countDocuments().exec()) > 0;
+  }
+
   async createRow(input: {
     title: string;
     kind: HomeRowKindType;

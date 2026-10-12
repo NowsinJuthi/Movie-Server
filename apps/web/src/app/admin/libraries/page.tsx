@@ -118,8 +118,10 @@ export default function AdminLibrariesPage() {
       setError(err instanceof ApiError ? err.message : "Could not create library."),
   });
 
+  type ScanOptions = { libraryId?: string; full?: boolean; recentHours?: number };
+
   const scan = useMutation({
-    mutationFn: (libraryId?: string) => libraryApi.startScan({ libraryId, full: true }),
+    mutationFn: (options: ScanOptions = {}) => libraryApi.startScan(options),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-library-scans"] });
     },
@@ -244,15 +246,26 @@ export default function AdminLibrariesPage() {
       description="Connect folders, scan media, and keep posters in sync from local artwork or TMDB."
       error={error}
       actions={
-        <Button
-          variant="outline"
-          onClick={() => scan.mutate(undefined)}
-          disabled={scan.isPending}
-          className="gap-2"
-        >
-          <ScanSearch className="h-4 w-4" />
-          Scan all
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => scan.mutate({ full: true })}
+            disabled={scan.isPending}
+            className="gap-2"
+          >
+            <ScanSearch className="h-4 w-4" />
+            Full scan
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => scan.mutate({ full: false, recentHours: 24 })}
+            disabled={scan.isPending}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Last 24h Scan
+          </Button>
+        </div>
       }
     >
       <div className={styles.layout}>
@@ -422,11 +435,21 @@ export default function AdminLibrariesPage() {
                         size="sm"
                         variant="outline"
                         className="gap-1.5"
-                        onClick={() => scan.mutate(library.id)}
+                        onClick={() => scan.mutate({ libraryId: library.id, full: true })}
                         disabled={scan.isPending}
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
-                        {library.enabled ? "Rescan" : "Scan"}
+                        Full scan
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => scan.mutate({ libraryId: library.id, full: false, recentHours: 24 })}
+                        disabled={scan.isPending}
+                      >
+                        <ScanSearch className="h-3.5 w-3.5" />
+                        Last 24h Scan
                       </Button>
                       <Button
                         size="sm"
@@ -583,7 +606,14 @@ export default function AdminLibrariesPage() {
             <div className={styles.panelHead}>
               <div>
                 <h2 className={styles.panelTitle}>
-                  Scan {activeScan.status}
+                  {activeScan.full
+                    ? "Full scan"
+                    : activeScan.modifiedSinceMs
+                      ? "Last 24 hours scan"
+                      : activeScan.relativePaths?.length
+                        ? "Upload scan"
+                        : "Incremental scan"}{" "}
+                  {activeScan.status}
                   {activeScan.total > 0 ? ` · ${activeScan.processed}/${activeScan.total}` : ""}
                 </h2>
                 <p className={styles.panelHint}>

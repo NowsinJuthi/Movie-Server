@@ -39,7 +39,7 @@
   margin: 0.45rem 0 0;
   font-size: 0.84rem;
   line-height: 1.5;
-  color: #94a3b8;
+  color: var(--muted-foreground);
 }
 
 .list {
@@ -101,7 +101,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--muted-foreground);
 }
 
 .value {
@@ -109,7 +109,7 @@
   margin-top: 0.15rem;
   font-size: 0.98rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--foreground);
   word-break: break-all;
 }
 

@@ -8,15 +8,30 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Lock, ShieldCheck } from "lucide-react";
+import {
+  isSupportedLicenseKeyFormat,
+  LICENSE_KEY_FORMAT_HINT,
+  normalizeLicenseKeyInput,
+} from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
-import { useBranding } from "@/components/branding/site-brand";
-import { brandingAssetSrc } from "@/lib/settings-api";
+import { useBranding, useThemeLogo } from "@/components/branding/site-brand";
 import styles from "@/components/license/license-page.module.css";
 
 const schema = z.object({
-  licenseKey: z.string().min(20, "Enter a valid license key."),
+  licenseKey: z
+    .string()
+    .min(1, "Enter a license key.")
+    .transform(normalizeLicenseKeyInput)
+    .pipe(
+      z
+        .string()
+        .min(12, "Enter your full license key.")
+        .refine((value) => isSupportedLicenseKeyFormat(value), {
+          message: LICENSE_KEY_FORMAT_HINT,
+        }),
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -24,8 +39,8 @@ type FormValues = z.infer<typeof schema>;
 export default function LicensePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { siteName, logoUrl } = useBranding();
-  const logoSrc = brandingAssetSrc(logoUrl);
+  const { siteName } = useBranding();
+  const logoSrc = useThemeLogo();
   const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -168,8 +183,8 @@ export default function LicensePage() {
               <div className={styles.activateHead}>
                 <h2 className={styles.activateTitle}>Activate license key</h2>
                 <p className={styles.activateHint}>
-                  Paste your signed key (starts with <code>CV1.</code>). Verification happens on
-                  the server — keys cannot be forged in the browser.
+                  Paste your key from <strong>license.amarpin.com</strong> (<code>AMP-…</code>).
+                  Any hosting or domain — only the license key is required here.
                 </p>
               </div>
 
@@ -184,7 +199,7 @@ export default function LicensePage() {
                   className={styles.input}
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="CV1.••••••••.••••••••"
+                  placeholder="AMP-PRO-… or CV1.…"
                   {...form.register("licenseKey")}
                 />
                 {form.formState.errors.licenseKey ? (

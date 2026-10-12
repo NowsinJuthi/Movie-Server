@@ -30,6 +30,8 @@ export function SeriesEditDialog({
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tmdbCode, setTmdbCode] = useState("");
+  const [updateArtwork, setUpdateArtwork] = useState(true);
   const [formEpoch, setFormEpoch] = useState(0);
 
   useEffect(() => {
@@ -53,6 +55,8 @@ export function SeriesEditDialog({
   useEffect(() => {
     if (open) {
       setError(null);
+      setTmdbCode("");
+      setUpdateArtwork(true);
       setFormEpoch(0);
     }
   }, [open, seriesId]);
@@ -72,6 +76,25 @@ export function SeriesEditDialog({
       requestAnimationFrame(() => setFormEpoch((value) => value + 1));
     },
     onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Save failed."),
+  });
+
+  const fromTmdb = useMutation({
+    mutationFn: () => {
+      const raw = tmdbCode.trim();
+      const parsed = Number(raw.replace(/[^\d]/g, ""));
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        throw new Error("Enter a valid TMDB TV series id (numbers only).");
+      }
+      return seriesApi.applyFromTmdb(seriesId!, parsed, updateArtwork);
+    },
+    onSuccess: async () => {
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-series-one", seriesId] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-series"] });
+      requestAnimationFrame(() => setFormEpoch((value) => value + 1));
+    },
+    onError: (err: unknown) =>
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "TMDB update failed."),
   });
 
   const uploadPoster = useMutation({
@@ -104,7 +127,7 @@ export function SeriesEditDialog({
       >
         <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-primary/15 via-transparent to-transparent px-5 py-4">
           <div className="min-w-0">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[#8aa3aa]">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">
               Edit series
             </p>
             <h2 id="series-edit-title" className="mt-1 truncate text-xl font-semibold">
@@ -147,8 +170,8 @@ export function SeriesEditDialog({
                   <h3 className={styles.posterMetaTitle}>Series poster</h3>
                   <p className={styles.posterMetaText}>
                     {series!.posterUrl
-                      ? "Current poster preview. Upload a new JPEG, PNG, or WebP."
-                      : "No poster yet. Upload one here."}
+                      ? "Current poster preview. Upload a new image or pull artwork from TMDB."
+                      : "No poster yet. Upload one here or update from TMDB with artwork enabled."}
                   </p>
                   <div className={styles.posterActions}>
                     <label className={styles.fileButton}>
@@ -179,6 +202,47 @@ export function SeriesEditDialog({
                     </Link>
                   </div>
                 </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
+                <div>
+                  <h3 className="text-lg font-medium">Update from TMDB</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Paste the TMDB TV series id (example:{" "}
+                    <span className="text-foreground/80">1396</span> from themoviedb.org/tv/1396).
+                    This fills title, description, first air year, genres, cast, directors, and ratings.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <label htmlFor="series-tmdb-code" className={styles.label}>
+                      TMDB TV series code
+                    </label>
+                    <Input
+                      id="series-tmdb-code"
+                      inputMode="numeric"
+                      placeholder="e.g. 1396"
+                      value={tmdbCode}
+                      onChange={(e) => setTmdbCode(e.target.value)}
+                      className={styles.control}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={fromTmdb.isPending || !tmdbCode.trim()}
+                    onClick={() => fromTmdb.mutate()}
+                  >
+                    {fromTmdb.isPending ? "Updating..." : "Update from TMDB"}
+                  </Button>
+                </div>
+                <label className={styles.check}>
+                  <input
+                    type="checkbox"
+                    checked={updateArtwork}
+                    onChange={(e) => setUpdateArtwork(e.target.checked)}
+                  />
+                  Also download poster & backdrop from TMDB
+                </label>
               </section>
 
               <form

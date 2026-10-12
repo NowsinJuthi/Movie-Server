@@ -47,11 +47,16 @@ export const smbApi = {
     id: string,
     file: File,
     path = "",
-    options: { scan?: boolean; onProgress?: (percent: number) => void } = {},
+    options: {
+      scan?: boolean;
+      relativePath?: string;
+      onProgress?: (percent: number) => void;
+    } = {},
   ) =>
     new Promise<AdminSmbUploadResponse>((resolve, reject) => {
       const params = new URLSearchParams();
       if (path) params.set("path", path);
+      if (options.relativePath) params.set("relativePath", options.relativePath);
       if (options.scan === false) params.set("scan", "false");
 
       const xhr = new XMLHttpRequest();
@@ -84,9 +89,19 @@ export const smbApi = {
           body && "message" in body && typeof body.message === "string" ? body.message : null;
         const message =
           nested ||
-          (xhr.status === 499 || xhr.status === 408
-            ? "Upload was interrupted. Keep this page open until the upload completes."
-            : `Upload failed (HTTP ${xhr.status}).`);
+          (xhr.status === 401
+            ? "Session expired. Sign in again and retry the upload."
+            : xhr.status === 403
+              ? "You do not have permission to upload to Samba (Library manager or Media uploader role)."
+              : xhr.status === 413
+                ? "File too large for the web server. Ask your host to allow large uploads for /api/smb-upload/ (client_max_body_size 0)."
+                : xhr.status === 404
+                  ? "Upload route missing on the web server. Redeploy the site and ensure nginx proxies /api/smb-upload/ to Next.js."
+                  : xhr.status === 502 || xhr.status === 503
+                    ? "Upload proxy could not reach the API. Check that amarpin-api is running and API_INTERNAL_URL=http://127.0.0.1:4000 in .env."
+                    : xhr.status === 499 || xhr.status === 408
+                      ? "Upload was interrupted. Keep this page open until the upload completes."
+                      : `Upload failed (HTTP ${xhr.status}).`);
         reject(new Error(message));
       };
 

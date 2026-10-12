@@ -125,6 +125,39 @@ function parentSegments(posix: string): string[] {
   return parts.slice(0, -1);
 }
 
+/** Season folder names: `Season 01`, `Season 1`, `S01`, `S1`. */
+export function parseSeasonFolderName(folder: string): number | null {
+  const season = folder.match(/^season[\s._-]*(\d{1,2})$/i);
+  if (season) {
+    return Number(season[1]);
+  }
+  const short = folder.match(/^s(\d{1,2})$/i);
+  if (short) {
+    return Number(short[1]);
+  }
+  return null;
+}
+
+function findSeasonFolderIndex(folders: string[]): { index: number; seasonNumber: number } | null {
+  for (let index = 0; index < folders.length; index += 1) {
+    const seasonNumber = parseSeasonFolderName(folders[index]);
+    if (seasonNumber != null && seasonNumber >= 0) {
+      return { index, seasonNumber };
+    }
+  }
+  return null;
+}
+
+function seriesTitleFromFolders(folders: string[], seasonFolderIndex: number | null): string {
+  if (seasonFolderIndex != null && seasonFolderIndex > 0) {
+    return cleanTitle(folders[0]);
+  }
+  if (folders.length > 0) {
+    return cleanTitle(folders[0]);
+  }
+  return '';
+}
+
 export function parseMediaFilename(relativePath: string): ParsedMediaHint {
   const posix = toPosixRelative(relativePath);
   const fileName = basename(posix);
@@ -132,12 +165,13 @@ export function parseMediaFilename(relativePath: string): ParsedMediaHint {
   const folders = parentSegments(posix);
   const resolutionHint = detectResolutionHint(`${stem} ${folders.join(' ')}`);
 
+  const seasonFolderInfo = findSeasonFolderIndex(folders);
+
   const se = stem.match(/^(.*?)[\s._-]*[Ss](\d{1,2})[Ee](\d{1,3})(?:[\s._-]+(.+))?$/);
   if (se) {
     let seriesTitle = cleanTitle(se[1] ?? '');
     if (!seriesTitle && folders.length) {
-      const seasonFolder = folders.find((folder) => /^season[\s._-]*\d{1,2}$/i.test(folder));
-      seriesTitle = cleanTitle(seasonFolder && folders[0] !== seasonFolder ? folders[0] : folders[0]);
+      seriesTitle = seriesTitleFromFolders(folders, seasonFolderInfo?.index ?? null);
     }
     return {
       kind: 'episode',
@@ -165,18 +199,54 @@ export function parseMediaFilename(relativePath: string): ParsedMediaHint {
     };
   }
 
-  const seasonFolder = folders.find((folder) => /^season[\s._-]*(\d{1,2})$/i.test(folder));
   const epOnly = stem.match(/^(\d{1,3})[\s._-]+(.+)$/);
-  if (seasonFolder && epOnly) {
-    const seasonNumber = Number(seasonFolder.match(/(\d{1,2})/)?.[1] ?? 0);
+  if (seasonFolderInfo && epOnly) {
     return {
       kind: 'episode',
-      seriesTitle: cleanTitle(folders[0] === seasonFolder ? stem : folders[0]),
-      seasonNumber,
+      seriesTitle: seriesTitleFromFolders(folders, seasonFolderInfo.index),
+      seasonNumber: seasonFolderInfo.seasonNumber,
       episodeNumber: Number(epOnly[1]),
       episodeTitle: cleanTitle(epOnly[2]),
       resolutionHint,
     };
+  }
+
+  if (seasonFolderInfo) {
+    const seriesTitle = seriesTitleFromFolders(folders, seasonFolderInfo.index);
+    if (/^\d{1,3}$/.test(stem)) {
+      return {
+        kind: 'episode',
+        seriesTitle,
+        seasonNumber: seasonFolderInfo.seasonNumber,
+        episodeNumber: Number(stem),
+        resolutionHint,
+      };
+    }
+    const trailingEpisode = stem.match(/^(.+?)[\s._-]+(\d{1,3})$/);
+    if (trailingEpisode && Number(trailingEpisode[2]) >= 1 && Number(trailingEpisode[2]) <= 500) {
+      return {
+        kind: 'episode',
+        seriesTitle: seriesTitle || cleanTitle(trailingEpisode[1]),
+        seasonNumber: seasonFolderInfo.seasonNumber,
+        episodeNumber: Number(trailingEpisode[2]),
+        resolutionHint,
+      };
+    }
+  }
+
+  if (folders.length >= 1) {
+    const dashEpisode = stem.match(/^(.+?)\s[-–—]\s*(\d{1,3})(?:\s|$)/);
+    if (dashEpisode && Number(dashEpisode[2]) >= 1 && Number(dashEpisode[2]) <= 500) {
+      const seasonNumber = seasonFolderInfo?.seasonNumber ?? 1;
+      const seriesTitle = seriesTitleFromFolders(folders, seasonFolderInfo?.index ?? null);
+      return {
+        kind: 'episode',
+        seriesTitle: seriesTitle || cleanTitle(dashEpisode[1]),
+        seasonNumber,
+        episodeNumber: Number(dashEpisode[2]),
+        resolutionHint,
+      };
+    }
   }
 
   const yearParen = stem.match(/^(.*?)[\s._-]*\((\d{4})\)(?:[\s._-].*)?$/);

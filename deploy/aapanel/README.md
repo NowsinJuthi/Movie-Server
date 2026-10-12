@@ -91,7 +91,7 @@ nano .env
 | `MONGODB_URI` | MongoDB Atlas `mongodb+srv://...` |
 | `REDIS_HOST` | `127.0.0.1` |
 | `JWT_ACCESS_SECRET` | `openssl rand -hex 32` |
-| `LICENSE_MASTER_SECRET` | Separate HMAC secret for license keys |
+| Product license | Activate at `/license` or Admin → License (`AMP-…` from license.amarpin.com); no license vars in `.env` |
 | `BOOTSTRAP_SUPERADMIN_EMAIL` | First admin email |
 | `BOOTSTRAP_SUPERADMIN_PASSWORD` | Strong password |
 | `COOKIE_DOMAIN` | `.amarpin.com` |

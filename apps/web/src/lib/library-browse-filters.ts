@@ -14,10 +14,10 @@ export const LibraryBrowseSort = {
 export type LibraryBrowseSort = (typeof LibraryBrowseSort)[keyof typeof LibraryBrowseSort];
 
 export const LIBRARY_BROWSE_SORTS: LibraryBrowseSort[] = [
-  LibraryBrowseSort.Title,
-  LibraryBrowseSort.TitleDesc,
   LibraryBrowseSort.Newest,
   LibraryBrowseSort.Oldest,
+  LibraryBrowseSort.Title,
+  LibraryBrowseSort.TitleDesc,
   LibraryBrowseSort.Rating,
   LibraryBrowseSort.Popularity,
   LibraryBrowseSort.Trending,
@@ -44,9 +44,9 @@ export function sortLabel(sort: LibraryBrowseSort): string {
     case LibraryBrowseSort.TitleDesc:
       return "Title Z–A";
     case LibraryBrowseSort.Newest:
-      return "Newest";
+      return "Recently added";
     case LibraryBrowseSort.Oldest:
-      return "Oldest";
+      return "Oldest added";
     case LibraryBrowseSort.Rating:
       return "Top rated";
     case LibraryBrowseSort.Popularity:
@@ -72,7 +72,7 @@ export function readLibraryBrowseFilters(params: URLSearchParams): LibraryBrowse
     sort:
       sort && LIBRARY_BROWSE_SORTS.includes(sort as LibraryBrowseSort)
         ? (sort as LibraryBrowseSort)
-        : LibraryBrowseSort.Title,
+        : LibraryBrowseSort.Newest,
   };
 }
 
@@ -81,7 +81,7 @@ export function libraryBrowseFiltersActive(filters: LibraryBrowseFilters): boole
     filters.genre ||
       filters.year ||
       filters.minRating ||
-      (filters.sort && filters.sort !== LibraryBrowseSort.Title),
+      (filters.sort && filters.sort !== LibraryBrowseSort.Newest),
   );
 }
 
@@ -107,6 +107,14 @@ function cardRating(card: HomeCard): number {
   return card.ratings.imdb ?? card.ratings.tmdb ?? card.ratings.audience ?? card.ratings.critics ?? 0;
 }
 
+function addedAtMs(card: HomeCard): number {
+  if (card.createdAt) {
+    const ms = Date.parse(card.createdAt);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return card.year || 0;
+}
+
 export function filterAndSortLibraryItems(items: HomeCard[], filters: LibraryBrowseFilters): HomeCard[] {
   const q = filters.q?.trim().toLowerCase() ?? "";
   let result = items.filter((item) => {
@@ -117,15 +125,15 @@ export function filterAndSortLibraryItems(items: HomeCard[], filters: LibraryBro
     return true;
   });
 
-  const sort = filters.sort ?? LibraryBrowseSort.Title;
+  const sort = filters.sort ?? LibraryBrowseSort.Newest;
   result = [...result].sort((a, b) => {
     switch (sort) {
       case LibraryBrowseSort.TitleDesc:
         return b.title.localeCompare(a.title);
       case LibraryBrowseSort.Newest:
-        return b.year - a.year || a.title.localeCompare(b.title);
+        return addedAtMs(b) - addedAtMs(a) || a.title.localeCompare(b.title);
       case LibraryBrowseSort.Oldest:
-        return a.year - b.year || a.title.localeCompare(b.title);
+        return addedAtMs(a) - addedAtMs(b) || a.title.localeCompare(b.title);
       case LibraryBrowseSort.Rating:
         return cardRating(b) - cardRating(a) || a.title.localeCompare(b.title);
       case LibraryBrowseSort.Popularity:
@@ -135,8 +143,9 @@ export function filterAndSortLibraryItems(items: HomeCard[], filters: LibraryBro
       case LibraryBrowseSort.Featured:
         return Number(b.featured) - Number(a.featured) || a.title.localeCompare(b.title);
       case LibraryBrowseSort.Title:
-      default:
         return a.title.localeCompare(b.title);
+      default:
+        return addedAtMs(b) - addedAtMs(a) || a.title.localeCompare(b.title);
     }
   });
 

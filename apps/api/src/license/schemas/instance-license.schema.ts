@@ -34,6 +34,14 @@ export class InstanceLicense {
   @Prop({ default: false })
   licensed!: boolean;
 
+  /** local = CV1 self-hosted; central = license.amarpin.com (AMP-…). */
+  @Prop({ type: String, enum: ['local', 'central'], default: null })
+  licenseProvider?: 'local' | 'central' | null;
+
+  /** AES-GCM blob for central keys (re-validation). */
+  @Prop({ type: String, default: null })
+  licenseKeyEnc?: string | null;
+
   createdAt!: Date;
   updatedAt!: Date;
 }

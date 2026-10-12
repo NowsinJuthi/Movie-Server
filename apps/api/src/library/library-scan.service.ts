@@ -29,7 +29,13 @@ import { LibraryImportService } from './library-import.service';
 import { MediaProbeService } from './probe/media-probe.service';
 import { StorageFactory } from './storage/storage.factory';
 import { fingerprintFile } from './content-hash';
-import { detectLanguageHint, isAudioFile, isSubtitleFile, isVideoFile } from './matching/filename-parser';
+import {
+  detectLanguageHint,
+  isAudioFile,
+  isSubtitleFile,
+  isVideoFile,
+  toPosixRelative,
+} from './matching/filename-parser';
 import { subtitleFormatFromName } from '../stream/subtitle-text';
 import { sanitizeScanMessage } from './scan-log.util';
 import { toAdminLog, toAdminScan } from './library.mapper';
@@ -73,13 +79,39 @@ export class LibraryScanService {
         message: 'A library scan is already running.',
       });
     }
+    const full = Boolean(dto.full);
+    const modifiedSinceMs = full
+      ? null
+      : dto.recentHours
+        ? Date.now() - dto.recentHours * 60 * 60 * 1000
+        : null;
+    const relativePaths = full
+      ? null
+      : dto.relativePaths?.map((entry) => toPosixRelative(entry)).filter(Boolean) ?? null;
+    const normalizedPaths = relativePaths?.length ? relativePaths : null;
+
     const scan = await this.scans.create({
       libraryId: dto.libraryId ? new Types.ObjectId(dto.libraryId) : null,
-      full: Boolean(dto.full),
+      full,
+      modifiedSinceMs,
+      relativePaths: normalizedPaths,
       status: LibraryScanStatus.Queued,
     });
     const scanId = String(scan._id);
-    await this.log(scan, LibraryLogLevel.Info, dto.libraryId ? 'Scan queued for one library.' : 'Scan queued for all libraries.');
+    const scope = full
+      ? 'full'
+      : normalizedPaths
+        ? `paths (${normalizedPaths.length})`
+        : modifiedSinceMs
+          ? `modified since ${new Date(modifiedSinceMs).toISOString()}`
+          : 'incremental';
+    await this.log(
+      scan,
+      LibraryLogLevel.Info,
+      dto.libraryId
+        ? `Scan queued for one library (${scope}).`
+        : `Scan queued for all libraries (${scope}).`,
+    );
     if (this.queue) {
       await this.queue.add('scan', { scanId }, { jobId: scanId, removeOnComplete: 100, removeOnFail: 50 });
     } else {
@@ -195,13 +227,20 @@ export class LibraryScanService {
     }
     const storage = this.storageFactory.create(library.provider, library.rootPath);
     const listed = await storage.list();
-    const files = listed.filter(
+    let files = listed.filter(
       (file) => isVideoFile(file.key) || isSubtitleFile(file.key) || isAudioFile(file.key),
     );
+    files = await this.filterFilesForScan(scan, library, files);
     scan.total += files.length;
     scan.discovered += files.length;
     await scan.save();
-    await this.log(scan, LibraryLogLevel.Info, `Scanning ${library.name}: ${files.length} media files.`);
+    await this.log(
+      scan,
+      LibraryLogLevel.Info,
+      `Scanning ${library.name}: ${files.length} media file${files.length === 1 ? '' : 's'}${
+        scan.full ? ' (full)' : ' (partial)'
+      }.`,
+    );
 
     for (const file of files) {
       if (await this.isCancelled(String(scan._id))) {
@@ -228,9 +267,30 @@ export class LibraryScanService {
       return;
     }
     await this.rematchSidecars(scan, library);
-    await this.markMissing(scan, library);
+    if (scan.full) {
+      await this.markMissing(scan, library);
+    }
     await scan.save();
     await this.progress(scan);
+  }
+
+  private async filterFilesForScan(
+    scan: LibraryScanDocument,
+    library: MediaLibraryDocument,
+    files: Array<{ key: string; sizeBytes: number; mtimeMs: number }>,
+  ): Promise<Array<{ key: string; sizeBytes: number; mtimeMs: number }>> {
+    if (scan.full) {
+      return files;
+    }
+    if (scan.relativePaths?.length) {
+      const allow = new Set(scan.relativePaths.map((entry) => toPosixRelative(entry)));
+      return files.filter((file) => allow.has(toPosixRelative(file.key)));
+    }
+    if (scan.modifiedSinceMs != null) {
+      const cutoff = scan.modifiedSinceMs;
+      return files.filter((file) => file.mtimeMs >= cutoff);
+    }
+    return files;
   }
 
   private async processFile(
@@ -248,9 +308,26 @@ export class LibraryScanService {
       : isAudioFile(fileName)
         ? LibraryFileKind.Audio
         : LibraryFileKind.Video;
-    const contentHash = await fingerprintFile(absPath, sizeBytes, relativePath);
 
     let item = await this.items.findOne({ libraryId: library._id, relativePath });
+    const targeted = Boolean(scan.relativePaths?.length);
+    if (
+      !scan.full &&
+      !targeted &&
+      item &&
+      item.sizeBytes === sizeBytes &&
+      item.mtimeMs === mtimeMs &&
+      Boolean(item.probe) &&
+      item.status === LibraryItemStatus.Ready
+    ) {
+      item.lastScanId = scan._id;
+      item.lastSeenAt = new Date();
+      item.missingSince = null;
+      await item.save();
+      return;
+    }
+
+    const contentHash = await fingerprintFile(absPath, sizeBytes, relativePath);
     if (!item && sizeBytes > 0) {
       const duplicate = await this.items.findOne({ libraryId: library._id, contentHash });
       if (duplicate) {

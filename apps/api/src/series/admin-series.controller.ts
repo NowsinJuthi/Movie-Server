@@ -18,6 +18,7 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { CreateMediaAssetDto, UpdateMediaAssetDto } from '../movies/dto/media-asset.dto';
+import { FromTmdbDto } from '../movies/dto/from-tmdb.dto';
 import { toAdminMediaAsset } from '../movies/movie.mapper';
 import { toPublicEpisode, toPublicSeason, toPublicSeries } from './series.mapper';
 import { SeriesService } from './series.service';
@@ -59,6 +60,14 @@ export class AdminSeriesController {
   @Patch(':id')
   async update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateSeriesDto) {
     const updated = await this.series.updateSeries(id, dto);
+    return { series: toPublicSeries(updated) };
+  }
+
+  @Post(':id/from-tmdb')
+  async fromTmdb(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: FromTmdbDto) {
+    const updated = await this.series.applyFromTmdb(id, dto.tmdbId, {
+      updateArtwork: dto.updateArtwork,
+    });
     return { series: toPublicSeries(updated) };
   }
 

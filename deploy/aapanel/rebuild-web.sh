@@ -11,6 +11,9 @@ sudo systemctl stop amarpin-web
 echo ">> Removing old .next"
 sudo rm -rf apps/web/.next
 
+echo ">> Building shared types (web imports @movie-server/shared dist)"
+npm run build -w @movie-server/shared
+
 echo ">> Building web (includes prepare-web-standalone via package.json)"
 npm run build -w @movie-server/web
 

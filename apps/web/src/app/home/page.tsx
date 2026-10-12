@@ -128,7 +128,7 @@ export default function AppHomePage() {
               ) : null}
             </section>
           )}
-          <div className="relative z-10 -mt-8 space-y-2 pb-16 md:-mt-16">
+          <div className="relative z-10 space-y-2 pb-16 md:-mt-16">
             {(homeQuery.data?.rows ?? []).map((row, index) => (
               <LazyMount key={row.id} eager={index < 10}>
                 <MediaCarousel row={row} onToggleList={listToggle.mutate} listPending={listToggle.isPending} />
@@ -143,8 +143,10 @@ export default function AppHomePage() {
 
 function HomeSkeleton() {
   return (
-    <div className="pt-16">
-      <div className="h-[56vw] animate-pulse bg-secondary lg:h-[42vw]" />
+    <div>
+      <div className="relative min-h-[72vw] w-full overflow-hidden md:min-h-[56vw] lg:min-h-[42vw] lg:-mt-[var(--site-header-offset)]">
+        <div className="absolute inset-0 animate-pulse bg-secondary/50" />
+      </div>
       <div className="space-y-8 px-3 py-8 sm:px-4 md:px-5 lg:px-6">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} className="h-40 animate-pulse rounded-md bg-secondary/70" />

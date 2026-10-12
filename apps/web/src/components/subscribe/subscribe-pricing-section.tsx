@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  BillingCycle,
-  PlanFeature,
-  PlanTier,
-  type PublicPlan,
-} from "@movie-server/shared";
+import { BillingCycle, PlanTier, buildPlanFeatureLines, type PublicPlan } from "@movie-server/shared";
 import { Alert } from "@/components/ui/alert";
 import { formatCents } from "@/lib/subscription-api";
 import { cn } from "@/lib/utils";
@@ -17,29 +12,6 @@ const TIER_TAGLINE: Record<PlanVisualVariant, string> = {
   standard: "Best balance for families and shared accounts",
   premium: "Maximum quality, streams, and premium extras",
 };
-
-const FEATURE_LABELS: Record<PlanFeature, string> = {
-  [PlanFeature.Catalog]: "Full catalog access",
-  [PlanFeature.Hd]: "HD streaming included",
-  [PlanFeature.Uhd]: "Ultra HD (4K) streaming",
-  [PlanFeature.Downloads]: "Offline downloads",
-  [PlanFeature.Hdr]: "HDR playback",
-  [PlanFeature.SpatialAudio]: "Spatial audio",
-};
-
-function planFeatureLines(plan: PublicPlan): string[] {
-  const lines = [
-    `Up to ${plan.maxVideoQuality.toUpperCase()} video quality`,
-    `${plan.maxStreams} simultaneous stream${plan.maxStreams === 1 ? "" : "s"}`,
-    `${plan.maxDevices} registered device${plan.maxDevices === 1 ? "" : "s"}`,
-  ];
-  for (const feature of Object.values(PlanFeature)) {
-    if (plan.features.includes(feature)) {
-      lines.push(FEATURE_LABELS[feature]);
-    }
-  }
-  return lines;
-}
 
 function isFeaturedPlan(plan: PublicPlan, plans: PublicPlan[]): boolean {
   if (plan.tier === PlanTier.Standard) return true;
@@ -65,6 +37,7 @@ export function SubscribePricingSection({
   entitled,
   busy,
   onSelectPlan,
+  layout = "subscribe",
 }: {
   plans: PublicPlan[];
   cycle: BillingCycle;
@@ -74,18 +47,42 @@ export function SubscribePricingSection({
   entitled: boolean;
   busy: boolean;
   onSelectPlan: (slug: string) => void;
+  /** `account` = compact header on /account/subscription; `subscribe` = full marketing hero */
+  layout?: "subscribe" | "account";
 }) {
+  const hasCurrentPlan = Boolean(currentSlug);
+
   return (
-    <section className={styles.pricing}>
+    <section
+      className={cn(styles.pricing, layout === "account" && styles.pricingAccount)}
+      aria-labelledby={layout === "account" ? "account-plans-heading" : undefined}
+    >
       <div className={styles.gridBg} aria-hidden />
 
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Subscription plans</p>
-        <h1 className={styles.title}>Choose a plan that fits your library</h1>
-        <p className={styles.subtitle}>
-          Access is authorized on the server. The plan you pick here is verified again before every
-          playback request.
+        <p className={styles.eyebrow}>
+          {layout === "account" ? "Plans & billing" : "Subscription plans"}
         </p>
+        {layout === "account" ? (
+          <>
+            <h2 id="account-plans-heading" className={styles.title}>
+              Pick your plan — current choice is highlighted
+            </h2>
+            <p className={styles.subtitle}>
+              The card marked <strong className={styles.subtitleStrong}>Your plan</strong> is what
+              your account uses today. Switch anytime; upgrades apply immediately, downgrades at
+              period end when scheduled.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className={styles.title}>Choose a plan that fits your library</h1>
+            <p className={styles.subtitle}>
+              Access is authorized on the server. The plan you pick here is verified again before
+              every playback request.
+            </p>
+          </>
+        )}
 
         <div className={styles.cycleWrap}>
           <div className={styles.cycleToggle} role="group" aria-label="Billing cycle">
@@ -120,15 +117,26 @@ export function SubscribePricingSection({
           const badge = planBadge(plan, featured);
           const price =
             cycle === BillingCycle.Yearly ? plan.yearlyPriceCents : plan.monthlyPriceCents;
-          const isCurrent = entitled && currentSlug === plan.slug;
-          const features = planFeatureLines(plan);
+          const isCurrent = hasCurrentPlan && currentSlug === plan.slug;
+          const features = buildPlanFeatureLines(plan);
+          const displayBadge = isCurrent ? "Your plan" : badge;
 
           return (
             <article
               key={plan.id}
-              className={cn(styles.card, featured && styles.cardFeatured)}
+              className={cn(
+                styles.card,
+                featured && !isCurrent && styles.cardFeatured,
+                isCurrent && styles.cardCurrent,
+              )}
+              aria-current={isCurrent ? "true" : undefined}
             >
-              {badge ? <span className={styles.badge}>{badge}</span> : null}
+              {isCurrent ? <span className={styles.currentGlow} aria-hidden /> : null}
+              {displayBadge ? (
+                <span className={cn(styles.badge, isCurrent && styles.badgeCurrent)}>
+                  {displayBadge}
+                </span>
+              ) : null}
 
               <div className={styles.cardTop}>
                 <PlanTierIcon variant={variant} featured={featured} />
@@ -173,22 +181,43 @@ export function SubscribePricingSection({
 
               <button
                 type="button"
-                className={styles.cta}
+                className={cn(styles.cta, isCurrent && styles.ctaCurrent)}
                 disabled={busy || isCurrent}
+                aria-label={
+                  isCurrent
+                    ? `${plan.name} is your current plan`
+                    : entitled
+                      ? `Switch to ${plan.name}`
+                      : `Get started with ${plan.name}`
+                }
                 onClick={() => onSelectPlan(plan.slug)}
               >
-                <span className="inline-flex opacity-90" aria-hidden>
-                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-                    <path
-                      d="M4 10h12M12 6l4 4-4 4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                {isCurrent ? "Current plan" : entitled ? "Switch to this plan" : "Get started"}
+                {isCurrent ? (
+                  <span className={styles.ctaCheck} aria-hidden>
+                    <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
+                      <path
+                        d="M3.5 8.2 6.4 11l6.1-6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="inline-flex opacity-90" aria-hidden>
+                    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                      <path
+                        d="M4 10h12M12 6l4 4-4 4"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                )}
+                {isCurrent ? "Active on your account" : entitled ? "Switch to this plan" : "Get started"}
               </button>
             </article>
           );

@@ -12,8 +12,12 @@ import * as nodemailer from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import {
   ErrorCode,
+  RECOMMENDED_REGISTRATION_EMAIL_DOMAINS,
+  normalizeEmailDomainList,
   type AdminSiteSettings,
+  type EmailDomainPolicy,
   type PublicBranding,
+  type PublicSiteFeatures,
   type SmtpTestResult,
   type UpdateSiteSettingsInput,
 } from '@movie-server/shared';
@@ -42,7 +46,49 @@ export class SiteSettingsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.ensureDoc();
+    const doc = await this.ensureDoc();
+    await this.ensureDefaultEmailAllowlist(doc);
+  }
+
+  private defaultEmailAllowlist(): string[] {
+    return [...RECOMMENDED_REGISTRATION_EMAIL_DOMAINS];
+  }
+
+  private readEmailDomainPolicy(doc: SiteSettingsDocument): EmailDomainPolicy {
+    const allowlist = normalizeEmailDomainList(doc.emailDomains?.allowlist ?? []);
+    const blocklist = normalizeEmailDomainList(doc.emailDomains?.blocklist ?? []);
+    return {
+      allowlist,
+      blocklist,
+      allowlistEnabled: allowlist.length > 0,
+    };
+  }
+
+  async getEmailDomainPolicy(): Promise<EmailDomainPolicy> {
+    const doc = await this.ensureDoc();
+    return this.readEmailDomainPolicy(doc);
+  }
+
+  private async ensureDefaultEmailAllowlist(doc: SiteSettingsDocument): Promise<void> {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+    if (!doc.emailDomains) {
+      doc.emailDomains = {
+        allowlist: [],
+        blocklist: [],
+        customized: false,
+      };
+    }
+    if (doc.emailDomains.customized) {
+      return;
+    }
+    if ((doc.emailDomains.allowlist?.length ?? 0) > 0) {
+      return;
+    }
+    doc.emailDomains.allowlist = this.defaultEmailAllowlist();
+    doc.emailDomains.blocklist = doc.emailDomains.blocklist ?? [];
+    await doc.save();
   }
 
   invalidateMailCache(): void {
@@ -75,18 +121,48 @@ export class SiteSettingsService implements OnModuleInit {
     return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo` : null;
   }
 
+  logoLightPublicPath(key?: string | null): string | null {
+    return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo/light` : null;
+  }
+
+  logoDarkPublicPath(key?: string | null): string | null {
+    return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/logo/dark` : null;
+  }
+
   faviconPublicPath(key?: string | null): string | null {
     return key && isBrandingKey(key) ? `${this.apiPrefix()}/settings/branding/favicon` : null;
+  }
+
+  private resolveLightLogoKey(doc: SiteSettingsDocument): string | null {
+    return doc.logoLightKey ?? doc.logoKey ?? doc.logoDarkKey ?? null;
+  }
+
+  private resolveDarkLogoKey(doc: SiteSettingsDocument): string | null {
+    return doc.logoDarkKey ?? doc.logoKey ?? doc.logoLightKey ?? null;
   }
 
   async getPublicBranding(): Promise<PublicBranding> {
     const doc = await this.ensureDoc();
     const envName = this.config.get<string>('APP_NAME') || 'AmarPin';
+    const lightKey = this.resolveLightLogoKey(doc);
+    const darkKey = this.resolveDarkLogoKey(doc);
     return {
       siteName: doc.siteName?.trim() || envName,
-      logoUrl: this.logoPublicPath(doc.logoKey),
+      logoLightUrl: this.logoLightPublicPath(lightKey),
+      logoDarkUrl: this.logoDarkPublicPath(darkKey),
+      logoUrl: this.logoLightPublicPath(lightKey) ?? this.logoPublicPath(doc.logoKey),
       faviconUrl: this.faviconPublicPath(doc.faviconKey),
     };
+  }
+
+  async getPublicFeatures(): Promise<PublicSiteFeatures> {
+    const doc = await this.ensureDoc();
+    return { movieUploadRequestsEnabled: Boolean(doc.movieUploadRequestsEnabled) };
+  }
+
+  async isMovieUploadRequestsEnabled(): Promise<boolean> {
+    const doc = await this.ensureDoc();
+    return Boolean(doc.movieUploadRequestsEnabled);
   }
 
   async getAdminSettings(): Promise<AdminSiteSettings> {
@@ -104,6 +180,8 @@ export class SiteSettingsService implements OnModuleInit {
 
     return {
       siteName,
+      logoLightUrl: doc.logoLightKey ? this.logoLightPublicPath(doc.logoLightKey) : null,
+      logoDarkUrl: doc.logoDarkKey ? this.logoDarkPublicPath(doc.logoDarkKey) : null,
       logoUrl: this.logoPublicPath(doc.logoKey),
       faviconUrl: this.faviconPublicPath(doc.faviconKey),
       smtp: {
@@ -118,6 +196,8 @@ export class SiteSettingsService implements OnModuleInit {
         fromHeader,
       },
       smtpReady: Boolean(mail.transporter),
+      movieUploadRequestsEnabled: Boolean(doc.movieUploadRequestsEnabled),
+      emailDomains: this.readEmailDomainPolicy(doc),
       source: {
         siteName: doc.siteName?.trim() ? 'database' : 'env',
         smtp: mail.source === 'none' ? 'none' : mail.source,
@@ -137,6 +217,23 @@ export class SiteSettingsService implements OnModuleInit {
         });
       }
       doc.siteName = name;
+    }
+
+    if (input.movieUploadRequestsEnabled !== undefined) {
+      doc.movieUploadRequestsEnabled = input.movieUploadRequestsEnabled;
+    }
+
+    if (input.emailDomains) {
+      if (!doc.emailDomains) {
+        doc.emailDomains = { allowlist: [], blocklist: [], customized: false };
+      }
+      doc.emailDomains.customized = true;
+      if (input.emailDomains.allowlist !== undefined) {
+        doc.emailDomains.allowlist = normalizeEmailDomainList(input.emailDomains.allowlist);
+      }
+      if (input.emailDomains.blocklist !== undefined) {
+        doc.emailDomains.blocklist = normalizeEmailDomainList(input.emailDomains.blocklist);
+      }
     }
 
     if (input.smtp) {
@@ -223,6 +320,63 @@ export class SiteSettingsService implements OnModuleInit {
     return this.getAdminSettings();
   }
 
+  async uploadLogoLight(file: { mimetype: string; buffer: Buffer }): Promise<AdminSiteSettings> {
+    return this.uploadThemeLogo(file, 'light');
+  }
+
+  async uploadLogoDark(file: { mimetype: string; buffer: Buffer }): Promise<AdminSiteSettings> {
+    return this.uploadThemeLogo(file, 'dark');
+  }
+
+  private async uploadThemeLogo(
+    file: { mimetype: string; buffer: Buffer },
+    theme: 'light' | 'dark',
+  ): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    if (file.buffer.length > this.branding.maxBytes()) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'Logo file is too large.',
+      });
+    }
+    let key: string;
+    try {
+      key = await this.branding.save(file);
+    } catch (error) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: error instanceof Error ? error.message : 'Invalid logo file.',
+      });
+    }
+    const previous = theme === 'light' ? doc.logoLightKey : doc.logoDarkKey;
+    if (theme === 'light') {
+      doc.logoLightKey = key;
+    } else {
+      doc.logoDarkKey = key;
+    }
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
+  async clearLogoLight(): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    const previous = doc.logoLightKey;
+    doc.logoLightKey = null;
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
+  async clearLogoDark(): Promise<AdminSiteSettings> {
+    const doc = await this.ensureDoc();
+    const previous = doc.logoDarkKey;
+    doc.logoDarkKey = null;
+    await doc.save();
+    await this.branding.remove(previous);
+    return this.getAdminSettings();
+  }
+
   async clearFavicon(): Promise<AdminSiteSettings> {
     const doc = await this.ensureDoc();
     const previous = doc.faviconKey;
@@ -234,10 +388,29 @@ export class SiteSettingsService implements OnModuleInit {
 
   async openLogo() {
     const doc = await this.ensureDoc();
-    if (!doc.logoKey) {
+    const key = doc.logoKey ?? this.resolveLightLogoKey(doc);
+    if (!key) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Logo not set.' });
     }
-    return this.branding.open(doc.logoKey);
+    return this.branding.open(key);
+  }
+
+  async openLogoLight() {
+    const doc = await this.ensureDoc();
+    const key = this.resolveLightLogoKey(doc);
+    if (!key) {
+      throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Light logo not set.' });
+    }
+    return this.branding.open(key);
+  }
+
+  async openLogoDark() {
+    const doc = await this.ensureDoc();
+    const key = this.resolveDarkLogoKey(doc);
+    if (!key) {
+      throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Dark logo not set.' });
+    }
+    return this.branding.open(key);
   }
 
   async openFavicon() {

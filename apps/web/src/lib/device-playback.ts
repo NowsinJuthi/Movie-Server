@@ -74,7 +74,67 @@ type WebkitVideo = HTMLVideoElement & {
   webkitEnterFullscreen?: () => void;
   webkitExitFullscreen?: () => void;
   webkitDisplayingFullscreen?: boolean;
+  webkitSupportsPresentationMode?: (mode: string) => boolean;
+  webkitSetPresentationMode?: (mode: string) => void;
+  webkitPresentationMode?: string;
 };
+
+/** iOS Safari ignores HTMLMediaElement.volume (always 1). */
+export function isHtmlMediaVolumeReadOnly(): boolean {
+  if (typeof document === "undefined") return false;
+  const probe = document.createElement("video");
+  const before = probe.volume;
+  try {
+    probe.volume = before === 0.5 ? 0.25 : 0.5;
+  } catch {
+    return true;
+  }
+  return probe.volume === before;
+}
+
+export function videoSupportsPictureInPicture(video?: HTMLVideoElement | null): boolean {
+  if (typeof document === "undefined") return false;
+  if (document.pictureInPictureEnabled) return true;
+  const v = video as WebkitVideo | null | undefined;
+  if (v && typeof v.webkitSetPresentationMode === "function") {
+    if (typeof v.webkitSupportsPresentationMode === "function") {
+      try {
+        return Boolean(v.webkitSupportsPresentationMode("picture-in-picture"));
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+  if ("pictureInPictureEnabled" in document && document.pictureInPictureEnabled === false) {
+    return false;
+  }
+  return typeof video?.requestPictureInPicture === "function";
+}
+
+export function isVideoInPictureInPicture(video?: HTMLVideoElement | null): boolean {
+  if (typeof document !== "undefined" && document.pictureInPictureElement) return true;
+  const v = video as WebkitVideo | null | undefined;
+  return v?.webkitPresentationMode === "picture-in-picture";
+}
+
+export async function toggleVideoPictureInPicture(video: HTMLVideoElement): Promise<void> {
+  const v = video as WebkitVideo;
+  if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function") {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      return;
+    }
+    await video.requestPictureInPicture();
+    return;
+  }
+  if (typeof v.webkitSetPresentationMode === "function") {
+    const next = v.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture";
+    v.webkitSetPresentationMode(next);
+    return;
+  }
+  throw new Error("Picture in picture is not available");
+}
 
 /** iOS Safari — div.requestFullscreen() is unsupported; use native video fullscreen instead. */
 export function isVideoInNativeFullscreen(video: HTMLVideoElement): boolean {
@@ -109,18 +169,51 @@ export function localTimelineSeconds(displaySeconds: number, originSeconds: numb
   return Math.max(0, displaySeconds - originSeconds);
 }
 
-/** True when a packaged-HLS local time is already buffered. */
+/** True when a packaged-HLS local time is already in the decoder buffer. */
 export function isLocalTimeBuffered(
   video: HTMLVideoElement,
   localSeconds: number,
   slack = 0.35,
 ): boolean {
-  if (video.seekable.length === 0) {
+  const ranges = video.buffered;
+  if (ranges.length === 0) {
     return false;
   }
-  for (let i = 0; i < video.seekable.length; i += 1) {
-    const start = video.seekable.start(i);
-    const end = video.seekable.end(i);
+  for (let i = 0; i < ranges.length; i += 1) {
+    const start = ranges.start(i);
+    const end = ranges.end(i);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    if (localSeconds >= start - slack && localSeconds <= end + slack) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when this pack can represent the local time (buffered, or already in the
+ * EVENT playlist). Finite seekable only — live Infinity ranges are ignored so we
+ * do not treat the live edge as "the whole movie".
+ */
+export function isLocalTimeInPack(
+  video: HTMLVideoElement,
+  localSeconds: number,
+  slack = 0.5,
+): boolean {
+  if (isLocalTimeBuffered(video, localSeconds, slack)) {
+    return true;
+  }
+  if (!Number.isFinite(localSeconds) || localSeconds < -slack) {
+    return false;
+  }
+  const ranges = video.seekable;
+  if (ranges.length === 0) {
+    return false;
+  }
+  for (let i = 0; i < ranges.length; i += 1) {
+    const start = ranges.start(i);
+    const end = ranges.end(i);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
     if (localSeconds >= start - slack && localSeconds <= end + slack) {
       return true;
     }
@@ -173,9 +266,51 @@ function applyVideoSeek(video: HTMLVideoElement, target: number): void {
   video.currentTime = target;
 }
 
+export function isStandalonePwa(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+/** True when the device is held portrait — used to rotate in-page player on iOS. */
+export function isDevicePortrait(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(orientation: portrait)").matches;
+}
+
+/** iOS home-screen PWA: native video fullscreen typically rotates to landscape. */
+export function enterIosNativeVideoFullscreen(video: HTMLVideoElement): boolean {
+  const v = video as WebkitVideo;
+  if (!isAppleMobileDevice() || typeof v.webkitEnterFullscreen !== "function") {
+    return false;
+  }
+  if (v.webkitDisplayingFullscreen) return true;
+  try {
+    v.webkitEnterFullscreen();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enter mobile immersive playback. Call synchronously from a user gesture (tap / play).
+ * Uses in-page pseudo fullscreen; portrait devices rotate the shell via CSS (see globals.css).
+ * Native iOS video fullscreen is only used from the explicit fullscreen control.
+ */
+export function beginMobileImmersivePlayback(_video: HTMLVideoElement): "pseudo" {
+  return "pseudo";
+}
+
 /** Best-effort landscape lock after mobile fullscreen (Android; iOS ignores). */
 export async function lockPlaybackLandscape(): Promise<void> {
   if (typeof screen === "undefined") return;
+  const type = screen.orientation?.type ?? "";
+  if (type.startsWith("portrait")) {
+    return;
+  }
   const orientation = screen.orientation as ScreenOrientation & {
     lock?: (type: string) => Promise<void>;
   };
@@ -196,37 +331,42 @@ export function unlockPlaybackOrientation(): void {
   }
 }
 
+/** Clear player scroll/orientation locks so browse pages scroll on mobile (Android PWA). */
+export function releaseBrowseScrollLock(): void {
+  if (typeof document === "undefined") return;
+  delete document.documentElement.dataset.playerImmersive;
+  document.documentElement.style.removeProperty("overflow");
+  document.body.style.removeProperty("overflow");
+  document.body.style.removeProperty("position");
+  document.body.style.removeProperty("height");
+  document.body.style.removeProperty("touch-action");
+  unlockPlaybackOrientation();
+}
+
+/** Toggle fullscreen on the player shell so custom controls stay visible. Returns true if API fullscreen changed. */
 export async function toggleVideoFullscreen(
   video: HTMLVideoElement,
   shell: HTMLElement,
-): Promise<void> {
+): Promise<boolean> {
   const v = video as WebkitVideo;
 
-  if (typeof v.webkitEnterFullscreen === "function") {
-    if (v.webkitDisplayingFullscreen) {
-      v.webkitExitFullscreen?.();
-    } else {
-      v.webkitEnterFullscreen();
-    }
-    return;
+  if (v.webkitDisplayingFullscreen) {
+    v.webkitExitFullscreen?.();
+    return true;
   }
 
   const fsEl = document.fullscreenElement;
   if (fsEl === shell || fsEl === video) {
     await document.exitFullscreen();
-    return;
-  }
-
-  try {
-    await video.requestFullscreen();
-    return;
-  } catch {
-    // Android WebView / older browsers may only support element fullscreen on the shell.
+    return true;
   }
 
   try {
     await shell.requestFullscreen();
+    return true;
   } catch {
-    // Fullscreen API unavailable or denied.
+    // iOS / denied — caller may use in-page immersive fallback.
   }
+
+  return false;
 }

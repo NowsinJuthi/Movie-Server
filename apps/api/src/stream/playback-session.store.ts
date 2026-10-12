@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { ErrorCode } from '@movie-server/shared';
 import { RedisService } from '../redis/redis.service';
 import { DevicesService } from '../devices/devices.service';
+import { HlsPackagerService } from './hls-packager.service';
 import { PlaybackRecord, PlaybackRecordDocument } from './schemas/playback-record.schema';
 import {
   STREAM_DEVICE_PREFIX,
@@ -31,6 +32,7 @@ export class PlaybackSessionStore {
     private readonly config: ConfigService,
     @Inject(forwardRef(() => DevicesService)) private readonly devices: DevicesService,
     @InjectModel(PlaybackRecord.name) private readonly records: Model<PlaybackRecordDocument>,
+    private readonly hlsPackager: HlsPackagerService,
   ) {}
 
   ttlMs(): number {
@@ -157,6 +159,12 @@ export class PlaybackSessionStore {
     return live;
   }
 
+  /** Session IDs that still have a Redis playback key (live or within TTL). */
+  async listLiveSessionIds(): Promise<Set<string>> {
+    const keys = await this.redis.keysWithPrefix(STREAM_PREFIX);
+    return new Set(keys.map((key) => key.slice(STREAM_PREFIX.length)));
+  }
+
   async listActive(userId: string): Promise<StoredPlaybackSession[]> {
     const ids = await this.activeIds(userId);
     const sessions: StoredPlaybackSession[] = [];
@@ -168,6 +176,7 @@ export class PlaybackSessionStore {
         live.push(id);
       } else {
         await this.redis.client.del(this.sessionKey(id));
+        void this.hlsPackager.cleanup(id).catch(() => undefined);
       }
     }
     await this.redis.client.set(this.userKey(userId), JSON.stringify(live), 'PX', this.ttlMs() * 4);

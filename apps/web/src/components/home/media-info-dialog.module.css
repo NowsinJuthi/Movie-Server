@@ -1,0 +1,99 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(0 0 0 / 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.sheet {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-height: 100dvh;
+  max-height: -webkit-fill-available;
+  background: var(--card);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.hero {
+  position: relative;
+  flex-shrink: 0;
+  height: 7rem;
+  overflow: hidden;
+}
+
+.closeBtn {
+  position: absolute;
+  right: 0.75rem;
+  top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
+.headerBlock {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  margin-top: -3rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: var(--card);
+  padding: 0 1rem 0.75rem;
+}
+
+.body {
+  flex-shrink: 0;
+  padding: 1rem 1rem max(1.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 640px) {
+  .root {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .sheet {
+    height: auto;
+    max-height: min(92dvh, 880px);
+    max-width: 64rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
+  }
+
+  .hero {
+    height: 11rem;
+  }
+
+  .headerBlock {
+    margin-top: -4rem;
+    padding: 0 1.5rem 1rem;
+  }
+
+  .body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 1.25rem 1.5rem 1.75rem;
+  }
+}

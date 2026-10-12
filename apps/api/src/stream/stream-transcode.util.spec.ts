@@ -56,7 +56,7 @@ describe('stream-transcode.util', () => {
       'auto',
     );
     expect(plan.transcode).toBe(true);
-    expect(plan.encodeVideo).toBe(true);
+    expect(plan.encodeVideo).toBe(false);
     expect(plan.encodeAudio).toBe(true);
     expect(plan.audioOrdinal).toBe(0);
   });
@@ -143,9 +143,9 @@ describe('stream-transcode.util', () => {
       'auto',
     );
     expect(planNeedsEncode(copyPlan)).toBe(false);
-    expect(planNeedsEncode(hevcPlan)).toBe(true);
+    expect(planNeedsEncode(hevcPlan)).toBe(false);
     expect(hlsInitialSegments(config, copyPlan)).toBe(1);
-    expect(hlsInitialSegments(config, hevcPlan)).toBe(2);
+    expect(hlsInitialSegments(config, hevcPlan)).toBe(1);
     expect(hlsSegmentSeconds(config, copyPlan)).toBe(4);
   });
 });

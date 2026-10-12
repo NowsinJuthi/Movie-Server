@@ -24,6 +24,11 @@ export class AdminDashboardController {
     return this.dashboard.health(queueEnabled);
   }
 
+  @Get('server-metrics')
+  serverMetrics() {
+    return this.dashboard.serverMetrics();
+  }
+
   @Get('jobs')
   listJobs() {
     return this.jobs.list();

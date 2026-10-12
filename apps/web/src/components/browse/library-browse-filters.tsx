@@ -44,7 +44,7 @@ export function LibraryBrowseFilters({
           <FilterSelect
             id="library-sort"
             label="Sort by"
-            value={filters.sort ?? Sort.Title}
+            value={filters.sort ?? Sort.Newest}
             onChange={(sort) => onChange({ sort: sort as LibraryBrowseSort })}
             options={LIBRARY_BROWSE_SORTS.map((sort) => ({ value: sort, label: sortLabel(sort) }))}
             className={filterFieldClass}

@@ -1,0 +1,455 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .dashboard {
+    gap: 1.5rem;
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.sectionTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.sectionHint {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* —— KPI cards —— */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.625rem;
+}
+
+@media (min-width: 480px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .kpiGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.kpiGridPrimary {
+  composes: kpiGrid;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .kpiGridPrimary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.kpiCard {
+  position: relative;
+  display: flex;
+  min-height: 6.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+  background: linear-gradient(
+    168deg,
+    color-mix(in oklch, var(--card) 98%, transparent) 0%,
+    color-mix(in oklch, var(--background) 92%, transparent) 100%
+  );
+  padding: 1rem 1.05rem;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.2s ease;
+}
+
+.kpiCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-soft), var(--primary), var(--brand-deep));
+  opacity: 0.85;
+}
+
+.kpiCardHighlight::before {
+  opacity: 1;
+  height: 4px;
+}
+
+.kpiCard:hover {
+  border-color: color-mix(in oklch, var(--primary) 42%, transparent);
+  box-shadow:
+    0 16px 40px -24px color-mix(in oklch, var(--primary) 38%, transparent),
+    0 1px 0 rgb(255 255 255 / 0.05) inset;
+}
+
+.kpiCard:active {
+  transform: scale(0.99);
+}
+
+.kpiTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kpiLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  line-height: 1.3;
+}
+
+.kpiIcon {
+  display: grid;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 0.625rem;
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.kpiValue {
+  margin-top: 0.5rem;
+  font-size: clamp(1.5rem, 3.5vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.kpiMeta {
+  margin-top: 0.4rem;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.kpiBadge {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+/* —— Analytics grid —— */
+.analyticsRow {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .analyticsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.analyticsRowTriple {
+  composes: analyticsRow;
+}
+
+@media (min-width: 1280px) {
+  .analyticsRowTriple {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.card {
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  background: color-mix(in oklch, var(--card) 94%, transparent);
+  padding: 1rem 1.05rem;
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: 1.15rem 1.2rem;
+  }
+}
+
+.cardTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cardDesc {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.cardBody {
+  margin-top: 1rem;
+}
+
+.cardFooter {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+}
+
+.cardLink {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.cardLink:hover {
+  text-decoration: underline;
+}
+
+/* Horizontal metric bars */
+.barRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.barItem {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.barHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.barLabel {
+  font-weight: 600;
+}
+
+.barValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.barTrack {
+  height: 0.4375rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.barFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-soft), var(--primary));
+  transition: width 0.5s ease;
+}
+
+.barFillDeep {
+  composes: barFill;
+  background: linear-gradient(90deg, var(--primary), var(--brand-deep));
+}
+
+.barFillSoft {
+  composes: barFill;
+  background: linear-gradient(90deg, color-mix(in oklch, var(--brand-soft) 80%, white), var(--brand-soft));
+}
+
+/* Stacked subscription bar */
+.stackBar {
+  display: flex;
+  height: 0.625rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+
+.stackSegment {
+  min-width: 2px;
+  transition: flex-grow 0.4s ease;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legendSwatch {
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.statList {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.statRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+}
+
+.statRowLabel {
+  color: var(--muted-foreground);
+}
+
+.statRowValue {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* User active ring */
+.ringBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.ringSvg {
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+@media (min-width: 640px) {
+  .ringSvg {
+    width: 8.25rem;
+    height: 8.25rem;
+  }
+}
+
+/* Server metrics */
+.serverGrid {
+  display: grid;
+  gap: 1.15rem;
+}
+
+@media (min-width: 640px) {
+  .serverGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+.serverMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.serverMetricHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.serverMetricName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.serverMetricPct {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+}
+
+.serverMetricDetail {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.management {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.managementPanel {
+  composes: card;
+  padding: 0;
+  overflow: hidden;
+}
+
+.managementPanelInteractive {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.managementPanelInteractive:hover {
+  border-color: color-mix(in oklch, var(--primary) 38%, transparent);
+}
+
+.loading {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.emptyChart {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  text-align: center;
+  padding: 1.5rem 0.5rem;
+}

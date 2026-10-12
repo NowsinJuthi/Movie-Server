@@ -59,6 +59,9 @@ export class Plan {
   @Prop({ type: [String], enum: PLAN_FEATURES, default: [] })
   features!: PlanFeature[];
 
+  @Prop({ type: [String], default: [] })
+  featureBullets!: string[];
+
   @Prop({ default: 0, min: 0, max: 365 })
   trialDays!: number;
 

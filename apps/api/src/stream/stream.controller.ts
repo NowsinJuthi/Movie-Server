@@ -76,6 +76,7 @@ export class StreamController {
     @Param('quality') quality: string,
     @Query('mt') mediaToken: string | undefined,
     @Query('t') startParam: string | undefined,
+    @Query('g') packGeneration: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -86,7 +87,7 @@ export class StreamController {
     if (!session.variants.some((variant) => variant.resolution === resolution)) {
       throw new NotFoundException({ error: ErrorCode.NotFound, message: 'Variant not found.' });
     }
-    const requestedStart = startParam ? Number(startParam) : 0;
+    const requestedStart = startParam != null && startParam !== '' ? Number(startParam) : 0;
     const startSeconds = Number.isFinite(requestedStart)
       ? Math.max(0, Math.min(requestedStart, session.durationSeconds || requestedStart))
       : 0;
@@ -96,7 +97,20 @@ export class StreamController {
         userId,
         resolution,
         startSeconds,
+        packGeneration,
       );
+    } else {
+      try {
+        await this.streams.ensureDirectPlayHls(
+          sid,
+          userId,
+          resolution,
+          startSeconds,
+          packGeneration,
+        );
+      } catch {
+        /* fallback: single-file playlist if ffmpeg copy packaging is not ready */
+      }
     }
     const body = await this.streams.readVariantPlaylist(
       session,
@@ -106,6 +120,25 @@ export class StreamController {
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(body);
+  }
+
+  @Public()
+  @SkipSubscription()
+  @SkipThrottle()
+  @Get(':sessionId/key')
+  async key(
+    @Param('sessionId') sessionId: string,
+    @Query('mt') mediaToken: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
+    const filePath = this.hlsPackager.resolveKeyPath(this.id(sessionId));
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.status(200);
+    const stream = createReadStream(filePath);
+    pipeToResponse(stream, res);
   }
 
   @Public()
@@ -144,19 +177,23 @@ export class StreamController {
     @Param('sessionId') sessionId: string,
     @Query('mt') mediaToken: string | undefined,
     @Query('quality') quality: string | undefined,
+    @Query('t') startParam: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
     const userId = await this.streams.resolveMediaUser(this.id(sessionId), mediaToken, req);
-    const ua = req.headers['user-agent'] ?? '';
+    const ua = String(req.headers['user-agent'] ?? '');
     const disallowRemux = /iPhone|iPad|iPod/i.test(ua);
+    const requestedStart = startParam != null && startParam !== '' ? Number(startParam) : 0;
+    const startSeconds = Number.isFinite(requestedStart) ? Math.max(0, requestedStart) : 0;
     const file = await this.streams.openMedia(this.id(sessionId), userId, quality, {
       disallowRemux,
+      startSeconds,
     });
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Disposition', 'inline');
 
-    // Fragmented remux has no known Content-Length / Range support.
     if (file.remux) {
       res.status(200);
       const stream = await file.open();

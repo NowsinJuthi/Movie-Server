@@ -5,10 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import path from 'node:path';
 import {
   BulkEpisodeAction,
   BulkSeriesAction,
   ErrorCode,
+  LibraryFileKind,
+  LibraryItemStatus,
   MATURITY_RANK,
   MediaAssetStatus,
   MediaKind,
@@ -55,6 +58,8 @@ import { toPublicCollection, toPublicEpisode, toPublicSeason, toPublicSeries } f
 import { StreamService } from '../stream/stream.service';
 import { foldMarkerFields } from '../stream/playback-markers.util';
 import { LibraryExclusionService } from '../library/library-exclusion.service';
+import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
+import { LibraryItem, LibraryItemDocument } from '../library/schemas/library-item.schema';
 
 const SHELF_LIMIT = 12;
 type SeriesFilter = Record<string, unknown>;
@@ -68,12 +73,14 @@ export class SeriesService {
     @InjectModel(Season.name) private readonly seasonModel: Model<SeasonDocument>,
     @InjectModel(Episode.name) private readonly episodeModel: Model<EpisodeDocument>,
     @InjectModel(MediaAsset.name) private readonly assetModel: Model<MediaAssetDocument>,
+    @InjectModel(LibraryItem.name) private readonly libraryItemModel: Model<LibraryItemDocument>,
     private readonly profiles: ProfilesService,
     private readonly history: WatchHistoryService,
     private readonly access: SubscriptionAccessService,
     private readonly artwork: ArtworkStorageService,
     private readonly streams: StreamService,
     private readonly libraryExclusions: LibraryExclusionService,
+    private readonly tmdb: TmdbMetadataService,
   ) {}
 
   async resolveViewer(user: RequestUser): Promise<{ maturity: MaturityLevel; isKids: boolean }> {
@@ -274,8 +281,86 @@ export class SeriesService {
     return map;
   }
 
-  private mapSeries(docs: SeriesDocument[], counts: Map<string, { seasons: number; episodes: number }>): PublicSeries[] {
-    return docs.map((doc) => toPublicSeries(doc, counts.get(String(doc._id))));
+  private libraryVideoFileName(relativePath: string): string {
+    return path.posix.basename(relativePath.replace(/\\/g, '/'));
+  }
+
+  private rankPrimaryLibraryVideo(item: LibraryItemDocument): number {
+    let score = 0;
+    if (item.status === LibraryItemStatus.Ready) {
+      score += 1_000_000;
+    }
+    score += Math.min(item.sizeBytes, 10_000_000_000);
+    return score;
+  }
+
+  private async primaryLibraryVideosBySeries(
+    seriesIds: Types.ObjectId[],
+  ): Promise<Map<string, { fileName: string; sizeBytes: number }>> {
+    if (seriesIds.length === 0) {
+      return new Map();
+    }
+    const episodes = await this.episodeModel
+      .find({ seriesId: { $in: seriesIds } })
+      .select('_id seriesId')
+      .lean();
+    const episodeToSeries = new Map<string, string>();
+    for (const ep of episodes) {
+      episodeToSeries.set(String(ep._id), String(ep.seriesId));
+    }
+    const episodeIds = episodes.map((ep) => ep._id);
+    const rows = await this.libraryItemModel
+      .find({
+        fileKind: LibraryFileKind.Video,
+        ignored: false,
+        duplicateOf: null,
+        $or: [{ seriesId: { $in: seriesIds } }, { episodeId: { $in: episodeIds } }],
+      })
+      .select('seriesId episodeId relativePath sizeBytes status')
+      .lean();
+    const best = new Map<string, { fileName: string; sizeBytes: number; rank: number }>();
+    for (const row of rows) {
+      const seriesId = row.seriesId
+        ? String(row.seriesId)
+        : row.episodeId
+          ? episodeToSeries.get(String(row.episodeId))
+          : undefined;
+      if (!seriesId) {
+        continue;
+      }
+      const rank = this.rankPrimaryLibraryVideo(row as LibraryItemDocument);
+      const candidate = {
+        fileName: this.libraryVideoFileName(row.relativePath),
+        sizeBytes: row.sizeBytes,
+        rank,
+      };
+      const current = best.get(seriesId);
+      if (!current || candidate.rank > current.rank) {
+        best.set(seriesId, candidate);
+      }
+    }
+    const out = new Map<string, { fileName: string; sizeBytes: number }>();
+    for (const [id, value] of best) {
+      out.set(id, { fileName: value.fileName, sizeBytes: value.sizeBytes });
+    }
+    return out;
+  }
+
+  private mapSeries(
+    docs: SeriesDocument[],
+    counts: Map<string, { seasons: number; episodes: number }>,
+    options?: {
+      admin?: boolean;
+      libraryVideos?: Map<string, { fileName: string; sizeBytes: number }>;
+    },
+  ): PublicSeries[] {
+    return docs.map((doc) => {
+      const id = String(doc._id);
+      return toPublicSeries(doc, counts.get(id), {
+        admin: options?.admin,
+        sourceVideo: options?.libraryVideos?.get(id) ?? null,
+      });
+    });
   }
 
   async list(
@@ -289,9 +374,13 @@ export class SeriesService {
       this.seriesModel.countDocuments(filter),
       this.seriesModel.find(filter).sort(this.sortSpec(query.sort)).skip((page - 1) * limit).limit(limit),
     ]);
-    const counts = await this.countsFor(items.map((item) => item._id));
+    const seriesIds = items.map((item) => item._id);
+    const [counts, libraryVideos] = await Promise.all([
+      this.countsFor(seriesIds),
+      options.admin ? this.primaryLibraryVideosBySeries(seriesIds) : Promise.resolve(new Map()),
+    ]);
     return {
-      items: this.mapSeries(items, counts),
+      items: this.mapSeries(items, counts, options.admin ? { admin: true, libraryVideos } : undefined),
       page,
       limit,
       total,
@@ -407,6 +496,25 @@ export class SeriesService {
     return out;
   }
 
+  private async ensureSeasonRecordsForEpisodes(seriesId: Types.ObjectId): Promise<void> {
+    const seasonNumbers = await this.episodeModel.distinct('seasonNumber', { seriesId });
+    for (const seasonNumber of seasonNumbers) {
+      const existing = await this.seasonModel.findOne({ seriesId, seasonNumber });
+      if (existing) {
+        continue;
+      }
+      await this.seasonModel.create({
+        seriesId,
+        seasonNumber,
+        name: seasonNumber === 0 ? 'Specials' : `Season ${seasonNumber}`,
+        description: '',
+        posterUrl: null,
+        airDate: null,
+        published: true,
+      });
+    }
+  }
+
   async getSeries(
     idOrSlug: string,
     viewer: { maturity: MaturityLevel; isKids: boolean },
@@ -414,6 +522,9 @@ export class SeriesService {
     admin = false,
   ): Promise<SeriesDetailResponse> {
     const series = await this.assertVisibleSeries(idOrSlug, viewer, admin);
+    if (admin) {
+      await this.ensureSeasonRecordsForEpisodes(series._id);
+    }
     const seasonFilter: SeriesFilter = { seriesId: series._id };
     if (!admin) seasonFilter.published = true;
     const seasons = await this.seasonModel.find(seasonFilter).sort({ seasonNumber: 1 });
@@ -862,6 +973,81 @@ export class SeriesService {
     if (series.published && !updated.published) {
       await this.revokeSeriesPlayback(id);
     }
+    return updated;
+  }
+
+  async applyFromTmdb(
+    id: string,
+    tmdbId: number,
+    options: { updateArtwork?: boolean } = {},
+  ): Promise<SeriesDocument> {
+    if (!this.tmdb.enabled()) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'TMDB_API_KEY is not configured on the server.',
+      });
+    }
+    const series = await this.seriesModel.findById(id);
+    if (!series) {
+      this.seriesNotFound();
+    }
+    const meta = await this.tmdb.getTvById(tmdbId);
+    if (!meta) {
+      throw new NotFoundException({
+        error: ErrorCode.NotFound,
+        message: `No TMDB TV series found for id ${tmdbId}.`,
+      });
+    }
+
+    const dto: UpdateSeriesDto = {
+      title: meta.title,
+      originalTitle: meta.originalTitle ?? null,
+      description: meta.overview?.slice(0, 4000) || series.description,
+      firstAirYear: meta.year ?? series.firstAirYear,
+      genres: (meta.genres.length ? meta.genres : series.genres).slice(0, 12),
+      cast: meta.cast.slice(0, 40).map((member, index) => ({
+        name: member.name,
+        character: member.character ?? null,
+        order: member.order ?? index,
+        imageUrl: member.imageUrl ?? null,
+      })),
+      directors: meta.directors.slice(0, 12),
+      ratings: {
+        imdb: series.ratings?.imdb ?? null,
+        critics: series.ratings?.critics ?? null,
+        audience: series.ratings?.audience ?? null,
+        tmdb:
+          meta.tmdbRating != null
+            ? Math.min(10, Math.max(0, meta.tmdbRating))
+            : (series.ratings?.tmdb ?? null),
+      },
+    };
+
+    const updated = await this.updateSeries(id, dto);
+
+    if (options.updateArtwork !== false) {
+      const [poster, backdrop] = await Promise.all([
+        this.tmdb.downloadPoster(meta.posterPath),
+        this.tmdb.downloadBackdrop(meta.backdropPath),
+      ]);
+      if (poster) {
+        await this.attachArtwork(
+          { seriesId: id },
+          'poster',
+          { mimetype: poster.mimetype, buffer: poster.buffer, size: poster.buffer.length },
+        );
+      }
+      if (backdrop) {
+        await this.attachArtwork(
+          { seriesId: id },
+          'backdrop',
+          { mimetype: backdrop.mimetype, buffer: backdrop.buffer, size: backdrop.buffer.length },
+        );
+      }
+      const refreshed = await this.seriesModel.findById(id);
+      return refreshed ?? updated;
+    }
+
     return updated;
   }
 

@@ -15,6 +15,7 @@ import { AdminSeriesCollectionsController } from './admin-series-collections.con
 import { SeriesArtworkController } from './series-artwork.controller';
 import { StreamModule } from '../stream/stream.module';
 import { LibraryExclusionModule } from '../library/library-exclusion.module';
+import { LibraryItem, LibraryItemSchema } from '../library/schemas/library-item.schema';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { LibraryExclusionModule } from '../library/library-exclusion.module';
       { name: Season.name, schema: SeasonSchema },
       { name: Episode.name, schema: EpisodeSchema },
       { name: MediaAsset.name, schema: MediaAssetSchema },
+      { name: LibraryItem.name, schema: LibraryItemSchema },
     ]),
   ],
   controllers: [

@@ -11,6 +11,7 @@ import {
 } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
 import { AdminMetricGrid, AdminSection, AdminStatCard, adminUiStyles } from "@/components/admin/admin-ui";
+import { AdminSubscriptionsMobileList } from "@/components/admin/admin-subscriptions-mobile-list";
 import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { AdminSelect } from "@/components/admin/admin-filters";
 import { AdminUserSearch } from "@/components/admin/admin-user-search";
@@ -272,14 +273,14 @@ export default function AdminSubscriptionsPage() {
               </option>
             ))}
           </select>
-          <div className="flex items-end md:col-span-2 xl:col-span-5">
-            <Button disabled={grantMut.isPending || !grant.userId} className="w-full sm:w-auto">
+          <div className="flex items-end sm:col-span-2 xl:col-span-5">
+            <Button disabled={grantMut.isPending || !grant.userId} className="w-full touch-manipulation sm:w-auto">
               {grantMut.isPending ? "Granting..." : "Grant subscription"}
             </Button>
           </div>
         </form>
         {selectedPlan ? (
-          <div className="mt-3 border-t border-border/60 pt-3 text-sm text-muted-foreground">
+          <div className="mt-3 break-words border-t border-border/60 pt-3 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{selectedPlan.name}</span>
             {" · "}
             {formatCents(
@@ -299,8 +300,8 @@ export default function AdminSubscriptionsPage() {
       </AdminSection>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-[240px] flex-1">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="w-full min-w-0 sm:min-w-[240px] sm:flex-1">
           <p className="mb-1.5 text-xs text-muted-foreground">Filter by subscriber</p>
           <AdminUserSearch
             value={filterUserQuery}
@@ -316,15 +317,17 @@ export default function AdminSubscriptionsPage() {
             className="max-w-none"
           />
         </div>
-        <AdminSelect
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "", label: "All statuses" },
-            ...SUBSCRIPTION_STATUSES.map((item) => ({ value: item, label: item })),
-          ]}
-        />
+        <div className="w-full sm:w-auto">
+          <AdminSelect
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "", label: "All statuses" },
+              ...SUBSCRIPTION_STATUSES.map((item) => ({ value: item, label: item })),
+            ]}
+          />
+        </div>
         {filterUserId || status ? (
           <Button
             variant="ghost"
@@ -340,6 +343,25 @@ export default function AdminSubscriptionsPage() {
         ) : null}
       </div>
 
+      <div className="lg:hidden">
+        <AdminSubscriptionsMobileList
+          items={query.data?.subscriptions ?? []}
+          canManage={canManage}
+          onManage={setEditSub}
+          onActivate={(id) => setPending({ id, action: "activate" })}
+          onSuspend={(id) => setPending({ id, action: "suspend" })}
+          onUnsuspend={(id) => setPending({ id, action: "unsuspend" })}
+          onDelete={(item) =>
+            setPending({
+              id: item.id,
+              action: "delete",
+              label: item.userDisplayName || item.userEmail || item.plan.name,
+            })
+          }
+        />
+      </div>
+
+      <div className="hidden lg:block">
       <AdminTable
         columns={[
           "Subscriber",
@@ -454,6 +476,7 @@ export default function AdminSubscriptionsPage() {
           </tr>
         ))}
       </AdminTable>
+      </div>
 
       {!query.isLoading && (query.data?.subscriptions ?? []).length === 0 ? (
         <p className="mt-6 text-center text-sm text-muted-foreground">No subscriptions match these filters.</p>

@@ -14,6 +14,22 @@ export const settingsApi = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+  uploadLogoLight: async (file: File) => {
+    const body = new FormData();
+    body.set("file", file);
+    return apiFetch<{ settings: AdminSiteSettings }>("/admin/settings/logo/light", {
+      method: "POST",
+      body,
+    });
+  },
+  uploadLogoDark: async (file: File) => {
+    const body = new FormData();
+    body.set("file", file);
+    return apiFetch<{ settings: AdminSiteSettings }>("/admin/settings/logo/dark", {
+      method: "POST",
+      body,
+    });
+  },
   uploadLogo: async (file: File) => {
     const body = new FormData();
     body.set("file", file);
@@ -30,6 +46,10 @@ export const settingsApi = {
       body,
     });
   },
+  clearLogoLight: () =>
+    apiFetch<{ settings: AdminSiteSettings }>("/admin/settings/logo/light", { method: "DELETE" }),
+  clearLogoDark: () =>
+    apiFetch<{ settings: AdminSiteSettings }>("/admin/settings/logo/dark", { method: "DELETE" }),
   clearLogo: () =>
     apiFetch<{ settings: AdminSiteSettings }>("/admin/settings/logo", { method: "DELETE" }),
   clearFavicon: () =>
@@ -39,6 +59,12 @@ export const settingsApi = {
       method: "POST",
       body: JSON.stringify({ to }),
     }),
+  recommendedEmailDomains: () =>
+    apiFetch<{ domains: string[] }>("/admin/settings/recommended-email-domains"),
+  registrationEmailPolicy: () =>
+    apiFetch<import("@movie-server/shared").PublicRegistrationEmailPolicy>(
+      "/settings/registration-email-policy",
+    ),
 };
 
 /** Cache-bust uploaded branding URLs after mutations. */

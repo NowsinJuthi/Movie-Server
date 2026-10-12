@@ -29,6 +29,7 @@ import { UsersService } from '../users/users.service';
 import { AuthCookies } from './auth-cookies';
 import { AccessTokenPayload, RequestUser } from './auth.types';
 import { PasswordService } from './password.service';
+import { EmailDomainPolicyService } from '../settings/email-domain-policy.service';
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -48,6 +49,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly mail: MailService,
     private readonly redis: RedisService,
+    private readonly emailDomains: EmailDomainPolicyService,
   ) {
     this.cookies = new AuthCookies(config);
   }
@@ -61,6 +63,7 @@ export class AuthService {
     ip?: string,
   ): Promise<{ message: string; user: PublicUser }> {
     await this.enforceAuthRateLimit(ip, 'register');
+    await this.emailDomains.assertRegistrationAllowed(input.email);
     const existing = await this.users.findByEmail(input.email);
     if (existing) {
       throw new ConflictException({

@@ -553,6 +553,14 @@ export default function AdminFileManagerPage() {
                   serverId={selected.id}
                   directoryPath={browsePath}
                   directoryLabel={uncPath}
+                  uploadEnabled={browseQuery.isSuccess && !selected.lastError}
+                  uploadBlockedReason={
+                    showCredentialsPanel
+                      ? "Fix the Samba connection (save password and refresh) before uploading."
+                      : browseQuery.isError
+                        ? "Could not read this folder. Refresh or go up one level, then try upload again."
+                        : undefined
+                  }
                   onStatusChange={setUploadStatus}
                   onUploaded={() => {
                     void browseQuery.refetch();

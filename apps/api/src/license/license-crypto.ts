@@ -1,3 +1,9 @@
+import {
+  LICENSE_KEY_PREFIX,
+  LICENSE_KEY_SKU_ERROR,
+  looksLikeProductSkuKey,
+  normalizeLicenseKeyInput,
+} from '@movie-server/shared';
 import { createHmac, createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 export type LicensePayload = {
@@ -9,7 +15,7 @@ export type LicensePayload = {
   jti: string;
 };
 
-const PREFIX = 'CV1';
+const PREFIX = LICENSE_KEY_PREFIX;
 
 function b64url(input: Buffer | string): string {
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input, 'utf8');
@@ -61,10 +67,17 @@ export function verifyLicenseKey(
   masterSecret: string,
   licenseKey: string,
 ): { ok: true; payload: LicensePayload } | { ok: false; reason: string } {
-  const raw = licenseKey.trim();
+  const raw = normalizeLicenseKeyInput(licenseKey);
+  if (looksLikeProductSkuKey(raw)) {
+    return { ok: false, reason: LICENSE_KEY_SKU_ERROR };
+  }
   const parts = raw.split('.');
   if (parts.length !== 3 || parts[0] !== PREFIX) {
-    return { ok: false, reason: 'Malformed license key.' };
+    return {
+      ok: false,
+      reason:
+        'Malformed license key. Paste the full signed key starting with CV1. (three segments separated by dots).',
+    };
   }
   const [, body, sig] = parts;
   if (!body || !sig) {

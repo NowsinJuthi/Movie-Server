@@ -26,6 +26,14 @@ export class LibraryScan {
   @Prop({ default: false })
   full!: boolean;
 
+  /** When set, only files with mtimeMs >= this value are scanned. */
+  @Prop({ type: Number, default: null })
+  modifiedSinceMs?: number | null;
+
+  /** When set, only these library-relative paths are scanned. */
+  @Prop({ type: [String], default: null })
+  relativePaths?: string[] | null;
+
   @Prop({ default: 0, min: 0 })
   processed!: number;
 

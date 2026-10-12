@@ -90,6 +90,11 @@ class MemoryRedis implements RedisCacheClient {
     }
     return Math.max(entry.expiresAt - Date.now(), 0);
   }
+
+  keysWithPrefix(prefix: string): string[] {
+    this.purge();
+    return [...this.store.keys()].filter((key) => key.startsWith(prefix));
+  }
 }
 
 @Injectable()
@@ -141,6 +146,22 @@ export class RedisService implements OnModuleDestroy {
     const redis = this.client as unknown as Redis;
     const result = await redis.set(key, value, 'PX', pxMs, 'NX');
     return result === 'OK';
+  }
+
+  /** Lists Redis keys with a prefix (SCAN on Redis, in-memory scan in dev/test). */
+  async keysWithPrefix(prefix: string): Promise<string[]> {
+    if (this.isMemory) {
+      return (this.client as MemoryRedis).keysWithPrefix(prefix);
+    }
+    const redis = this.client as unknown as Redis;
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, batch] = await redis.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 200);
+      cursor = next;
+      keys.push(...batch);
+    } while (cursor !== '0');
+    return keys;
   }
 
   async ping(): Promise<boolean> {

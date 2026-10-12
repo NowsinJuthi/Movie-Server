@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PLAN_FEATURES, PLAN_TIERS, VIDEO_QUALITIES } from "@movie-server/shared";
 import type { PublicPlan } from "@movie-server/shared";
 import { AdminPage } from "@/components/admin/admin-page";
+import { AdminPlansMobileList } from "@/components/admin/admin-plans-mobile-list";
+import { AdminTable, AdminTd } from "@/components/admin/admin-table";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { EditPlanDialog } from "@/components/admin/edit-plan-dialog";
 import { Button } from "@/components/ui/button";
@@ -103,9 +105,9 @@ export default function AdminPlansPage() {
       description="Admin-only plan catalog. Prices are stored in cents. Disabling a plan blocks new signups."
       error={error ?? (disable.error instanceof ApiError ? disable.error.message : null)}
     >
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         <form
-          className="admin-card admin-grid-1-sm-2 gap-4"
+          className="admin-card admin-grid-1-sm-2 gap-3 sm:gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             create.mutate();
@@ -186,63 +188,62 @@ export default function AdminPlansPage() {
             </Button>
           </div>
         </form>
-        <div className="overflow-hidden rounded-xl border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-secondary text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Plan</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Limits</th>
-                <th className="px-4 py-3">Active</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {(query.data?.plans ?? []).map((plan) => (
-                <tr key={plan.id} className="border-t border-border">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{plan.name}</div>
-                    <div className="text-muted-foreground">{plan.slug}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {formatCents(plan.monthlyPriceCents, plan.currency)} / mo
-                  </td>
-                  <td className="px-4 py-3">
-                    {plan.maxVideoQuality.toUpperCase()} · {plan.maxStreams} streams · {plan.maxDevices} devices
-                  </td>
-                  <td className="px-4 py-3">{plan.isActive ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setFormError(null);
-                          setEditPlan(plan);
-                        }}
-                      >
-                        Edit
+        <div className="lg:hidden">
+          <AdminPlansMobileList
+            plans={query.data?.plans ?? []}
+            enablePending={enable.isPending}
+            onEdit={(plan) => {
+              setFormError(null);
+              setEditPlan(plan);
+            }}
+            onDisable={setPendingDisable}
+            onEnable={(id) => enable.mutate(id)}
+          />
+        </div>
+        <div className="hidden lg:block">
+          <AdminTable columns={["Plan", "Price", "Limits", "Active", ""]}>
+            {(query.data?.plans ?? []).map((plan) => (
+              <tr key={plan.id}>
+                <AdminTd>
+                  <div className="font-medium">{plan.name}</div>
+                  <div className="text-muted-foreground">{plan.slug}</div>
+                </AdminTd>
+                <AdminTd>{formatCents(plan.monthlyPriceCents, plan.currency)} / mo</AdminTd>
+                <AdminTd>
+                  {plan.maxVideoQuality.toUpperCase()} · {plan.maxStreams} streams · {plan.maxDevices} devices
+                </AdminTd>
+                <AdminTd>{plan.isActive ? "Yes" : "No"}</AdminTd>
+                <AdminTd>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setFormError(null);
+                        setEditPlan(plan);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    {plan.isActive ? (
+                      <Button variant="outline" size="sm" onClick={() => setPendingDisable(plan.id)}>
+                        Disable
                       </Button>
-                      {plan.isActive ? (
-                        <Button variant="outline" size="sm" onClick={() => setPendingDisable(plan.id)}>
-                          Disable
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={enable.isPending}
-                          onClick={() => enable.mutate(plan.id)}
-                        >
-                          Enable
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={enable.isPending}
+                        onClick={() => enable.mutate(plan.id)}
+                      >
+                        Enable
+                      </Button>
+                    )}
+                  </div>
+                </AdminTd>
+              </tr>
+            ))}
+          </AdminTable>
         </div>
         <ConfirmDialog
           open={Boolean(pendingDisable)}
@@ -283,6 +284,7 @@ export default function AdminPlansPage() {
                 trialDays: values.trialDays,
                 sortOrder: values.sortOrder,
                 features: values.features,
+                featureBullets: values.featureBullets,
                 isActive: values.isActive,
               },
             });

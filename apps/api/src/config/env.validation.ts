@@ -73,6 +73,8 @@ export const envSchema = z.object({
   SMB_MOUNT_USE_SUDO: booleanish.optional().default(true),
   /** Temp HLS segment pack directory (must be writable by the API user). */
   HLS_PACK_DIR: z.string().optional().default(''),
+  /** Shared secret: Next stream proxy → API (production stream delivery). */
+  STREAM_PROXY_SECRET: z.string().min(16).optional(),
   TMDB_API_KEY: z.string().optional().default(''),
   LIBRARY_AUTO_IMPORT: booleanish.default(true),
   LIBRARY_AUTO_PUBLISH: booleanish.default(true),
@@ -104,13 +106,7 @@ export const envSchema = z.object({
     .enum(['auto', 'none', 'cuda', 'vaapi', 'qsv'])
     .optional()
     .default('auto'),
-  /** HMAC secret for signing license keys. Falls back to JWT_ACCESS_SECRET when empty. */
-  LICENSE_MASTER_SECRET: z.string().optional().default(''),
-  /** Optional pre-activated key applied on API boot. */
-  LICENSE_KEY: z.string().optional().default(''),
-  LICENSE_TRIAL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
-  LICENSE_SEAL_DIR: z.string().optional().default(''),
-  /** Set true in automated tests only — never on production. */
+  /** Automated tests only — license state lives in MongoDB, not .env. */
   LICENSE_DISABLED: booleanish.default(false),
 });
 

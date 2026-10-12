@@ -200,7 +200,7 @@ export function SearchPageClient() {
   return (
     <main className="min-h-screen w-full bg-background">
       <section className="px-3 pb-4 pt-24 sm:px-4 md:px-5 lg:px-6">
-        <h1 className="text-xl font-semibold text-[#f8fafc] md:text-2xl">
+        <h1 className="text-xl font-semibold text-foreground md:text-2xl">
           {q ? `Results for “${q}”` : "Search & Discover"}
         </h1>
       </section>
