@@ -293,30 +293,6 @@ export function AppHeader({
                     }
                   />
                 ) : null}
-                {movieRequestsEnabled ? (
-                  <NavMenu
-                    label="Upload Request"
-                    icon={Clapperboard}
-                    active={requestsNavActive}
-                    items={[]}
-                    emptyHint={undefined}
-                    footerItems={[
-                      {
-                        id: "req-movie",
-                        label: "Upload Request",
-                        href: "/home/request-movie?kind=movie",
-                        icon: Film,
-                      },
-                      {
-                        id: "req-tv",
-                        label: "Request a TV show",
-                        href: "/home/request-movie?kind=tv",
-                        icon: Tv,
-                      },
-                    ]}
-                    footerOnly
-                  />
-                ) : null}
                 </div>
               </nav>
             ) : (
