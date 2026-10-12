@@ -263,7 +263,7 @@ export default function AdminLibrariesPage() {
             className="gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-            Last 24 hours
+            Last 24h Scan
           </Button>
         </div>
       }
@@ -449,7 +449,7 @@ export default function AdminLibrariesPage() {
                         disabled={scan.isPending}
                       >
                         <ScanSearch className="h-3.5 w-3.5" />
-                        Last 24h
+                        Last 24h Scan
                       </Button>
                       <Button
                         size="sm"
