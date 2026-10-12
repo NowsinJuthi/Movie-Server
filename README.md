@@ -70,7 +70,7 @@ Role-based access with granular permissions. Main areas:
 | **People** | Users and viewer profiles |
 | **Billing** | Plans, subscriptions, payments and refunds |
 | **Titles** | Movies, TV series, member **Upload requests** |
-| **Collections & homepage** | Movie/series collections, featured/trending, homepage row CMS |
+| **Collections & homepage** | Movie/series collections (edit in place, **Update from TMDB** for movies and TV), featured/trending, homepage row CMS |
 | **Metadata** | Audio/subtitle tracks, genres, tags |
 | **Operations** | Media libraries, library scan jobs, **Samba file manager**, **Sessions & streams** |
 
@@ -84,20 +84,31 @@ Add remote shares in **Admin → Samba file manager** (after the one-time VPS mo
 
 ## Product license (trial → lock)
 
-- **30-day full-feature trial** from first API boot
-- After trial, the API locks until a signed `CV1…` license key is activated
-- HMAC-signed keys and install seal (harder to reset by wiping the database alone)
-- Public activation: `/license` · Admin: **System → License**
+- **90-day full-feature trial** from first API boot (install anchor in MongoDB + `storage/license/install.seal`)
+- After trial, the site locks until a license key is activated
+- **No license settings in `.env`** — activation state lives in the database; central licensing URL is fixed in the API code
 
-Generate a key on a trusted machine:
+### Activate a key
+
+| Key type | Example | Where to get it |
+|----------|---------|-----------------|
+| **Central (recommended)** | `AMP-PRO-…` | [license.amarpin.com](https://license.amarpin.com) — works on any domain/hosting |
+| **Self-hosted (offline)** | `CV1.<payload>.<sig>` | Vendor tool on the server (see below) |
+
+- Public: **`/license`**
+- Admin: **System → License** — activate or **deactivate** (releases a central license slot on license.amarpin.com)
+
+### Self-hosted CV1 keys (optional)
+
+For air-gapped or vendor-generated keys only:
 
 ```bash
-npm run license:generate -- --days 365 --edition pro
+LICENSE_MASTER_SECRET=your_secret npm run license:generate -- --days 365 --edition pro
 # lifetime:
-npm run license:generate -- --lifetime --edition pro
+LICENSE_MASTER_SECRET=your_secret npm run license:generate -- --lifetime --edition pro
 ```
 
-Use the same `LICENSE_MASTER_SECRET` (or `JWT_ACCESS_SECRET` fallback) as the API.
+The secret must match what the API uses to verify signatures (`JWT_ACCESS_SECRET` when no dedicated env is set).
 
 ---
 
@@ -218,8 +229,8 @@ Rebuild **shared** before **API** if TypeScript types in `packages/shared` chang
 
 1. PC and VPS use the **same ports**: web **3000**, API **4000** (localhost only on the VPS).
 2. Open **80/443** in the firewall; do not expose **3000** / **4000** publicly.
-3. Keep uploads, HLS temp files, and Samba mounts under **`storage/`** (see `.env.example`).
-4. After a MongoDB reset: `npm run bootstrap:admin`, then re-add libraries and Samba shares.
+3. Keep uploads, HLS temp files, Samba mounts, and **`storage/license/`** owned by the API user (`www`) — see [`deploy/aapanel/README.md`](deploy/aapanel/README.md).
+4. After a MongoDB reset: `npm run bootstrap:admin`, then re-add libraries, Samba shares, and re-activate the product license if needed.
 
 ---
 

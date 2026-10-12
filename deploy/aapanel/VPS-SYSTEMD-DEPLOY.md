@@ -193,7 +193,7 @@ Then in admin UI:
 1. **Admin → System → Settings** — site name, logo, SMTP
 2. **Admin → File manager** — add Samba server, browse, add library
 3. **Admin → Media libraries** — run scan
-4. **Admin → System → License** — activate key (30-day trial otherwise)
+4. **Admin → System → License** — activate `AMP-…` key from license.amarpin.com (90-day trial otherwise)
 
 ---
 
