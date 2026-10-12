@@ -260,6 +260,16 @@ export function parseMediaFilename(relativePath: string): ParsedMediaHint {
         resolutionHint,
       };
     }
+    const epTagged = stem.match(/^[Ee](\d{1,3})$/);
+    if (epTagged) {
+      return {
+        kind: 'episode',
+        seriesTitle,
+        seasonNumber: seasonFolderInfo.seasonNumber,
+        episodeNumber: Number(epTagged[1]),
+        resolutionHint,
+      };
+    }
     const trailingEpisode = stem.match(/^(.+?)[\s._-]+(\d{1,3})$/);
     if (trailingEpisode && Number(trailingEpisode[2]) >= 1 && Number(trailingEpisode[2]) <= 500) {
       return {

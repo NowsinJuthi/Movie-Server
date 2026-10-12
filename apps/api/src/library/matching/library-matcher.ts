@@ -6,7 +6,11 @@ import { Movie, MovieDocument } from '../../movies/schemas/movie.schema';
 import { Series, SeriesDocument } from '../../series/schemas/series.schema';
 import { Episode, EpisodeDocument } from '../../series/schemas/episode.schema';
 import { escapeRegex, slugify } from '../../movies/movie.util';
-import { parseMediaFilename, resolveEpisodeSeriesTitle } from './filename-parser';
+import {
+  parseMediaFilename,
+  resolveEpisodeSeriesTitle,
+  seriesTitleFromLibraryName,
+} from './filename-parser';
 
 export type LibraryMatchResult = {
   match: LibraryMatchType;
@@ -120,8 +124,16 @@ export class LibraryMatcher {
       }
     }
     const looseRx = new RegExp(`^${escapeRegex(flexible).replace(/\s+/g, '[\\s._-]+')}$`, 'i');
-    return this.series.findOne({
+    const byLoose = await this.series.findOne({
       $or: [{ title: looseRx }, { originalTitle: looseRx }],
     });
+    if (byLoose) {
+      return byLoose;
+    }
+    const fromLibraryStyle = seriesTitleFromLibraryName(trimmed);
+    if (fromLibraryStyle && fromLibraryStyle !== flexible) {
+      return this.findSeries(fromLibraryStyle);
+    }
+    return null;
   }
 }

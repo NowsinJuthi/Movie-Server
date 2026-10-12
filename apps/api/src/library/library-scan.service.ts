@@ -26,6 +26,7 @@ import { LibraryScanLog, LibraryScanLogDocument } from './schemas/library-scan-l
 import { MediaAsset, MediaAssetDocument } from '../movies/schemas/media-asset.schema';
 import { LibraryService } from './library.service';
 import { LibraryImportService } from './library-import.service';
+import { SeriesService } from '../series/series.service';
 import { MediaProbeService } from './probe/media-probe.service';
 import { StorageFactory } from './storage/storage.factory';
 import { fingerprintFile } from './content-hash';
@@ -55,6 +56,7 @@ export class LibraryScanService {
   constructor(
     private readonly libraries: LibraryService,
     private readonly importer: LibraryImportService,
+    private readonly seriesService: SeriesService,
     private readonly probe: MediaProbeService,
     private readonly storageFactory: StorageFactory,
     private readonly redis: RedisService,
@@ -270,8 +272,63 @@ export class LibraryScanService {
     if (scan.full) {
       await this.markMissing(scan, library);
     }
+    if (scan.full && library.kind === LibraryKind.Tv) {
+      await this.syncTvSeasonRecords(library._id, scan);
+      await this.retryUnmatchedTvVideos(scan, library);
+    }
     await scan.save();
     await this.progress(scan);
+  }
+
+  private async syncTvSeasonRecords(libraryId: Types.ObjectId, scan: LibraryScanDocument): Promise<void> {
+    const seriesIds = await this.items.distinct('seriesId', {
+      libraryId,
+      seriesId: { $ne: null },
+    });
+    for (const seriesId of seriesIds) {
+      if (!seriesId) {
+        continue;
+      }
+      await this.seriesService.syncSeasonRecords(String(seriesId));
+    }
+    if (seriesIds.length > 0) {
+      await this.log(
+        scan,
+        LibraryLogLevel.Info,
+        `Synced season rows for ${seriesIds.length} series in this library.`,
+      );
+    }
+  }
+
+  private async retryUnmatchedTvVideos(
+    scan: LibraryScanDocument,
+    library: MediaLibraryDocument,
+  ): Promise<void> {
+    const unmatched = await this.items.find({
+      libraryId: library._id,
+      fileKind: LibraryFileKind.Video,
+      status: LibraryItemStatus.Unmatched,
+      lastScanId: scan._id,
+    });
+    for (const item of unmatched) {
+      if (await this.isCancelled(String(scan._id))) {
+        return;
+      }
+      const fileName = path.posix.basename(item.relativePath.replace(/\\/g, '/'));
+      const matched = await this.importer.resolve(item.relativePath, LibraryKind.Tv, {
+        libraryId: String(library._id),
+        libraryRoot: library.rootPath,
+        libraryName: library.name,
+        fileKind: LibraryFileKind.Video,
+        durationMs: item.probe?.durationMs,
+        contentHash: item.contentHash,
+        ignored: Boolean(item.ignored),
+        relinkTv: true,
+      });
+      if (matched.match !== LibraryMatchType.None) {
+        await this.applyMatch(scan, item, fileName, matched);
+      }
+    }
   }
 
   private async filterFilesForScan(
@@ -405,6 +462,8 @@ export class LibraryScanService {
     }
     await item.save();
 
+    const relinkTv =
+      scan.full && library.kind === LibraryKind.Tv && fileKind === LibraryFileKind.Video;
     const matched = await this.importer.resolve(relativePath, library.kind as LibraryKind, {
       libraryId: String(library._id),
       libraryRoot: library.rootPath,
@@ -413,10 +472,11 @@ export class LibraryScanService {
       durationMs: item.probe?.durationMs,
       contentHash: item.contentHash,
       ignored: Boolean(item.ignored),
-      existingMovieId: item.movieId ? String(item.movieId) : null,
-      existingSeriesId: item.seriesId ? String(item.seriesId) : null,
-      existingSeasonId: item.seasonId ? String(item.seasonId) : null,
-      existingEpisodeId: item.episodeId ? String(item.episodeId) : null,
+      relinkTv,
+      existingMovieId: relinkTv ? null : item.movieId ? String(item.movieId) : null,
+      existingSeriesId: relinkTv ? null : item.seriesId ? String(item.seriesId) : null,
+      existingSeasonId: relinkTv ? null : item.seasonId ? String(item.seasonId) : null,
+      existingEpisodeId: relinkTv ? null : item.episodeId ? String(item.episodeId) : null,
     });
     await this.applyMatch(scan, item, fileName, matched);
   }

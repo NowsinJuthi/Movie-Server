@@ -30,6 +30,8 @@ export type ImportContext = {
   libraryRoot: string;
   /** Media library display name — used when paths are only `Season 01/episode.mkv`. */
   libraryName?: string | null;
+  /** Full TV scan: re-parse path and relink episodes (fixes wrong season-only imports). */
+  relinkTv?: boolean;
   fileKind: LibraryFileKind;
   durationMs?: number | null;
   contentHash?: string | null;
@@ -64,10 +66,31 @@ export class LibraryImportService {
     kind: LibraryKind,
     context: ImportContext,
   ): Promise<LibraryMatchResult> {
-    const linked = await this.resolveExistingLink(kind, context);
-    if (linked) {
-      await this.enrichMatched(linked, relativePath, context);
-      return linked;
+    const relinkTv =
+      context.relinkTv === true &&
+      kind === LibraryKind.Tv &&
+      context.fileKind === LibraryFileKind.Video;
+
+    if (!relinkTv) {
+      const linked = await this.resolveExistingLink(kind, context);
+      if (linked) {
+        await this.enrichMatched(linked, relativePath, context);
+        return linked;
+      }
+    }
+
+    if (relinkTv && !context.ignored && this.autoImport()) {
+      try {
+        const imported = await this.importEpisode(relativePath, context);
+        if (imported.match !== LibraryMatchType.None) {
+          await this.enrichMatched(imported, relativePath, context);
+          return imported;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `TV relink failed for ${relativePath}: ${error instanceof Error ? error.message : 'error'}`,
+        );
+      }
     }
 
     const existing = await this.matcher.match(relativePath, kind, {
@@ -248,12 +271,15 @@ export class LibraryImportService {
     relativePath: string,
     context: ImportContext,
   ): Promise<SeriesDocument> {
-    const candidates = [title];
+    const candidates: string[] = [];
     if (context.libraryName) {
       const fromLibrary = seriesTitleFromLibraryName(context.libraryName);
-      if (fromLibrary && !candidates.includes(fromLibrary)) {
+      if (fromLibrary) {
         candidates.push(fromLibrary);
       }
+    }
+    if (title && !candidates.includes(title)) {
+      candidates.push(title);
     }
     let existing: SeriesDocument | null = null;
     for (const candidate of candidates) {

@@ -496,6 +496,14 @@ export class SeriesService {
     return out;
   }
 
+  /** Ensures a season row exists for every distinct episode.seasonNumber on this series. */
+  async syncSeasonRecords(seriesId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(seriesId)) {
+      return;
+    }
+    await this.ensureSeasonRecordsForEpisodes(new Types.ObjectId(seriesId));
+  }
+
   private async ensureSeasonRecordsForEpisodes(seriesId: Types.ObjectId): Promise<void> {
     const seasonNumbers = await this.episodeModel.distinct('seasonNumber', { seriesId });
     for (const seasonNumber of seasonNumbers) {

@@ -76,6 +76,12 @@ describe('filename-parser', () => {
       seasonNumber: 1,
       episodeNumber: 1,
     });
+    expect(parseMediaFilename('Season 02/E01.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: '',
+      seasonNumber: 2,
+      episodeNumber: 1,
+    });
     expect(parseMediaFilename('[SubsPlease] Kaiju no. 8 - 01 (1080p).mkv')).toMatchObject({
       kind: 'episode',
       seriesTitle: 'Kaiju no 8',
