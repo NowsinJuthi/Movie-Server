@@ -322,6 +322,11 @@ html[data-media-info-open="true"] body {
   .browse-shell-offset {
     padding-top: var(--site-header-offset);
   }
+
+  /* Home hero uses negative margin under the fixed header — no extra background strip. */
+  .browse-shell-offset--flush-hero {
+    padding-top: 0;
+  }
 }
 
 .no-scrollbar {

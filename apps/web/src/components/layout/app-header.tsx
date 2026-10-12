@@ -197,6 +197,7 @@ export function AppHeader({
           styles.siteHeader,
           "site-browse-header",
           !solid && variant === "browse" && styles.siteHeaderTransparent,
+          !solid && variant === "browse" && "site-header-transparent",
         )}
       >
         <div className={styles.siteHeaderInner}>

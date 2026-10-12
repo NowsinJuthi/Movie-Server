@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { AppHeader } from "@/components/layout/app-header";
 import { PwaInstallPrompt } from "@/components/layout/pwa-install-prompt";
 import { cn } from "@/lib/utils";
@@ -66,7 +66,7 @@ export function HomeChrome({
     document.documentElement.dataset.standalonePwa = standalone ? "true" : "false";
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isWatchRoute) return;
     if (!isHomeHero || isSubscribeRoute) {
       setScrolled(true);
@@ -100,6 +100,7 @@ export function HomeChrome({
         className={cn(
           !isWatchRoute &&
             "browse-shell-offset pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] lg:pb-0",
+          isHomeHero && !isWatchRoute && "browse-shell-offset--flush-hero",
         )}
       >
         {children}

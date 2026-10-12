@@ -12,13 +12,11 @@
 }
 
 .siteHeaderTransparent {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklch, var(--background) 92%, transparent) 0%,
-    transparent 100%
-  );
+  background: transparent;
+  border-bottom-color: transparent;
   box-shadow: none;
   backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .siteHeaderInner {
@@ -106,9 +104,15 @@
     position: fixed;
     top: 0;
     padding-top: 0;
-    animation: headerAppear 0.18s ease-out both;
+    background: color-mix(in oklch, var(--background) 90%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+
+  .siteHeaderTransparent {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .iconBtn,
@@ -1251,15 +1255,11 @@
 }
 
 :global(html:not(.dark)) .siteHeaderTransparent {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, #ffffff 70%, transparent) 0%,
-    color-mix(in srgb, var(--background) 28%, transparent) 100%
-  );
+  background: transparent !important;
   border-bottom-color: transparent;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: none;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 :global(html:not(.dark)) .iconBtn,
@@ -1341,10 +1341,16 @@
 }
 
 @media (min-width: 1024px) {
-  :global(html:not(.dark)) .siteHeader {
+  :global(html:not(.dark)) .site-browse-header:not(.site-header-transparent) {
     background: color-mix(in srgb, #ffffff 58%, transparent);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  :global(html:not(.dark)) .site-browse-header.site-header-transparent {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   :global(html:not(.dark)) .iconBtn,
