@@ -8,6 +8,12 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Lock, ShieldCheck } from "lucide-react";
+import {
+  LICENSE_KEY_SKU_ERROR,
+  looksLikeProductSkuKey,
+  looksLikeSignedLicenseKey,
+  normalizeLicenseKeyInput,
+} from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
@@ -15,7 +21,22 @@ import { useBranding, useThemeLogo } from "@/components/branding/site-brand";
 import styles from "@/components/license/license-page.module.css";
 
 const schema = z.object({
-  licenseKey: z.string().min(20, "Enter a valid license key."),
+  licenseKey: z
+    .string()
+    .min(1, "Enter a license key.")
+    .transform(normalizeLicenseKeyInput)
+    .pipe(
+      z
+        .string()
+        .min(20, "Enter the full signed key (CV1.…).")
+        .refine((value) => !looksLikeProductSkuKey(value), {
+          message: LICENSE_KEY_SKU_ERROR,
+        })
+        .refine((value) => looksLikeSignedLicenseKey(value), {
+          message:
+            "Key must start with CV1. and contain three dot-separated parts (not AMP- product codes).",
+        }),
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -167,8 +188,9 @@ export default function LicensePage() {
               <div className={styles.activateHead}>
                 <h2 className={styles.activateTitle}>Activate license key</h2>
                 <p className={styles.activateHint}>
-                  Paste your signed key (starts with <code>CV1.</code>). Verification happens on
-                  the server — keys cannot be forged in the browser.
+                  Paste your signed key (starts with <code>CV1.</code>, three parts separated by
+                  dots). <code>AMP-PRO-…</code> product codes are not license keys. Verification
+                  happens on the server.
                 </p>
               </div>
 

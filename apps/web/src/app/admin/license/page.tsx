@@ -11,13 +11,31 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  LICENSE_KEY_SKU_ERROR,
+  looksLikeProductSkuKey,
+  looksLikeSignedLicenseKey,
+  normalizeLicenseKeyInput,
+} from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
-  licenseKey: z.string().min(20, "Paste a full CV1… license key."),
+  licenseKey: z
+    .string()
+    .min(1, "Enter a license key.")
+    .transform(normalizeLicenseKeyInput)
+    .pipe(
+      z
+        .string()
+        .min(20, "Paste a full CV1… license key.")
+        .refine((value) => !looksLikeProductSkuKey(value), { message: LICENSE_KEY_SKU_ERROR })
+        .refine((value) => looksLikeSignedLicenseKey(value), {
+          message: "Key must start with CV1. and have three dot-separated parts.",
+        }),
+    ),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -115,7 +133,8 @@ export default function AdminLicensePage() {
               <div>
                 <h2 className="text-base font-semibold">Activate license key</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Paste the key from your vendor (starts with <code className="text-xs">CV1.</code>).
+                  Paste the signed key (starts with <code className="text-xs">CV1.</code>).{" "}
+                  <code className="text-xs">AMP-PRO-…</code> codes are not license keys.
                 </p>
               </div>
               <div className="space-y-2">

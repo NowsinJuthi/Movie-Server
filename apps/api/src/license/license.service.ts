@@ -159,7 +159,7 @@ export class LicenseService implements OnModuleInit {
   }
 
   async activate(licenseKey: string, options: { fromEnv?: boolean } = {}) {
-    const verified = verifyLicenseKey(this.masterSecret(), licenseKey);
+    const verified = verifyLicenseKey(this.masterSecret(), licenseKey.trim());
     if (!verified.ok) {
       throw new BadRequestException({
         error: ErrorCode.LicenseInvalid,
