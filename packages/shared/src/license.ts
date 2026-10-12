@@ -1,4 +1,4 @@
-export const LICENSE_TRIAL_DAYS = 30;
+export const LICENSE_TRIAL_DAYS = 90;
 
 /** Signed AmarPin license keys use this prefix (CV1.<payload>.<sig>). */
 export const LICENSE_KEY_PREFIX = "CV1";

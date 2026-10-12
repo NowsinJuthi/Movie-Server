@@ -156,7 +156,9 @@ export class LicenseService implements OnModuleInit {
         licensed: false,
       });
       await this.writeSeal(installId, installedAt.toISOString());
-      this.logger.log(`License trial started at ${installedAt.toISOString()} (30-day window).`);
+      this.logger.log(
+        `License trial started at ${installedAt.toISOString()} (${LICENSE_TRIAL_DAYS}-day window).`,
+      );
       return doc;
     }
 
