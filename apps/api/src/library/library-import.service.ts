@@ -15,7 +15,11 @@ import { Season, SeasonDocument } from '../series/schemas/season.schema';
 import { Episode, EpisodeDocument } from '../series/schemas/episode.schema';
 import { resolveSafePath } from './storage/path-safety';
 import { LibraryMatcher, LibraryMatchResult } from './matching/library-matcher';
-import { parseMediaFilename } from './matching/filename-parser';
+import {
+  parseMediaFilename,
+  resolveEpisodeSeriesTitle,
+  seriesTitleFromLibraryName,
+} from './matching/filename-parser';
 import { clampReleaseYear, fallbackDescription, runtimeMinutesFromMs } from './metadata/import-defaults';
 import { localArtworkKeys } from './metadata/local-artwork';
 import { TmdbMetadataService, type CatalogMetadata, type RemoteArtwork } from './metadata/tmdb-metadata.service';
@@ -24,6 +28,8 @@ import { LibraryExclusionService } from './library-exclusion.service';
 export type ImportContext = {
   libraryId: string;
   libraryRoot: string;
+  /** Media library display name — used when paths are only `Season 01/episode.mkv`. */
+  libraryName?: string | null;
   fileKind: LibraryFileKind;
   durationMs?: number | null;
   contentHash?: string | null;
@@ -64,7 +70,9 @@ export class LibraryImportService {
       return linked;
     }
 
-    const existing = await this.matcher.match(relativePath, kind);
+    const existing = await this.matcher.match(relativePath, kind, {
+      libraryName: context.libraryName,
+    });
     if (existing.match !== LibraryMatchType.None) {
       await this.enrichMatched(existing, relativePath, context);
       return existing;
@@ -214,11 +222,15 @@ export class LibraryImportService {
 
   private async importEpisode(relativePath: string, context: ImportContext): Promise<LibraryMatchResult> {
     const parsed = parseMediaFilename(relativePath);
-    if (parsed.kind !== 'episode' || !parsed.seriesTitle.trim()) {
+    if (parsed.kind !== 'episode') {
+      return { match: LibraryMatchType.None };
+    }
+    const seriesTitle = resolveEpisodeSeriesTitle(parsed, context.libraryName);
+    if (!seriesTitle) {
       return { match: LibraryMatchType.None };
     }
 
-    const series = await this.ensureSeries(parsed.seriesTitle, parsed.year, relativePath, context);
+    const series = await this.ensureSeries(seriesTitle, parsed.year, relativePath, context);
     const season = await this.ensureSeason(series, parsed.seasonNumber);
     const episode = await this.ensureEpisode(series, season, parsed.episodeNumber, parsed.episodeTitle, context);
     return {
@@ -236,7 +248,20 @@ export class LibraryImportService {
     relativePath: string,
     context: ImportContext,
   ): Promise<SeriesDocument> {
-    const existing = await this.matcher.findSeries(title);
+    const candidates = [title];
+    if (context.libraryName) {
+      const fromLibrary = seriesTitleFromLibraryName(context.libraryName);
+      if (fromLibrary && !candidates.includes(fromLibrary)) {
+        candidates.push(fromLibrary);
+      }
+    }
+    let existing: SeriesDocument | null = null;
+    for (const candidate of candidates) {
+      existing = await this.matcher.findSeries(candidate);
+      if (existing) {
+        break;
+      }
+    }
     if (existing) {
       await this.enrichSeries(existing, relativePath, context);
       return existing;

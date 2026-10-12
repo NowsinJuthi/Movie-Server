@@ -408,6 +408,7 @@ export class LibraryScanService {
     const matched = await this.importer.resolve(relativePath, library.kind as LibraryKind, {
       libraryId: String(library._id),
       libraryRoot: library.rootPath,
+      libraryName: library.name,
       fileKind,
       durationMs: item.probe?.durationMs,
       contentHash: item.contentHash,
@@ -435,6 +436,7 @@ export class LibraryScanService {
       const matched = await this.importer.resolve(item.relativePath, library.kind as LibraryKind, {
         libraryId: String(library._id),
         libraryRoot: library.rootPath,
+        libraryName: library.name,
         fileKind: item.fileKind,
         durationMs: item.probe?.durationMs,
         contentHash: item.contentHash,

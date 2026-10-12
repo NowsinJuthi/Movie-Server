@@ -6,7 +6,7 @@ import { Movie, MovieDocument } from '../../movies/schemas/movie.schema';
 import { Series, SeriesDocument } from '../../series/schemas/series.schema';
 import { Episode, EpisodeDocument } from '../../series/schemas/episode.schema';
 import { escapeRegex, slugify } from '../../movies/movie.util';
-import { parseMediaFilename } from './filename-parser';
+import { parseMediaFilename, resolveEpisodeSeriesTitle } from './filename-parser';
 
 export type LibraryMatchResult = {
   match: LibraryMatchType;
@@ -26,13 +26,21 @@ export class LibraryMatcher {
     @InjectModel(Episode.name) private readonly episodes: Model<EpisodeDocument>,
   ) {}
 
-  async match(relativePath: string, kind: LibraryKind): Promise<LibraryMatchResult> {
+  async match(
+    relativePath: string,
+    kind: LibraryKind,
+    options?: { libraryName?: string | null },
+  ): Promise<LibraryMatchResult> {
     const parsed = parseMediaFilename(relativePath);
     if (kind === LibraryKind.Tv) {
       if (parsed.kind !== 'episode') {
         return { match: LibraryMatchType.None };
       }
-      const series = await this.findSeries(parsed.seriesTitle);
+      const seriesTitle = resolveEpisodeSeriesTitle(parsed, options?.libraryName);
+      if (!seriesTitle) {
+        return { match: LibraryMatchType.None };
+      }
+      const series = await this.findSeries(seriesTitle);
       if (!series) {
         return { match: LibraryMatchType.None };
       }
@@ -92,10 +100,28 @@ export class LibraryMatcher {
   }
 
   async findSeries(title: string): Promise<SeriesDocument | null> {
-    const slug = slugify(title);
-    const titleRx = new RegExp(`^${escapeRegex(title)}$`, 'i');
-    return this.series.findOne({
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const slug = slugify(trimmed);
+    const titleRx = new RegExp(`^${escapeRegex(trimmed)}$`, 'i');
+    const direct = await this.series.findOne({
       $or: [{ slug }, { title: titleRx }, { originalTitle: titleRx }],
+    });
+    if (direct) {
+      return direct;
+    }
+    const flexible = trimmed.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (flexible !== trimmed) {
+      const byFlexible = await this.findSeries(flexible);
+      if (byFlexible) {
+        return byFlexible;
+      }
+    }
+    const looseRx = new RegExp(`^${escapeRegex(flexible).replace(/\s+/g, '[\\s._-]+')}$`, 'i');
+    return this.series.findOne({
+      $or: [{ title: looseRx }, { originalTitle: looseRx }],
     });
   }
 }

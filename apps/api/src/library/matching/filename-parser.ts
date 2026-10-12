@@ -148,12 +148,50 @@ function findSeasonFolderIndex(folders: string[]): { index: number; seasonNumber
   return null;
 }
 
+export function looksLikeSeasonFolderLabel(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return parseSeasonFolderName(trimmed) != null || /^season[\s._-]*\d/i.test(trimmed);
+}
+
+/** Derive a catalog series title from a TV library display name (e.g. "Kaiju No. 8 Anime Series"). */
+export function seriesTitleFromLibraryName(libraryName: string): string {
+  const stripped = libraryName
+    .replace(/\s+(anime\s+series|tv\s+series|series)\s*$/i, '')
+    .trim();
+  return cleanTitle(stripped);
+}
+
+export function resolveEpisodeSeriesTitle(
+  parsed: ParsedEpisodeHint,
+  libraryName?: string | null,
+): string {
+  let title = parsed.seriesTitle.trim();
+  if (!title || looksLikeSeasonFolderLabel(title)) {
+    const fromLibrary = libraryName ? seriesTitleFromLibraryName(libraryName) : '';
+    if (fromLibrary) {
+      title = fromLibrary;
+    }
+  }
+  return title.trim();
+}
+
+function stripReleaseGroupPrefix(stem: string): string {
+  return stem.replace(/^(\[[^\]]+\]\s*)+/, '').trim();
+}
+
 function seriesTitleFromFolders(folders: string[], seasonFolderIndex: number | null): string {
   if (seasonFolderIndex != null && seasonFolderIndex > 0) {
     return cleanTitle(folders[0]);
   }
   if (folders.length > 0) {
-    return cleanTitle(folders[0]);
+    const first = cleanTitle(folders[0]);
+    if (looksLikeSeasonFolderLabel(first)) {
+      return '';
+    }
+    return first;
   }
   return '';
 }
@@ -161,7 +199,7 @@ function seriesTitleFromFolders(folders: string[], seasonFolderIndex: number | n
 export function parseMediaFilename(relativePath: string): ParsedMediaHint {
   const posix = toPosixRelative(relativePath);
   const fileName = basename(posix);
-  const stem = stripExtension(fileName);
+  const stem = stripReleaseGroupPrefix(stripExtension(fileName));
   const folders = parentSegments(posix);
   const resolutionHint = detectResolutionHint(`${stem} ${folders.join(' ')}`);
 
@@ -234,11 +272,14 @@ export function parseMediaFilename(relativePath: string): ParsedMediaHint {
     }
   }
 
-  if (folders.length >= 1) {
-    const dashEpisode = stem.match(/^(.+?)\s[-–—]\s*(\d{1,3})(?:\s|$)/);
+  {
+    const dashEpisode = stem.match(/^(.+?)\s[-–—]\s*(\d{1,3})(?:\b|[\s([]|$)/);
     if (dashEpisode && Number(dashEpisode[2]) >= 1 && Number(dashEpisode[2]) <= 500) {
       const seasonNumber = seasonFolderInfo?.seasonNumber ?? 1;
-      const seriesTitle = seriesTitleFromFolders(folders, seasonFolderInfo?.index ?? null);
+      const seriesTitle =
+        folders.length > 0
+          ? seriesTitleFromFolders(folders, seasonFolderInfo?.index ?? null)
+          : '';
       return {
         kind: 'episode',
         seriesTitle: seriesTitle || cleanTitle(dashEpisode[1]),

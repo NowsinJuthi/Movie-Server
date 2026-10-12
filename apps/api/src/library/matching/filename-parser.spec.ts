@@ -1,4 +1,9 @@
-import { detectLanguageHint, parseMediaFilename } from './filename-parser';
+import {
+  detectLanguageHint,
+  parseMediaFilename,
+  resolveEpisodeSeriesTitle,
+  seriesTitleFromLibraryName,
+} from './filename-parser';
 
 describe('filename-parser', () => {
   it('parses movie titles with years', () => {
@@ -65,6 +70,27 @@ describe('filename-parser', () => {
       seasonNumber: 2,
       episodeNumber: 1,
     });
+    expect(parseMediaFilename('Season 01/01.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: '',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+    expect(parseMediaFilename('[SubsPlease] Kaiju no. 8 - 01 (1080p).mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju no 8',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+  });
+
+  it('resolves series title from TV library name when path is season-only', () => {
+    expect(seriesTitleFromLibraryName('Kaiju No. 8 Anime Series')).toBe('Kaiju No 8');
+    const parsed = parseMediaFilename('Season 01/01.mkv');
+    expect(parsed.kind).toBe('episode');
+    if (parsed.kind === 'episode') {
+      expect(resolveEpisodeSeriesTitle(parsed, 'Kaiju No. 8 Anime Series')).toBe('Kaiju No 8');
+    }
   });
 
   it('detects English, Bangla, and Hindi language tokens', () => {
