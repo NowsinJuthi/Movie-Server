@@ -37,6 +37,7 @@ import {
   sealInstallAnchor,
   verifyLicenseKey,
 } from './license-crypto';
+import { CENTRAL_LICENSE_API_URL } from './license-platform.constants';
 
 type CentralCache = {
   checkedAt: number;
@@ -59,34 +60,22 @@ export class LicenseService implements OnModuleInit {
     private readonly model: Model<InstanceLicenseDocument>,
   ) {}
 
+  /** Encrypts stored central keys and signs local CV1 keys — JWT secret only (no license .env). */
   private masterSecret(): string {
-    const dedicated = this.config.get<string>('LICENSE_MASTER_SECRET')?.trim();
-    return dedicated || this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
+    return this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
   }
 
   private sealPath(): string {
-    const configured = this.config.get<string>('LICENSE_SEAL_DIR')?.trim();
-    const root = configured || path.join(process.cwd(), 'storage', 'license');
-    return path.join(root, 'install.seal');
+    return path.join(process.cwd(), 'storage', 'license', 'install.seal');
   }
 
   private trialMs(): number {
-    const days = this.config.get<number>('LICENSE_TRIAL_DAYS') ?? LICENSE_TRIAL_DAYS;
-    return Math.max(1, days) * 24 * 60 * 60 * 1000;
+    return Math.max(1, LICENSE_TRIAL_DAYS) * 24 * 60 * 60 * 1000;
   }
 
   private centralClient(): AmarpinCentralClient {
-    const apiUrl =
-      this.config.get<string>('AMARPIN_LICENSE_API_URL')?.trim() ||
-      'https://license.amarpin.com/api';
-    const websiteId = this.config.get<string>('AMARPIN_WEBSITE_ID')?.trim() || '';
-    const siteSecret = this.config.get<string>('AMARPIN_SITE_SECRET')?.trim() || '';
-    const productId = this.config.get<string>('AMARPIN_PRODUCT_ID')?.trim();
     return new AmarpinCentralClient({
-      apiUrl,
-      websiteId,
-      siteSecret,
-      productId: productId || undefined,
+      apiUrl: CENTRAL_LICENSE_API_URL,
     });
   }
 
@@ -112,14 +101,12 @@ export class LicenseService implements OnModuleInit {
     const map: Record<string, string> = {
       INVALID_LICENSE: 'License key was not found. Check the key from license.amarpin.com.',
       ACTIVATION_LIMIT: 'This license has reached its activation limit. Deactivate another site first.',
-      PRODUCT_MISMATCH:
-        'License server reported a product mismatch. Remove AMARPIN_PRODUCT_ID from .env so only the key is checked.',
+      PRODUCT_MISMATCH: 'This license key is not valid for this product.',
       EXPIRED: 'License has expired. Renew at license.amarpin.com.',
       REVOKED: 'License was revoked.',
       SUSPENDED: 'License is suspended.',
       DEACTIVATED: 'License is inactive.',
-      UNAUTHORIZED:
-        'Server cannot authenticate with license.amarpin.com (vendor AMARPIN_SITE_SECRET must match the license platform).',
+      UNAUTHORIZED: 'Could not authenticate with license.amarpin.com. Check the license key.',
       TRANSPORT_ERROR: result.message || 'Could not reach license.amarpin.com.',
     };
     return map[code] || result.message || `License not valid (${code || 'unknown'}).`;
@@ -134,17 +121,6 @@ export class LicenseService implements OnModuleInit {
           `Central license check on boot failed: ${error instanceof Error ? error.message : error}`,
         );
       });
-    }
-    const envKey = this.config.get<string>('LICENSE_KEY')?.trim();
-    if (envKey) {
-      try {
-        await this.activate(envKey, { fromEnv: true });
-        this.logger.log('LICENSE_KEY from environment activated.');
-      } catch (error) {
-        this.logger.warn(
-          `LICENSE_KEY env activation failed: ${error instanceof Error ? error.message : error}`,
-        );
-      }
     }
     this.cached = null;
   }

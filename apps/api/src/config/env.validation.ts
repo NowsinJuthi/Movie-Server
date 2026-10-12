@@ -106,19 +106,7 @@ export const envSchema = z.object({
     .enum(['auto', 'none', 'cuda', 'vaapi', 'qsv'])
     .optional()
     .default('auto'),
-  /** HMAC secret for signing license keys. Falls back to JWT_ACCESS_SECRET when empty. */
-  LICENSE_MASTER_SECRET: z.string().optional().default(''),
-  /** Optional pre-activated key applied on API boot. */
-  LICENSE_KEY: z.string().optional().default(''),
-  LICENSE_TRIAL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
-  LICENSE_SEAL_DIR: z.string().optional().default(''),
-  /** license.amarpin.com — required to activate AMP-… keys on this install. */
-  AMARPIN_LICENSE_API_URL: z.string().optional().default('https://license.amarpin.com/api'),
-  AMARPIN_WEBSITE_ID: z.string().optional().default(''),
-  AMARPIN_SITE_SECRET: z.string().optional().default(''),
-  /** Leave empty — license.amarpin.com validates the key only (no PRODUCT_MISMATCH). */
-  AMARPIN_PRODUCT_ID: z.string().optional().default(''),
-  /** Set true in automated tests only — never on production. */
+  /** Automated tests only — license state lives in MongoDB, not .env. */
   LICENSE_DISABLED: booleanish.default(false),
 });
 
