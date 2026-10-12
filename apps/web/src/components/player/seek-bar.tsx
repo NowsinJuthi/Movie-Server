@@ -48,6 +48,7 @@ export function SeekBar({
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
   const [previewRatio, setPreviewRatio] = useState<number | null>(null);
   const scrubbingRef = useRef(false);
+  const activePointerIdRef = useRef<number | null>(null);
 
   const timeline = duration > 0 ? duration : 0;
   const playedRatio = timeline > 0 ? clamp01(currentTime / timeline) : 0;
@@ -72,6 +73,7 @@ export function SeekBar({
     if (!scrubbingRef.current) return;
     const finalRatio = previewRatioRef.current;
     scrubbingRef.current = false;
+    activePointerIdRef.current = null;
     setScrubbing(false);
     onScrubbingChange?.(false);
     setPreviewRatio(null);
@@ -111,13 +113,14 @@ export function SeekBar({
   useEffect(() => {
     if (!scrubbing) return;
     const onMove = (event: PointerEvent) => {
-      if (event.pointerType === "touch") return;
+      if (!scrubbingRef.current) return;
+      if (activePointerIdRef.current != null && event.pointerId !== activePointerIdRef.current) return;
       const ratio = ratioFromClient(event.clientX, event.clientY);
       previewRatioRef.current = ratio;
       setPreviewRatio(ratio);
     };
     const onUp = (event: PointerEvent) => {
-      if (event.pointerType === "touch") return;
+      if (activePointerIdRef.current != null && event.pointerId !== activePointerIdRef.current) return;
       endScrub();
     };
     window.addEventListener("pointermove", onMove);
@@ -130,27 +133,23 @@ export function SeekBar({
     };
   }, [scrubbing, endScrub, ratioFromClient]);
 
-  /** iOS often misses touchend on the track — listen on window while scrubbing. */
   useEffect(() => {
     if (!scrubbing) return;
-    const onTouchMove = (event: TouchEvent) => {
-      if (event.touches.length !== 1) return;
-      const ratio = ratioFromClient(event.touches[0].clientX, event.touches[0].clientY);
-      previewRatioRef.current = ratio;
-      setPreviewRatio(ratio);
+    const recover = () => endScrub();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") recover();
     };
-    const onTouchEnd = () => {
-      endScrub();
-    };
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onTouchEnd);
-    window.addEventListener("touchcancel", onTouchEnd);
+    const safetyTimer = window.setTimeout(recover, 30_000);
+    window.addEventListener("blur", recover);
+    window.addEventListener("pagehide", recover);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
+      window.clearTimeout(safetyTimer);
+      window.removeEventListener("blur", recover);
+      window.removeEventListener("pagehide", recover);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [scrubbing, endScrub, ratioFromClient]);
+  }, [scrubbing, endScrub]);
 
   const isMobileVariant = variant === "emby";
   const mobileEmphasis = isMobileVariant && emphasis;
@@ -200,35 +199,42 @@ export function SeekBar({
           event.stopPropagation();
         }}
         onPointerDown={(event) => {
-          if (event.pointerType === "touch") return;
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
           event.stopPropagation();
-          event.currentTarget.setPointerCapture?.(event.pointerId);
+          activePointerIdRef.current = event.pointerId;
+          try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+          } catch {
+            /* capture optional — window listeners still end the scrub */
+          }
           beginScrub(event.clientX, event.clientY, event);
         }}
-        onTouchStart={(event) => {
-          if (event.touches.length !== 1) return;
-          event.stopPropagation();
-          beginScrub(event.touches[0].clientX, event.touches[0].clientY, event);
-        }}
-        onTouchMove={(event) => {
-          if (!scrubbingRef.current || event.touches.length !== 1) return;
+        onPointerMove={(event) => {
+          if (!scrubbingRef.current) return;
+          if (activePointerIdRef.current != null && event.pointerId !== activePointerIdRef.current) return;
           event.preventDefault();
           event.stopPropagation();
-          const ratio = ratioFromClient(event.touches[0].clientX, event.touches[0].clientY);
+          const ratio = ratioFromClient(event.clientX, event.clientY);
           previewRatioRef.current = ratio;
           setPreviewRatio(ratio);
         }}
-        onTouchEnd={(event) => {
+        onPointerUp={(event) => {
           if (!scrubbingRef.current) return;
+          if (activePointerIdRef.current != null && event.pointerId !== activePointerIdRef.current) return;
+          event.preventDefault();
           event.stopPropagation();
           endScrub();
         }}
-        onTouchCancel={(event) => {
+        onPointerCancel={(event) => {
           if (!scrubbingRef.current) return;
+          if (activePointerIdRef.current != null && event.pointerId !== activePointerIdRef.current) return;
+          event.preventDefault();
           event.stopPropagation();
           endScrub();
+        }}
+        onLostPointerCapture={() => {
+          if (scrubbingRef.current) endScrub();
         }}
         onKeyDown={(event) => {
           if (!duration) return;

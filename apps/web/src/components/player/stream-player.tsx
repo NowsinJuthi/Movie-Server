@@ -384,6 +384,19 @@ export function StreamPlayer({
     }, 3200);
   }, [sheet]);
 
+  const recoverMobileScrubUi = useCallback(() => {
+    if (!seekScrubbingRef.current) return;
+    seekScrubbingRef.current = false;
+    setSeekScrubbing(false);
+    revealControls();
+  }, [revealControls]);
+
+  useEffect(() => {
+    if (!seekScrubbing) return;
+    const timer = window.setTimeout(recoverMobileScrubUi, 30_000);
+    return () => window.clearTimeout(timer);
+  }, [recoverMobileScrubUi, seekScrubbing]);
+
   useEffect(() => {
     repeatModeRef.current = repeatMode;
   }, [repeatMode]);
@@ -1128,12 +1141,14 @@ export function StreamPlayer({
       releaseFrameHold();
       setBuffering(false);
       setLoading(false);
+      recoverMobileScrubUi();
     };
     const onSeeked = () => {
       if (!seekingRef.current && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         releaseFrameHold();
         setBuffering(false);
       }
+      recoverMobileScrubUi();
       void persistProgress(true);
     };
     const onLoaded = () => {
@@ -1177,6 +1192,7 @@ export function StreamPlayer({
         return;
       }
       setLoading(false);
+      recoverMobileScrubUi();
       setError(
         usingHlsRef.current
           ? "Playback failed. Tap Retry — if it keeps failing, check ffmpeg and SMB access on the server."
@@ -1222,6 +1238,7 @@ export function StreamPlayer({
     persistProgress,
     preferredQuality,
     quality,
+    recoverMobileScrubUi,
     releaseFrameHold,
     revealControls,
     tryStartPlayback,
@@ -1916,9 +1933,15 @@ export function StreamPlayer({
   const lastMobileToggleMs = useRef(0);
   const pendingSkinToggleRef = useRef<number | null>(null);
   const lastSkipTapRef = useRef<{ side: "left" | "right"; t: number } | null>(null);
+  const ignoreSkinTapUntilRef = useRef(0);
+  const skinPointerDownRef = useRef<"left" | "right" | "center" | null>(null);
 
   const toggleMobileControls = useCallback(() => {
     const now = Date.now();
+    if (now < ignoreSkinTapUntilRef.current) {
+      revealControls();
+      return;
+    }
     if (now - lastMobileToggleMs.current < 280) return;
     lastMobileToggleMs.current = now;
 
@@ -1975,7 +1998,13 @@ export function StreamPlayer({
   const onMobileSkinTap = useCallback(
     (side: "left" | "right" | "center", event: ReactPointerEvent<HTMLButtonElement>) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (skinPointerDownRef.current !== side) return;
+      skinPointerDownRef.current = null;
       event.preventDefault();
+      if (Date.now() < ignoreSkinTapUntilRef.current) {
+        revealControls();
+        return;
+      }
 
       const now = performance.now();
       if (side === "left" || side === "right") {
@@ -2007,7 +2036,7 @@ export function StreamPlayer({
       }
       toggleMobileControls();
     },
-    [seekBy, toggleMobileControls],
+    [revealControls, seekBy, toggleMobileControls],
   );
 
   useEffect(
@@ -2184,7 +2213,7 @@ export function StreamPlayer({
   const videoObjectClass = videoObjectFitClass(aspectRatio);
 
   const controlsVisible = mobileLayout
-    ? (controls || sheet != null || seekScrubbing) && !loading
+    ? (controls || sheet != null || seekScrubbing) && (!loading || hasPlaybackStarted)
     : controls || !playing || sheet != null;
   const mobileImmersive = fullscreen || pseudoFullscreen;
   const mobileChromeVisible = mobileLayout && controlsVisible;
@@ -2297,14 +2326,20 @@ export function StreamPlayer({
         />
       ) : null}
 
-      {mobileLayout && !loading && !error ? (
+      {mobileLayout && !error ? (
         <div className="absolute inset-0 z-[5] flex touch-manipulation">
           <button
             type="button"
             tabIndex={-1}
             aria-label="Rewind 10 seconds"
             className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerDown={() => {
+              skinPointerDownRef.current = "left";
+            }}
             onPointerUp={(event) => onMobileSkinTap("left", event)}
+            onPointerCancel={() => {
+              if (skinPointerDownRef.current === "left") skinPointerDownRef.current = null;
+            }}
             onClick={(event) => event.preventDefault()}
           />
           <button
@@ -2312,7 +2347,13 @@ export function StreamPlayer({
             tabIndex={-1}
             aria-label="Show or hide player controls"
             className="h-full min-w-0 flex-1 border-0 bg-transparent p-0"
+            onPointerDown={() => {
+              skinPointerDownRef.current = "center";
+            }}
             onPointerUp={(event) => onMobileSkinTap("center", event)}
+            onPointerCancel={() => {
+              if (skinPointerDownRef.current === "center") skinPointerDownRef.current = null;
+            }}
             onClick={(event) => event.preventDefault()}
           />
           <button
@@ -2320,7 +2361,13 @@ export function StreamPlayer({
             tabIndex={-1}
             aria-label="Forward 10 seconds"
             className="h-full w-[40%] border-0 bg-transparent p-0"
+            onPointerDown={() => {
+              skinPointerDownRef.current = "right";
+            }}
             onPointerUp={(event) => onMobileSkinTap("right", event)}
+            onPointerCancel={() => {
+              if (skinPointerDownRef.current === "right") skinPointerDownRef.current = null;
+            }}
             onClick={(event) => event.preventDefault()}
           />
         </div>
@@ -2476,11 +2523,14 @@ export function StreamPlayer({
             onSeek={seekToRatio}
             onSeekBy={seekBy}
             onScrubbingChange={(active) => {
+              seekScrubbingRef.current = active;
               setSeekScrubbing(active);
               if (active) {
                 setControls(true);
                 if (hideTimer.current) window.clearTimeout(hideTimer.current);
               } else {
+                ignoreSkinTapUntilRef.current = Date.now() + 500;
+                skinPointerDownRef.current = null;
                 revealControls();
               }
             }}
@@ -2864,6 +2914,7 @@ export function StreamPlayer({
             transcode={packagedPlayback}
             onSeek={seekToRatio}
             onScrubbingChange={(active) => {
+              seekScrubbingRef.current = active;
               setSeekScrubbing(active);
               if (active) {
                 setControls(true);
