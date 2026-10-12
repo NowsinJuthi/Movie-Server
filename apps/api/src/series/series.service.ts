@@ -496,6 +496,25 @@ export class SeriesService {
     return out;
   }
 
+  private async ensureSeasonRecordsForEpisodes(seriesId: Types.ObjectId): Promise<void> {
+    const seasonNumbers = await this.episodeModel.distinct('seasonNumber', { seriesId });
+    for (const seasonNumber of seasonNumbers) {
+      const existing = await this.seasonModel.findOne({ seriesId, seasonNumber });
+      if (existing) {
+        continue;
+      }
+      await this.seasonModel.create({
+        seriesId,
+        seasonNumber,
+        name: seasonNumber === 0 ? 'Specials' : `Season ${seasonNumber}`,
+        description: '',
+        posterUrl: null,
+        airDate: null,
+        published: true,
+      });
+    }
+  }
+
   async getSeries(
     idOrSlug: string,
     viewer: { maturity: MaturityLevel; isKids: boolean },
@@ -503,6 +522,9 @@ export class SeriesService {
     admin = false,
   ): Promise<SeriesDetailResponse> {
     const series = await this.assertVisibleSeries(idOrSlug, viewer, admin);
+    if (admin) {
+      await this.ensureSeasonRecordsForEpisodes(series._id);
+    }
     const seasonFilter: SeriesFilter = { seriesId: series._id };
     if (!admin) seasonFilter.published = true;
     const seasons = await this.seasonModel.find(seasonFilter).sort({ seasonNumber: 1 });

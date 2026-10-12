@@ -41,6 +41,30 @@ describe('filename-parser', () => {
       seasonNumber: 1,
       episodeNumber: 2,
     });
+    expect(parseMediaFilename('Kaiju No. 8/Season 01/Kaiju No. 8 - 01.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju No 8',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+    expect(parseMediaFilename('Kaiju No. 8/Season 01/01.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju No 8',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+    expect(parseMediaFilename('Kaiju No. 8/Kaiju No. 8 - 12.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju No 8',
+      seasonNumber: 1,
+      episodeNumber: 12,
+    });
+    expect(parseMediaFilename('Kaiju No. 8/S02/Kaiju No. 8 - 01.mkv')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju No 8',
+      seasonNumber: 2,
+      episodeNumber: 1,
+    });
   });
 
   it('detects English, Bangla, and Hindi language tokens', () => {
