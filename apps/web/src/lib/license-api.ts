@@ -8,4 +8,8 @@ export const licenseApi = {
       method: "POST",
       body: JSON.stringify({ licenseKey }),
     }),
+  deactivate: () =>
+    apiFetch<LicenseActivateResponse>("/license/admin/deactivate", {
+      method: "POST",
+    }),
 };

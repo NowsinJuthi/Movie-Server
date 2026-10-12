@@ -313,6 +313,45 @@ export class LicenseService implements OnModuleInit {
     return { ok: true as const, status: await this.getStatus(true) };
   }
 
+  async deactivate(): Promise<{ ok: true; status: LicenseStatusResponse }> {
+    const doc = await this.ensureInstallRecord();
+    if (!doc.licensed) {
+      throw new BadRequestException({
+        error: ErrorCode.LicenseInvalid,
+        message: 'No active license is bound to this install.',
+      });
+    }
+
+    if (doc.licenseProvider === 'central' && doc.licenseKeyEnc) {
+      const licenseKey = decryptLicenseKeyAtRest(doc.licenseKeyEnc, this.masterSecret());
+      if (licenseKey) {
+        const result = await this.centralClient().deactivateInstallation({
+          licenseKey,
+          installationId: doc.installId,
+        });
+        if (result.valid === false && isCentralExplicitlyInvalid(result)) {
+          this.logger.warn(
+            `Central deactivation reported ${result.code ?? result.status}; clearing local license anyway.`,
+          );
+        }
+      }
+    }
+
+    doc.licensed = false;
+    doc.licenseProvider = null;
+    doc.licenseKeyEnc = null;
+    doc.licenseKeyFingerprint = null;
+    doc.licenseJti = null;
+    doc.edition = null;
+    doc.licenseExpiresAt = null;
+    doc.activatedAt = null;
+    await doc.save();
+    this.centralCache = null;
+    this.cached = null;
+    this.logger.log('License deactivated for this install.');
+    return { ok: true as const, status: await this.getStatus(true) };
+  }
+
   private async refreshCentralLicense(
     doc: InstanceLicenseDocument,
     force: boolean,
@@ -462,6 +501,7 @@ export class LicenseService implements OnModuleInit {
       trialDaysRemaining: licenseValid ? 0 : trialDaysRemaining,
       licenseExpiresAt: doc.licenseExpiresAt ? doc.licenseExpiresAt.toISOString() : null,
       activatedAt: doc.activatedAt ? doc.activatedAt.toISOString() : null,
+      canDeactivate: doc.licensed,
       message,
     };
   }

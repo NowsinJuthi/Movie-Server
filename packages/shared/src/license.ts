@@ -50,6 +50,8 @@ export type LicenseStatusResponse = {
   trialDaysRemaining: number;
   licenseExpiresAt: string | null;
   activatedAt: string | null;
+  /** True when a license key is bound to this install (may deactivate from admin). */
+  canDeactivate: boolean;
   message: string;
 };
 

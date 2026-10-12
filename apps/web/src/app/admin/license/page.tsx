@@ -53,7 +53,7 @@ export default function AdminLicensePage() {
     refetchInterval: 60_000,
   });
 
-  const mutation = useMutation({
+  const activateMutation = useMutation({
     mutationFn: (values: FormValues) => licenseApi.activate(values.licenseKey.trim()),
     onSuccess: async (data) => {
       setFormError(null);
@@ -68,7 +68,24 @@ export default function AdminLicensePage() {
     },
   });
 
+  const deactivateMutation = useMutation({
+    mutationFn: () => licenseApi.deactivate(),
+    onSuccess: async (data) => {
+      setFormError(null);
+      setFormSuccess(data.status.message || "License deactivated.");
+      form.reset({ licenseKey: "" });
+      await queryClient.invalidateQueries({ queryKey: ["license-status"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    },
+    onError: (error: unknown) => {
+      setFormSuccess(null);
+      setFormError(error instanceof ApiError ? error.message : "Unable to deactivate license.");
+    },
+  });
+
   const status = statusQuery.data;
+  const canDeactivate = status?.canDeactivate === true;
+  const licenseBusy = activateMutation.isPending || deactivateMutation.isPending;
   const loadError = statusQuery.error instanceof ApiError ? statusQuery.error.message : null;
 
   return (
@@ -123,16 +140,22 @@ export default function AdminLicensePage() {
             <form
               className="admin-card flex h-full flex-col space-y-4"
               onSubmit={form.handleSubmit((values) => {
+                if (canDeactivate) {
+                  return;
+                }
                 setFormError(null);
                 setFormSuccess(null);
-                mutation.mutate(values);
+                activateMutation.mutate(values);
               })}
             >
               <div>
-                <h2 className="text-base font-semibold">Activate license key</h2>
+                <h2 className="text-base font-semibold">
+                  {canDeactivate ? "License active" : "Activate license key"}
+                </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Paste your <strong>license.amarpin.com</strong> key (<code className="text-xs">AMP-…</code>
-                  ). Works on any domain — no per-site setup in the UI.
+                  {canDeactivate
+                    ? "This install is licensed. Deactivate to lock the site until you enter a key again."
+                    : "Paste your license.amarpin.com key (AMP-…). Works on any domain."}
                 </p>
               </div>
               <div className="space-y-2">
@@ -142,6 +165,7 @@ export default function AdminLicensePage() {
                   {...form.register("licenseKey")}
                   placeholder="AMP-PRO-… or CV1.…"
                   autoComplete="off"
+                  disabled={canDeactivate || licenseBusy}
                 />
                 {form.formState.errors.licenseKey ? (
                   <p className="text-sm text-destructive">{form.formState.errors.licenseKey.message}</p>
@@ -149,9 +173,32 @@ export default function AdminLicensePage() {
               </div>
               {formError ? <Alert>{formError}</Alert> : null}
               {formSuccess ? <Alert>{formSuccess}</Alert> : null}
-              <Button type="submit" disabled={mutation.isPending} className="w-full sm:w-auto">
-                {mutation.isPending ? "Activating..." : "Activate"}
-              </Button>
+              {canDeactivate ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={licenseBusy}
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        "Deactivate this license on this server? The site will lock until you activate again.",
+                      )
+                    ) {
+                      return;
+                    }
+                    setFormError(null);
+                    setFormSuccess(null);
+                    deactivateMutation.mutate();
+                  }}
+                >
+                  {deactivateMutation.isPending ? "Deactivating..." : "Deactivate license"}
+                </Button>
+              ) : (
+                <Button type="submit" disabled={licenseBusy} className="w-full sm:w-auto">
+                  {activateMutation.isPending ? "Activating..." : "Activate license"}
+                </Button>
+              )}
             </form>
 
             <div className="h-full min-h-full [&_aside]:h-full">

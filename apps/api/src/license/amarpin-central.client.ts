@@ -144,6 +144,17 @@ export class AmarpinCentralClient {
     return this.post('validate', params.licenseKey, params.installationId, params.version);
   }
 
+  async deactivateInstallation(params: {
+    licenseKey: string;
+    installationId: string;
+  }): Promise<CentralLicenseResult> {
+    return this.post(
+      'deactivateInstallation',
+      params.licenseKey,
+      params.installationId,
+    );
+  }
+
   private async post(
     action: string,
     licenseKey: string,
