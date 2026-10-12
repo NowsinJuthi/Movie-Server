@@ -165,6 +165,39 @@ export class TmdbMetadataService {
     };
   }
 
+  async getTvById(tmdbId: number): Promise<CatalogMetadata | null> {
+    if (!this.enabled() || !Number.isFinite(tmdbId) || tmdbId < 1) {
+      return null;
+    }
+    const detail = await this.getJson<TmdbTvDetail & { id?: number }>(
+      `/3/tv/${Math.trunc(tmdbId)}?append_to_response=credits`,
+    );
+    if (!detail?.name?.trim()) {
+      return null;
+    }
+    const air = detail.first_air_date;
+    const parsedYear = air ? Number(air.slice(0, 4)) : undefined;
+    const people = mapCredits(detail.credits);
+    return {
+      tmdbId: Math.trunc(tmdbId),
+      title: detail.name.trim(),
+      originalTitle: detail.original_name ?? null,
+      overview: detail.overview?.trim() || null,
+      year: Number.isFinite(parsedYear) ? parsedYear : undefined,
+      runtimeMinutes:
+        detail.episode_run_time?.[0] && detail.episode_run_time[0] > 0
+          ? detail.episode_run_time[0]
+          : undefined,
+      genres: mapTmdbGenres(detail.genres ?? []),
+      tmdbRating: typeof detail.vote_average === 'number' ? detail.vote_average : null,
+      posterPath: detail.poster_path ?? null,
+      backdropPath: detail.backdrop_path ?? null,
+      cast: people.cast,
+      directors: people.directors,
+      writers: people.writers,
+    };
+  }
+
   async searchSeries(title: string, year?: number): Promise<CatalogMetadata | null> {
     if (!this.enabled() || !title.trim()) {
       return null;
@@ -178,27 +211,7 @@ export class TmdbMetadataService {
     if (!hit?.id) {
       return null;
     }
-    const detail = await this.getJson<TmdbTvDetail>(`/3/tv/${hit.id}?append_to_response=aggregate_credits,credits`);
-    const source = detail ?? hit;
-    const air = source.first_air_date ?? hit.first_air_date;
-    const parsedYear = air ? Number(air.slice(0, 4)) : year;
-    const people = mapCredits(detail?.credits);
-    return {
-      title: (detail?.name ?? hit.name ?? title).trim(),
-      originalTitle: (detail?.original_name ?? hit.original_name) ?? null,
-      overview: (detail?.overview ?? hit.overview)?.trim() || null,
-      year: Number.isFinite(parsedYear) ? parsedYear : year,
-      runtimeMinutes: detail?.episode_run_time?.[0] && detail.episode_run_time[0] > 0 ? detail.episode_run_time[0] : undefined,
-      genres: mapTmdbGenres(
-        detail?.genres ?? (hit.genre_ids ?? []).map((id) => ({ id })),
-      ),
-      tmdbRating: typeof (detail?.vote_average ?? hit.vote_average) === 'number' ? (detail?.vote_average ?? hit.vote_average) : null,
-      posterPath: detail?.poster_path ?? hit.poster_path ?? null,
-      backdropPath: detail?.backdrop_path ?? hit.backdrop_path ?? null,
-      cast: people.cast,
-      directors: people.directors,
-      writers: people.writers,
-    };
+    return this.getTvById(hit.id);
   }
 
   async downloadPoster(posterPath: string | null | undefined): Promise<RemoteArtwork | null> {

@@ -41,6 +41,6 @@ import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
     ArtworkController,
   ],
   providers: [MoviesService, CollectionsService, ArtworkStorageService, TmdbMetadataService],
-  exports: [MoviesService, CollectionsService, ArtworkStorageService],
+  exports: [MoviesService, CollectionsService, ArtworkStorageService, TmdbMetadataService],
 })
 export class MoviesModule {}

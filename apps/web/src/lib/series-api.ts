@@ -90,6 +90,11 @@ export const seriesApi = {
     apiFetch<{ series: PublicSeries }>("/admin/series", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: Record<string, unknown>) =>
     apiFetch<{ series: PublicSeries }>(`/admin/series/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  applyFromTmdb: (id: string, tmdbId: number, updateArtwork = true) =>
+    apiFetch<{ series: PublicSeries }>(`/admin/series/${id}/from-tmdb`, {
+      method: "POST",
+      body: JSON.stringify({ tmdbId, updateArtwork }),
+    }),
   remove: (id: string) => apiFetch<{ deleted: boolean }>(`/admin/series/${id}`, { method: "DELETE" }),
   bulk: (ids: string[], action: BulkSeriesAction) =>
     apiFetch<{ matched: number; action: BulkSeriesAction }>("/admin/series/bulk", {

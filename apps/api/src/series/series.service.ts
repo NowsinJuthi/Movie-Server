@@ -55,6 +55,7 @@ import { toPublicCollection, toPublicEpisode, toPublicSeason, toPublicSeries } f
 import { StreamService } from '../stream/stream.service';
 import { foldMarkerFields } from '../stream/playback-markers.util';
 import { LibraryExclusionService } from '../library/library-exclusion.service';
+import { TmdbMetadataService } from '../library/metadata/tmdb-metadata.service';
 
 const SHELF_LIMIT = 12;
 type SeriesFilter = Record<string, unknown>;
@@ -74,6 +75,7 @@ export class SeriesService {
     private readonly artwork: ArtworkStorageService,
     private readonly streams: StreamService,
     private readonly libraryExclusions: LibraryExclusionService,
+    private readonly tmdb: TmdbMetadataService,
   ) {}
 
   async resolveViewer(user: RequestUser): Promise<{ maturity: MaturityLevel; isKids: boolean }> {
@@ -862,6 +864,81 @@ export class SeriesService {
     if (series.published && !updated.published) {
       await this.revokeSeriesPlayback(id);
     }
+    return updated;
+  }
+
+  async applyFromTmdb(
+    id: string,
+    tmdbId: number,
+    options: { updateArtwork?: boolean } = {},
+  ): Promise<SeriesDocument> {
+    if (!this.tmdb.enabled()) {
+      throw new BadRequestException({
+        error: ErrorCode.ValidationFailed,
+        message: 'TMDB_API_KEY is not configured on the server.',
+      });
+    }
+    const series = await this.seriesModel.findById(id);
+    if (!series) {
+      this.seriesNotFound();
+    }
+    const meta = await this.tmdb.getTvById(tmdbId);
+    if (!meta) {
+      throw new NotFoundException({
+        error: ErrorCode.NotFound,
+        message: `No TMDB TV series found for id ${tmdbId}.`,
+      });
+    }
+
+    const dto: UpdateSeriesDto = {
+      title: meta.title,
+      originalTitle: meta.originalTitle ?? null,
+      description: meta.overview?.slice(0, 4000) || series.description,
+      firstAirYear: meta.year ?? series.firstAirYear,
+      genres: (meta.genres.length ? meta.genres : series.genres).slice(0, 12),
+      cast: meta.cast.slice(0, 40).map((member, index) => ({
+        name: member.name,
+        character: member.character ?? null,
+        order: member.order ?? index,
+        imageUrl: member.imageUrl ?? null,
+      })),
+      directors: meta.directors.slice(0, 12),
+      ratings: {
+        imdb: series.ratings?.imdb ?? null,
+        critics: series.ratings?.critics ?? null,
+        audience: series.ratings?.audience ?? null,
+        tmdb:
+          meta.tmdbRating != null
+            ? Math.min(10, Math.max(0, meta.tmdbRating))
+            : (series.ratings?.tmdb ?? null),
+      },
+    };
+
+    const updated = await this.updateSeries(id, dto);
+
+    if (options.updateArtwork !== false) {
+      const [poster, backdrop] = await Promise.all([
+        this.tmdb.downloadPoster(meta.posterPath),
+        this.tmdb.downloadBackdrop(meta.backdropPath),
+      ]);
+      if (poster) {
+        await this.attachArtwork(
+          { seriesId: id },
+          'poster',
+          { mimetype: poster.mimetype, buffer: poster.buffer, size: poster.buffer.length },
+        );
+      }
+      if (backdrop) {
+        await this.attachArtwork(
+          { seriesId: id },
+          'backdrop',
+          { mimetype: backdrop.mimetype, buffer: backdrop.buffer, size: backdrop.buffer.length },
+        );
+      }
+      const refreshed = await this.seriesModel.findById(id);
+      return refreshed ?? updated;
+    }
+
     return updated;
   }
 
