@@ -18,6 +18,7 @@ import {
 } from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
 import { licenseApi } from "@/lib/license-api";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { LicenseContactPanel } from "@/components/license/license-contact-panel";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export default function AdminLicensePage() {
   const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { licenseKey: "" },
@@ -71,6 +73,7 @@ export default function AdminLicensePage() {
   const deactivateMutation = useMutation({
     mutationFn: () => licenseApi.deactivate(),
     onSuccess: async (data) => {
+      setDeactivateOpen(false);
       setFormError(null);
       setFormSuccess(data.status.message || "License deactivated.");
       form.reset({ licenseKey: "" });
@@ -180,19 +183,12 @@ export default function AdminLicensePage() {
                   disabled={licenseBusy}
                   className="w-full sm:w-auto"
                   onClick={() => {
-                    if (
-                      !window.confirm(
-                        "Deactivate this license on this server? The site will lock until you activate again.",
-                      )
-                    ) {
-                      return;
-                    }
                     setFormError(null);
                     setFormSuccess(null);
-                    deactivateMutation.mutate();
+                    setDeactivateOpen(true);
                   }}
                 >
-                  {deactivateMutation.isPending ? "Deactivating..." : "Deactivate license"}
+                  Deactivate license
                 </Button>
               ) : (
                 <Button type="submit" disabled={licenseBusy} className="w-full sm:w-auto">
@@ -205,6 +201,26 @@ export default function AdminLicensePage() {
               <LicenseContactPanel />
             </div>
           </div>
+
+          <ConfirmDialog
+            open={deactivateOpen}
+            variant="destructive"
+            title="Deactivate license on this server?"
+            description="This install will no longer be licensed. You can activate again anytime with a valid key."
+            bullets={[
+              "Public access locks until a new license key is activated.",
+              "Admin users can still sign in to enter a key on the License page.",
+              "license.amarpin.com keys release this installation slot for reuse.",
+            ]}
+            confirmLabel="Deactivate license"
+            pending={deactivateMutation.isPending}
+            onClose={() => setDeactivateOpen(false)}
+            onConfirm={() => {
+              setFormError(null);
+              setFormSuccess(null);
+              deactivateMutation.mutate();
+            }}
+          />
         </>
       )}
     </AdminPage>
