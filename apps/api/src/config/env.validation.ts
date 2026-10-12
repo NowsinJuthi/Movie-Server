@@ -116,7 +116,8 @@ export const envSchema = z.object({
   AMARPIN_LICENSE_API_URL: z.string().optional().default('https://license.amarpin.com/api'),
   AMARPIN_WEBSITE_ID: z.string().optional().default(''),
   AMARPIN_SITE_SECRET: z.string().optional().default(''),
-  AMARPIN_PRODUCT_ID: z.string().optional().default('movie-server'),
+  /** Leave empty — license.amarpin.com validates the key only (no PRODUCT_MISMATCH). */
+  AMARPIN_PRODUCT_ID: z.string().optional().default(''),
   /** Set true in automated tests only — never on production. */
   LICENSE_DISABLED: booleanish.default(false),
 });

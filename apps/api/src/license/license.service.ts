@@ -112,7 +112,8 @@ export class LicenseService implements OnModuleInit {
     const map: Record<string, string> = {
       INVALID_LICENSE: 'License key was not found. Check the key from license.amarpin.com.',
       ACTIVATION_LIMIT: 'This license has reached its activation limit. Deactivate another site first.',
-      PRODUCT_MISMATCH: 'This license is for a different product. Check AMARPIN_PRODUCT_ID in .env.',
+      PRODUCT_MISMATCH:
+        'License server reported a product mismatch. Remove AMARPIN_PRODUCT_ID from .env so only the key is checked.',
       EXPIRED: 'License has expired. Renew at license.amarpin.com.',
       REVOKED: 'License was revoked.',
       SUSPENDED: 'License is suspended.',
