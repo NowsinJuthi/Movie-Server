@@ -51,14 +51,14 @@ const KIND_COPY: Record<
   { title: string; lead: string; fieldLabel: string; placeholder: string; notePlaceholder: string }
 > = {
   [ContentUploadRequestKind.Movie]: {
-    title: "Upload Request",
+    title: "Movie Upload Request",
     lead: "Missing a film? Tell us the title and we'll add it when the file is available.",
     fieldLabel: "Movie title",
     placeholder: "e.g. John Wick",
     notePlaceholder: "Language, quality, or TMDB link…",
   },
   [ContentUploadRequestKind.Tv]: {
-    title: "Request a TV show",
+    title: "Series Upload Request",
     lead: "Missing a series? Send the show name and we'll add it when episodes are ready.",
     fieldLabel: "TV show title",
     placeholder: "e.g. Breaking Bad",

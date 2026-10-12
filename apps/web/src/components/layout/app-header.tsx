@@ -259,7 +259,7 @@ export function AppHeader({
                       ? [
                           {
                             id: "request-movie",
-                            label: "Upload Request",
+                            label: "Movie Upload Request",
                             href: "/home/request-movie?kind=movie",
                             icon: Film,
                           },
@@ -284,7 +284,7 @@ export function AppHeader({
                         ? [
                             {
                               id: "request-tv",
-                              label: "Request a TV show",
+                              label: "Series Upload Request",
                               href: "/home/request-movie?kind=tv",
                               icon: Tv,
                             },
@@ -404,7 +404,7 @@ function BrowseMobileDrawer({
                           icon={Clapperboard}
                           onClick={() => onNavigate("/home/request-movie?kind=movie")}
                         >
-                          Upload Request
+                          Movie Upload Request
                         </MobileNavLink>
                       </li>
                     ) : null}
@@ -417,7 +417,7 @@ function BrowseMobileDrawer({
                   icon={Film}
                   onClick={() => onNavigate("/home/request-movie?kind=movie")}
                 >
-                  Upload Request
+                  Movie Upload Request
                 </MobileNavLink>
               </li>
             ) : null}
@@ -452,7 +452,7 @@ function BrowseMobileDrawer({
                           icon={Clapperboard}
                           onClick={() => onNavigate("/home/request-movie?kind=tv")}
                         >
-                          Request a TV show
+                          Series Upload Request
                         </MobileNavLink>
                       </li>
                     ) : null}
@@ -465,7 +465,7 @@ function BrowseMobileDrawer({
                   icon={Tv}
                   onClick={() => onNavigate("/home/request-movie?kind=tv")}
                 >
-                  Request a TV show
+                  Series Upload Request
                 </MobileNavLink>
               </li>
             ) : null}
@@ -479,7 +479,7 @@ function BrowseMobileDrawer({
                   expanded={requestsOpen}
                   onClick={() => setRequestsOpen((value) => !value)}
                 >
-                  Upload Request
+                  Upload requests
                 </MobileNavLink>
                 {requestsOpen ? (
                   <ul className={styles.mobileSubmenu}>
@@ -488,7 +488,7 @@ function BrowseMobileDrawer({
                         icon={Film}
                         onClick={() => onNavigate("/home/request-movie?kind=movie")}
                       >
-                        Upload Request
+                        Movie Upload Request
                       </MobileNavLink>
                     </li>
                     <li>
@@ -496,7 +496,7 @@ function BrowseMobileDrawer({
                         icon={Tv}
                         onClick={() => onNavigate("/home/request-movie?kind=tv")}
                       >
-                        Request a TV show
+                        Series Upload Request
                       </MobileNavLink>
                     </li>
                   </ul>
