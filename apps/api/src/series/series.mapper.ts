@@ -67,6 +67,10 @@ function rankResolution(resolution: VideoResolution): number {
 export function toPublicSeries(
   series: SeriesDocument,
   counts?: { seasons?: number; episodes?: number },
+  options?: {
+    admin?: boolean;
+    sourceVideo?: { fileName: string; sizeBytes: number } | null;
+  },
 ): PublicSeries {
   return {
     id: String(series._id),
@@ -96,6 +100,12 @@ export function toPublicSeries(
     seasonCount: counts?.seasons ?? 0,
     episodeCount: counts?.episodes ?? 0,
     createdAt: series.createdAt?.toISOString(),
+    ...(options?.admin
+      ? {
+          videoFileName: options.sourceVideo?.fileName ?? null,
+          videoFileSizeBytes: options.sourceVideo?.sizeBytes ?? null,
+        }
+      : {}),
   };
 }
 
