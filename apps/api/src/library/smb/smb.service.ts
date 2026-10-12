@@ -362,7 +362,11 @@ export class SmbService implements OnModuleInit {
     let scan: { id: string } | null = null;
     if (options.scan !== false && library) {
       try {
-        const started = await this.scans.start({ libraryId: String(library._id), full: false });
+        const started = await this.scans.start({
+          libraryId: String(library._id),
+          full: false,
+          relativePaths: [relativeKey.replace(/\\/g, '/')],
+        });
         scan = { id: started.scan.id };
       } catch (error) {
         if (!(error instanceof ConflictException)) {

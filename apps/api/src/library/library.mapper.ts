@@ -110,6 +110,8 @@ export function toAdminScan(scan: LibraryScanDocument): AdminLibraryScan {
     libraryId: scan.libraryId ? String(scan.libraryId) : null,
     status: scan.status,
     full: scan.full,
+    modifiedSinceMs: scan.modifiedSinceMs ?? null,
+    relativePaths: scan.relativePaths?.length ? scan.relativePaths : null,
     processed: scan.processed,
     total: scan.total,
     discovered: scan.discovered,

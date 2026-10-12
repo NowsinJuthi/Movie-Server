@@ -189,6 +189,10 @@ export type AdminLibraryScan = {
   libraryId: string | null;
   status: LibraryScanStatus;
   full: boolean;
+  /** Present when scan only includes files modified after this Unix ms timestamp. */
+  modifiedSinceMs?: number | null;
+  /** Present when scan is limited to specific library-relative paths. */
+  relativePaths?: string[] | null;
   processed: number;
   total: number;
   discovered: number;

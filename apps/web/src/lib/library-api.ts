@@ -31,7 +31,9 @@ export const libraryApi = {
     const qs = params.toString();
     return apiFetch<AdminLibraryItemsResponse>(`/admin/libraries/${id}/items${qs ? `?${qs}` : ""}`);
   },
-  startScan: (body: { libraryId?: string; full?: boolean } = {}) =>
+  startScan: (
+    body: { libraryId?: string; full?: boolean; recentHours?: number; relativePaths?: string[] } = {},
+  ) =>
     apiFetch<AdminLibraryScanResponse>("/admin/libraries/scans", { method: "POST", body: JSON.stringify(body) }),
   scans: () => apiFetch<AdminLibraryScansResponse>("/admin/libraries/scans"),
   scan: (id: string) => apiFetch<AdminLibraryScanResponse>(`/admin/libraries/scans/${id}`),
