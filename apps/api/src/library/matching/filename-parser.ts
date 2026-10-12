@@ -125,7 +125,7 @@ function parentSegments(posix: string): string[] {
   return parts.slice(0, -1);
 }
 
-/** Season folder names: `Season 01`, `Season 1`, `S01`, `S1`. */
+/** Season folder names: `Season 01`, `Season 1`, `S01`, `S1`, `Show.Name.S01`. */
 export function parseSeasonFolderName(folder: string): number | null {
   const season = folder.match(/^season[\s._-]*(\d{1,2})$/i);
   if (season) {
@@ -134,6 +134,10 @@ export function parseSeasonFolderName(folder: string): number | null {
   const short = folder.match(/^s(\d{1,2})$/i);
   if (short) {
     return Number(short[1]);
+  }
+  const dotted = folder.match(/[\s._-][Ss](\d{1,2})$/);
+  if (dotted) {
+    return Number(dotted[1]);
   }
   return null;
 }
@@ -158,9 +162,11 @@ export function looksLikeSeasonFolderLabel(value: string): boolean {
 
 /** Derive a catalog series title from a TV library display name (e.g. "Kaiju No. 8 Anime Series"). */
 export function seriesTitleFromLibraryName(libraryName: string): string {
-  const stripped = libraryName
+  let stripped = libraryName
     .replace(/\s+(anime\s+series|tv\s+series|series)\s*$/i, '')
     .trim();
+  stripped = stripped.replace(/[\s._-]*[Ss](\d{1,2})$/i, '').trim();
+  stripped = stripped.replace(/[\s._-]*season[\s._-]*\d{1,2}$/i, '').trim();
   return cleanTitle(stripped);
 }
 

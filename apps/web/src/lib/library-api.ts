@@ -15,7 +15,16 @@ export const libraryApi = {
   list: () => apiFetch<AdminLibrariesResponse>("/admin/libraries"),
   create: (body: { name: string; kind: LibraryKind; rootPath: string; enabled?: boolean; imageUrl?: string | null }) =>
     apiFetch<AdminLibraryResponse>("/admin/libraries", { method: "POST", body: JSON.stringify(body) }),
-  update: (id: string, body: { name?: string; enabled?: boolean; rootPath?: string; imageUrl?: string | null }) =>
+  update: (
+    id: string,
+    body: {
+      name?: string;
+      kind?: (typeof import("@movie-server/shared").LIBRARY_KINDS)[number];
+      enabled?: boolean;
+      rootPath?: string;
+      imageUrl?: string | null;
+    },
+  ) =>
     apiFetch<AdminLibraryResponse>(`/admin/libraries/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   remove: (id: string) => apiFetch<{ deleted: boolean }>(`/admin/libraries/${id}`, { method: "DELETE" }),
   uploadImage: async (id: string, file: File) => {

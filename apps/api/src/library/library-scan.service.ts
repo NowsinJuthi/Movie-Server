@@ -35,6 +35,7 @@ import {
   isAudioFile,
   isSubtitleFile,
   isVideoFile,
+  parseMediaFilename,
   toPosixRelative,
 } from './matching/filename-parser';
 import { subtitleFormatFromName } from '../stream/subtitle-text';
@@ -532,12 +533,26 @@ export class LibraryScanService {
       }
       item.status = LibraryItemStatus.Unmatched;
       await item.save();
-      await this.log(
-        scan,
-        LibraryLogLevel.Info,
-        item.ignored ? `Ignored ${fileName} (removed from catalog).` : `Unmatched ${fileName}.`,
-        item.storageKey,
-      );
+      const library = await this.libraryModel.findById(item.libraryId);
+      if (
+        library?.kind === LibraryKind.Movies &&
+        item.fileKind === LibraryFileKind.Video &&
+        parseMediaFilename(item.relativePath).kind === 'episode'
+      ) {
+        await this.log(
+          scan,
+          LibraryLogLevel.Warn,
+          `${fileName} looks like a TV episode — edit the library, set content type to TV series, then run a full scan.`,
+          item.storageKey,
+        );
+      } else {
+        await this.log(
+          scan,
+          LibraryLogLevel.Info,
+          item.ignored ? `Ignored ${fileName} (removed from catalog).` : `Unmatched ${fileName}.`,
+          item.storageKey,
+        );
+      }
       return;
     }
 

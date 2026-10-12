@@ -6,6 +6,7 @@ import {
   type AdminSmbBrowseEntry,
   type AdminSmbServer,
   type LibraryKind,
+  pathHintLooksLikeTv,
 } from "@movie-server/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -64,8 +65,17 @@ export default function AdminFileManagerPage() {
   const [domain, setDomain] = useState("");
   const [share, setShare] = useState("");
   const [libraryName, setLibraryName] = useState("");
-  const [libraryKind, setLibraryKind] = useState<LibraryKind>("movies");
+  const [libraryKind, setLibraryKind] = useState<LibraryKind>("tv");
   const [pendingDir, setPendingDir] = useState<AdminSmbBrowseEntry | null>(null);
+
+  useEffect(() => {
+    if (!pendingDir) {
+      return;
+    }
+    const hint = [pendingDir.path, pendingDir.name].filter(Boolean).join("/");
+    setLibraryKind(pathHintLooksLikeTv(hint) ? "tv" : "movies");
+    setLibraryName((current) => current.trim() || pendingDir.name);
+  }, [pendingDir]);
   const [updatePassword, setUpdatePassword] = useState("");
   const [credentialsSaved, setCredentialsSaved] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<SmbUploadStatus | null>(null);

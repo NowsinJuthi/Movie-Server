@@ -16,6 +16,7 @@ import { Episode, EpisodeDocument } from '../series/schemas/episode.schema';
 import { resolveSafePath } from './storage/path-safety';
 import { LibraryMatcher, LibraryMatchResult } from './matching/library-matcher';
 import {
+  looksLikeSeasonFolderLabel,
   parseMediaFilename,
   resolveEpisodeSeriesTitle,
   seriesTitleFromLibraryName,
@@ -272,14 +273,18 @@ export class LibraryImportService {
     context: ImportContext,
   ): Promise<SeriesDocument> {
     const candidates: string[] = [];
+    const fromParsed = title.trim();
+    if (fromParsed && !looksLikeSeasonFolderLabel(fromParsed)) {
+      candidates.push(fromParsed);
+    }
     if (context.libraryName) {
       const fromLibrary = seriesTitleFromLibraryName(context.libraryName);
-      if (fromLibrary) {
+      if (fromLibrary && !candidates.includes(fromLibrary)) {
         candidates.push(fromLibrary);
       }
     }
-    if (title && !candidates.includes(title)) {
-      candidates.push(title);
+    if (fromParsed && looksLikeSeasonFolderLabel(fromParsed) && !candidates.includes(fromParsed)) {
+      candidates.push(fromParsed);
     }
     let existing: SeriesDocument | null = null;
     for (const candidate of candidates) {

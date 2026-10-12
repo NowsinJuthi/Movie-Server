@@ -49,6 +49,7 @@ export default function AdminLibrariesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminLibrary | null>(null);
   const [editName, setEditName] = useState("");
+  const [editKind, setEditKind] = useState<(typeof LIBRARY_KINDS)[number]>("movies");
   const [editRootPath, setEditRootPath] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
 
@@ -157,8 +158,14 @@ export default function AdminLibrariesPage() {
     mutationFn: (opts?: { clearImage?: boolean }) => {
       if (!editing) throw new Error("No library selected");
       const imageUrl = editImageUrl.trim();
-      const body: { name: string; rootPath?: string; imageUrl?: string | null } = {
+      const body: {
+        name: string;
+        kind?: (typeof LIBRARY_KINDS)[number];
+        rootPath?: string;
+        imageUrl?: string | null;
+      } = {
         name: editName.trim(),
+        kind: editKind,
       };
       if (editing.provider !== "smb") {
         body.rootPath = editRootPath.trim();
@@ -173,6 +180,7 @@ export default function AdminLibrariesPage() {
     onSuccess: (data) => {
       setEditing(data.library);
       setEditName(data.library.name);
+      setEditKind(data.library.kind);
       setEditRootPath(data.library.rootPath);
       setEditImageUrl(data.library.imageUrl?.startsWith("http") ? data.library.imageUrl : "");
       queryClient.invalidateQueries({ queryKey: ["admin-libraries"] });
@@ -199,6 +207,7 @@ export default function AdminLibrariesPage() {
     setError(null);
     setEditing(library);
     setEditName(library.name);
+    setEditKind(library.kind);
     setEditRootPath(library.rootPath);
     setEditImageUrl(library.imageUrl?.startsWith("http") ? library.imageUrl : "");
   }
@@ -490,7 +499,9 @@ export default function AdminLibrariesPage() {
             <div className={styles.panelHead}>
               <div>
                 <h2 className={styles.panelTitle}>Edit library</h2>
-                <p className={styles.panelHint}>Update name, media directory, and cover picture.</p>
+                <p className={styles.panelHint}>
+                  Update name, content type (movies vs TV), media directory, and cover picture.
+                </p>
               </div>
               <Button size="sm" variant="ghost" onClick={() => setEditing(null)} className="gap-1">
                 <X className="h-4 w-4" />
@@ -525,6 +536,21 @@ export default function AdminLibrariesPage() {
                     onChange={(event) => setEditName(event.target.value)}
                     required
                   />
+                </div>
+                <div className={styles.field}>
+                  <Label htmlFor="edit-lib-kind">Content type</Label>
+                  <select
+                    id="edit-lib-kind"
+                    className={styles.inputLike}
+                    value={editKind}
+                    onChange={(event) => setEditKind(event.target.value as (typeof LIBRARY_KINDS)[number])}
+                  >
+                    <option value="movies">Movies</option>
+                    <option value="tv">TV series</option>
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Use TV series for folders with S01E01-style files. After changing, run a full scan.
+                  </p>
                 </div>
                 <div className={styles.field}>
                   <Label htmlFor="edit-lib-root">Media directory</Label>

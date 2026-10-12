@@ -90,6 +90,16 @@ describe('filename-parser', () => {
     });
   });
 
+  it('strips season pack suffix from library folder names', () => {
+    expect(seriesTitleFromLibraryName('Kaiju.No.8.S01')).toBe('Kaiju No 8');
+    expect(parseMediaFilename('Kaiju.No.8.S01/Kaiju.No.8.S01E01.mp4')).toMatchObject({
+      kind: 'episode',
+      seriesTitle: 'Kaiju No 8',
+      seasonNumber: 1,
+      episodeNumber: 1,
+    });
+  });
+
   it('resolves series title from TV library name when path is season-only', () => {
     expect(seriesTitleFromLibraryName('Kaiju No. 8 Anime Series')).toBe('Kaiju No 8');
     const parsed = parseMediaFilename('Season 01/01.mkv');

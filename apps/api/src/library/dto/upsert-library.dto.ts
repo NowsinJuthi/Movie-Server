@@ -70,6 +70,10 @@ export class UpdateLibraryDto {
   name?: string;
 
   @IsOptional()
+  @IsIn([...LIBRARY_KINDS])
+  kind?: LibraryKind;
+
+  @IsOptional()
   @IsIn([...STORAGE_PROVIDER_KINDS])
   provider?: StorageProviderKind;
 

@@ -6,6 +6,7 @@ export * from './errors';
 export * from './home';
 export * from './home-row-presets';
 export * from './library';
+export * from './library-kind-infer';
 export * from './license';
 export * from './movie';
 export * from './movie-upload-request';

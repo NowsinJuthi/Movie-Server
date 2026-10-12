@@ -10,7 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
-import { ErrorCode, LibraryKind, StorageProviderKind } from '@movie-server/shared';
+import { ErrorCode, LibraryKind, pathHintLooksLikeTv, StorageProviderKind } from '@movie-server/shared';
 import { LibraryService } from '../library.service';
 import { LibraryScanService } from '../library-scan.service';
 import { resolveSafePath } from '../storage/path-safety';
@@ -260,10 +260,15 @@ export class SmbService implements OnModuleInit {
         message: `Could not mount Samba folder for library scan: ${message}`,
       });
     }
+    const pathHint = [dto.path, dto.name, leaf].filter(Boolean).join('/');
+    const kind =
+      dto.kind === LibraryKind.Movies && pathHintLooksLikeTv(pathHint)
+        ? LibraryKind.Tv
+        : (dto.kind as LibraryKind);
     try {
       return await this.libraryService.createFromExternalRoot({
         name: dto.name,
-        kind: dto.kind as LibraryKind,
+        kind,
         rootPath,
         provider: StorageProviderKind.Smb,
         smbServerId: String(server._id),

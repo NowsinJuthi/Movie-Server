@@ -229,6 +229,7 @@ export class LibraryService implements OnModuleInit {
       });
     }
     if (dto.name) library.name = dto.name;
+    if (dto.kind) library.kind = dto.kind;
     if (dto.enabled !== undefined) library.enabled = dto.enabled;
     if (dto.rootPath) {
       if (library.provider === StorageProviderKind.Smb) {
