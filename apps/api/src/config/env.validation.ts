@@ -112,6 +112,11 @@ export const envSchema = z.object({
   LICENSE_KEY: z.string().optional().default(''),
   LICENSE_TRIAL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   LICENSE_SEAL_DIR: z.string().optional().default(''),
+  /** license.amarpin.com — required to activate AMP-… keys on this install. */
+  AMARPIN_LICENSE_API_URL: z.string().optional().default('https://license.amarpin.com/api'),
+  AMARPIN_WEBSITE_ID: z.string().optional().default(''),
+  AMARPIN_SITE_SECRET: z.string().optional().default(''),
+  AMARPIN_PRODUCT_ID: z.string().optional().default('movie-server'),
   /** Set true in automated tests only — never on production. */
   LICENSE_DISABLED: booleanish.default(false),
 });

@@ -9,9 +9,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import {
-  LICENSE_KEY_SKU_ERROR,
-  looksLikeProductSkuKey,
-  looksLikeSignedLicenseKey,
+  isSupportedLicenseKeyFormat,
+  LICENSE_KEY_FORMAT_HINT,
   normalizeLicenseKeyInput,
 } from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
@@ -28,13 +27,9 @@ const schema = z.object({
     .pipe(
       z
         .string()
-        .min(20, "Enter the full signed key (CV1.…).")
-        .refine((value) => !looksLikeProductSkuKey(value), {
-          message: LICENSE_KEY_SKU_ERROR,
-        })
-        .refine((value) => looksLikeSignedLicenseKey(value), {
-          message:
-            "Key must start with CV1. and contain three dot-separated parts (not AMP- product codes).",
+        .min(12, "Enter your full license key.")
+        .refine((value) => isSupportedLicenseKeyFormat(value), {
+          message: LICENSE_KEY_FORMAT_HINT,
         }),
     ),
 });
@@ -188,9 +183,8 @@ export default function LicensePage() {
               <div className={styles.activateHead}>
                 <h2 className={styles.activateTitle}>Activate license key</h2>
                 <p className={styles.activateHint}>
-                  Paste your signed key (starts with <code>CV1.</code>, three parts separated by
-                  dots). <code>AMP-PRO-…</code> product codes are not license keys. Verification
-                  happens on the server.
+                  Paste your key from <strong>license.amarpin.com</strong> (<code>AMP-…</code>).
+                  Any hosting or domain — only the license key is required here.
                 </p>
               </div>
 
@@ -205,7 +199,7 @@ export default function LicensePage() {
                   className={styles.input}
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="CV1.••••••••.••••••••"
+                  placeholder="AMP-PRO-… or CV1.…"
                   {...form.register("licenseKey")}
                 />
                 {form.formState.errors.licenseKey ? (

@@ -7,9 +7,14 @@ export function normalizeLicenseKeyInput(raw: string): string {
   return raw.trim().replace(/\s+/g, "");
 }
 
-/** Product SKU style codes (AMP-PRO-…) are not cryptographic license keys. */
+/** Central license manager keys (license.amarpin.com), e.g. AMP-PRO-…. */
+export function looksLikeCentralLicenseKey(raw: string): boolean {
+  return /^AMP-[A-Z0-9]+(?:-[A-Z0-9]+)+$/i.test(normalizeLicenseKeyInput(raw));
+}
+
+/** @deprecated Use looksLikeCentralLicenseKey — same AMP- format. */
 export function looksLikeProductSkuKey(raw: string): boolean {
-  return /^AMP-/i.test(normalizeLicenseKeyInput(raw));
+  return looksLikeCentralLicenseKey(raw);
 }
 
 export function looksLikeSignedLicenseKey(raw: string): boolean {
@@ -18,8 +23,17 @@ export function looksLikeSignedLicenseKey(raw: string): boolean {
   return parts.length === 3 && parts[0] === LICENSE_KEY_PREFIX;
 }
 
+/** Accept keys from license.amarpin.com (AMP-…) or offline CV1.… keys. */
+export function isSupportedLicenseKeyFormat(raw: string): boolean {
+  const normalized = normalizeLicenseKeyInput(raw);
+  return looksLikeCentralLicenseKey(normalized) || looksLikeSignedLicenseKey(normalized);
+}
+
+export const LICENSE_KEY_FORMAT_HINT =
+  "Enter your license.amarpin.com key (AMP-PRO-…) or a self-hosted CV1. key (three dot-separated parts).";
+
 export const LICENSE_KEY_SKU_ERROR =
-  "This AMP- code is not an AmarPin license key. Ask your vendor for a signed key that starts with CV1. (three parts separated by dots), or generate one on the server with scripts/generate-license.mjs.";
+  "Enter a valid AMP-PRO-… key from license.amarpin.com, or a signed CV1. key for self-hosted installs.";
 
 export type LicenseEdition = "trial" | "standard" | "pro";
 

@@ -12,9 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  LICENSE_KEY_SKU_ERROR,
-  looksLikeProductSkuKey,
-  looksLikeSignedLicenseKey,
+  isSupportedLicenseKeyFormat,
+  LICENSE_KEY_FORMAT_HINT,
   normalizeLicenseKeyInput,
 } from "@movie-server/shared";
 import { ApiError } from "@/lib/api";
@@ -30,10 +29,9 @@ const schema = z.object({
     .pipe(
       z
         .string()
-        .min(20, "Paste a full CV1… license key.")
-        .refine((value) => !looksLikeProductSkuKey(value), { message: LICENSE_KEY_SKU_ERROR })
-        .refine((value) => looksLikeSignedLicenseKey(value), {
-          message: "Key must start with CV1. and have three dot-separated parts.",
+        .min(12, "Enter your full license key.")
+        .refine((value) => isSupportedLicenseKeyFormat(value), {
+          message: LICENSE_KEY_FORMAT_HINT,
         }),
     ),
 });
@@ -133,13 +131,18 @@ export default function AdminLicensePage() {
               <div>
                 <h2 className="text-base font-semibold">Activate license key</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Paste the signed key (starts with <code className="text-xs">CV1.</code>).{" "}
-                  <code className="text-xs">AMP-PRO-…</code> codes are not license keys.
+                  Paste your <strong>license.amarpin.com</strong> key (<code className="text-xs">AMP-…</code>
+                  ). Works on any domain — no per-site setup in the UI.
                 </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="licenseKey">License key</Label>
-                <Input id="licenseKey" {...form.register("licenseKey")} placeholder="CV1…" autoComplete="off" />
+                <Input
+                  id="licenseKey"
+                  {...form.register("licenseKey")}
+                  placeholder="AMP-PRO-… or CV1.…"
+                  autoComplete="off"
+                />
                 {form.formState.errors.licenseKey ? (
                   <p className="text-sm text-destructive">{form.formState.errors.licenseKey.message}</p>
                 ) : null}
